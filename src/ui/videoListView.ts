@@ -200,11 +200,22 @@ function videoCard(video: Video, onPlay: () => void, actions: VideoAction[]): HT
   play.className = "video-play";
   play.addEventListener("click", onPlay);
 
+  const thumbWrap = document.createElement("div");
+  thumbWrap.className = "video-thumb-wrap";
+
   const thumbnail = document.createElement("img");
   thumbnail.className = "video-thumb";
   thumbnail.src = video.thumbnailUrl;
   thumbnail.alt = "";
   thumbnail.loading = "lazy";
+  thumbWrap.appendChild(thumbnail);
+
+  if (video.durationSeconds !== undefined && video.durationSeconds > 0) {
+    const duration = document.createElement("span");
+    duration.className = "video-duration";
+    duration.textContent = formatDuration(video.durationSeconds);
+    thumbWrap.appendChild(duration);
+  }
 
   const meta = document.createElement("div");
   meta.className = "video-meta";
@@ -222,7 +233,7 @@ function videoCard(video: Video, onPlay: () => void, actions: VideoAction[]): HT
   date.textContent = formatDate(video.publishedAt);
 
   meta.append(title, channel, date);
-  play.append(thumbnail, meta);
+  play.append(thumbWrap, meta);
   card.appendChild(play);
 
   if (actions.length > 0) {
@@ -245,4 +256,13 @@ function videoCard(video: Video, onPlay: () => void, actions: VideoAction[]): HT
 function formatDate(iso: string): string {
   const date = new Date(iso);
   return Number.isNaN(date.getTime()) ? "" : date.toLocaleDateString();
+}
+
+// Seconds to "M:SS" (or "H:MM:SS" for an hour or more).
+function formatDuration(totalSeconds: number): string {
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = Math.floor(totalSeconds % 60);
+  const pad = (value: number): string => String(value).padStart(2, "0");
+  return hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${minutes}:${pad(seconds)}`;
 }

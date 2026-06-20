@@ -206,12 +206,27 @@
       .playlist-item:hover {
         background: #272727;
       }
+      .video-thumb-wrap {
+        position: relative;
+      }
       .video-thumb {
         width: 100%;
         aspect-ratio: 16 / 9;
         object-fit: cover;
         display: block;
         background: #000;
+      }
+      .video-duration {
+        position: absolute;
+        right: 0.4rem;
+        bottom: 0.4rem;
+        background: rgba(0, 0, 0, 0.8);
+        color: #fff;
+        font-size: 0.75rem;
+        line-height: 1;
+        padding: 0.15rem 0.3rem;
+        border-radius: 4px;
+        font-variant-numeric: tabular-nums;
       }
       .video-meta {
         display: flex;

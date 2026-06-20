@@ -58,7 +58,11 @@ export function getFeedPage(options: FeedPageOptions): FeedPage {
     visible = visible.filter((video) => !isShort(video));
   }
   const start = options.page * options.pageSize;
-  return { videos: visible.slice(start, start + options.pageSize), total: visible.length };
+  const pageVideos = visible.slice(start, start + options.pageSize);
+  // Durations power the on-card badge. With hideShorts on they are already
+  // looked up for the whole list above; otherwise fetch them just for this page.
+  if (!options.hideShorts) enrichDurations(pageVideos);
+  return { videos: pageVideos, total: visible.length };
 }
 
 // A Short is a vertical clip up to ~3 minutes. RSS exposes no duration and no
@@ -116,7 +120,9 @@ export function removeVideoDismissed(videoId: string): void {
 
 /** The user's watch history as a video list, newest first. */
 export function getHistory(): Video[] {
-  return history.getHistory();
+  const videos = history.getHistory();
+  enrichDurations(videos);
+  return videos;
 }
 
 /** The user's own playlists. */
@@ -124,10 +130,11 @@ export function getPlaylists(): PlaylistSummary[] {
   return youtube.getPlaylists();
 }
 
-/** Videos in a playlist, flagged seen. */
+/** Videos in a playlist, flagged seen, with durations for the card badge. */
 export function getPlaylistVideos(playlistId: string): Video[] {
   const videos = youtube.getPlaylistVideos(playlistId);
   flagSeen(videos);
+  enrichDurations(videos);
   return videos;
 }
 
@@ -135,6 +142,7 @@ export function getPlaylistVideos(playlistId: string): Video[] {
 export function getWatchLaterVideos(): Video[] {
   const videos = youtube.getWatchLaterVideos();
   flagSeen(videos);
+  enrichDurations(videos);
   return videos;
 }
 
