@@ -87,6 +87,11 @@ export function markVideoSeen(video: Video): void {
   history.markVideoSeen(video);
 }
 
+/** Removes a video from the user's watch history (un-marks it as seen). */
+export function removeVideoSeen(videoId: string): void {
+  history.removeVideoSeen(videoId);
+}
+
 /** The user's watch history as a video list, newest first. */
 export function getHistory(): Video[] {
   return history.getHistory();

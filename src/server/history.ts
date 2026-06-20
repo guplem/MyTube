@@ -43,6 +43,13 @@ export function markVideoSeen(video: Video): void {
   writeEntries(entries.slice(-MAX_ENTRIES));
 }
 
+/** Removes a video from the watch history. No-op if it was not recorded. */
+export function removeVideoSeen(videoId: string): void {
+  const entries = readEntries();
+  const remaining = entries.filter((entry) => entry.videoId !== videoId);
+  if (remaining.length !== entries.length) writeEntries(remaining);
+}
+
 /** All seen video ids, used to flag videos in other lists. */
 export function getSeenVideoIds(): string[] {
   return readEntries().map((entry) => entry.videoId);
