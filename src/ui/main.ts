@@ -15,6 +15,9 @@ import {
 } from "./serverBridge";
 import { VideoListView, PagedVideoListView, type VideoAction } from "./videoListView";
 import { PlayerView } from "./playerView";
+import { getBoolPreference, setBoolPreference } from "./preferences";
+
+const HIDE_SHORTS_PREF = "mytube.hideShorts";
 
 function appContainer(): HTMLElement | null {
   return document.getElementById("app");
@@ -68,12 +71,21 @@ function showFeed(forceFirstLoad: boolean = false): void {
   if (!app) return;
   app.innerHTML = "";
 
+  const toolbar = document.createElement("div");
+  toolbar.className = "feed-toolbar";
+
   const refresh = document.createElement("button");
   refresh.type = "button";
   refresh.className = "refresh-button";
   refresh.textContent = "↻ Refresh";
   refresh.addEventListener("click", (): void => showFeed(true));
-  app.appendChild(refresh);
+
+  // Re-rendering the whole feed (showFeed) resets to page 0 and reloads with the
+  // new toggle state, which the loader reads fresh on each page request.
+  const hideShortsToggle = feedToggle("Hide Shorts", HIDE_SHORTS_PREF, true);
+
+  toolbar.append(refresh, hideShortsToggle);
+  app.appendChild(toolbar);
 
   let pendingForce = forceFirstLoad;
   app.appendChild(
@@ -81,7 +93,12 @@ function showFeed(forceFirstLoad: boolean = false): void {
       (page, pageSize) => {
         const forceRefresh = pendingForce;
         pendingForce = false;
-        return getFeedPage({ page, pageSize, forceRefresh });
+        return getFeedPage({
+          page,
+          pageSize,
+          forceRefresh,
+          hideShorts: getBoolPreference(HIDE_SHORTS_PREF, true),
+        });
       },
       {
         onPlay: (index, queue): void => showPlayer(queue, index, "Subscriptions", (): void => showFeed()),
@@ -89,6 +106,22 @@ function showFeed(forceFirstLoad: boolean = false): void {
       },
     ),
   );
+}
+
+// A persisted checkbox toggle for the feed toolbar. Saves to localStorage and
+// re-renders the feed so the change takes effect immediately.
+function feedToggle(labelText: string, prefKey: string, defaultValue: boolean): HTMLElement {
+  const label = document.createElement("label");
+  label.className = "feed-toggle";
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.checked = getBoolPreference(prefKey, defaultValue);
+  checkbox.addEventListener("change", (): void => {
+    setBoolPreference(prefKey, checkbox.checked);
+    showFeed();
+  });
+  label.append(checkbox, document.createTextNode(labelText));
+  return label;
 }
 
 function showHistory(): void {

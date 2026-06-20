@@ -211,6 +211,23 @@
         opacity: 0.4;
         cursor: default;
       }
+      .feed-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+        margin-bottom: 1rem;
+      }
+      .feed-toggle {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        color: #ccc;
+        cursor: pointer;
+      }
+      .feed-toggle input {
+        cursor: pointer;
+      }
       .refresh-button {
         background: #272727;
         color: #f1f1f1;
@@ -219,7 +236,6 @@
         padding: 0.4rem 0.8rem;
         font: inherit;
         cursor: pointer;
-        margin-bottom: 1rem;
       }
       .refresh-button:hover {
         background: #333;

@@ -10,6 +10,8 @@ export interface FeedPageOptions {
   pageSize: number;
   /** Bypass the per-channel RSS cache (the Refresh button). */
   forceRefresh: boolean;
+  /** Hide videos at or under the Shorts length threshold (detected by duration). */
+  hideShorts: boolean;
 }
 
 export interface FeedPage {

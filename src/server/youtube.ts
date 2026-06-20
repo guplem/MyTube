@@ -183,6 +183,72 @@ function bestThumbnailUrl(
   return thumbnails.medium?.url ?? thumbnails.default?.url ?? thumbnails.high?.url ?? "";
 }
 
+const DURATION_CACHE_PREFIX = "dur:";
+const DURATION_CACHE_TTL_SECONDS = 21600; // 6h, the CacheService maximum
+const DURATION_UNKNOWN = -1; // cached for ids the API does not return (deleted/private/live)
+
+/**
+ * Length in seconds for each video id, used to detect Shorts. RSS gives no
+ * duration, so we ask the Data API (part=contentDetails, 1 quota unit per 50
+ * ids). Results are cached in the shared script cache because a video's length
+ * is the same for every user, so most lookups are free after the first.
+ */
+export function getVideoDurationsSeconds(videoIds: string[]): { [id: string]: number } {
+  const result: { [id: string]: number } = {};
+  if (videoIds.length === 0) return result;
+
+  const cache = CacheService.getScriptCache();
+  const cached = cache.getAll(videoIds.map((id) => DURATION_CACHE_PREFIX + id));
+  const missing: string[] = [];
+  for (const id of videoIds) {
+    const hit = cached[DURATION_CACHE_PREFIX + id];
+    if (hit !== undefined && hit !== null) result[id] = Number(hit);
+    else missing.push(id);
+  }
+
+  const toCache: { [key: string]: string } = {};
+  for (let offset = 0; offset < missing.length; offset += 50) {
+    const batch = missing.slice(offset, offset + 50);
+    const response: GoogleAppsScript.YouTube.Schema.VideoListResponse =
+      YouTube.Videos!.list("contentDetails", { id: batch.join(","), maxResults: 50 });
+    const returned = new Set<string>();
+    for (const item of response.items ?? []) {
+      if (!item.id) continue;
+      const seconds = parseIso8601Duration(item.contentDetails?.duration ?? "");
+      result[item.id] = seconds;
+      toCache[DURATION_CACHE_PREFIX + item.id] = String(seconds);
+      returned.add(item.id);
+    }
+    // Cache a sentinel for ids the API skipped so we do not re-query them.
+    for (const id of batch) {
+      if (!returned.has(id)) {
+        result[id] = DURATION_UNKNOWN;
+        toCache[DURATION_CACHE_PREFIX + id] = String(DURATION_UNKNOWN);
+      }
+    }
+  }
+
+  const entries = Object.keys(toCache);
+  for (let offset = 0; offset < entries.length; offset += 100) {
+    const chunk: { [key: string]: string } = {};
+    for (const key of entries.slice(offset, offset + 100)) chunk[key] = toCache[key];
+    cache.putAll(chunk, DURATION_CACHE_TTL_SECONDS);
+  }
+  return result;
+}
+
+// Parses an ISO 8601 duration (e.g. "PT1H2M3S", "PT45S") to whole seconds.
+// Returns DURATION_UNKNOWN for an unparseable value.
+function parseIso8601Duration(iso: string): number {
+  const match = /^P(?:(\d+)D)?T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/.exec(iso);
+  if (!match) return DURATION_UNKNOWN;
+  const days = Number(match[1] ?? 0);
+  const hours = Number(match[2] ?? 0);
+  const minutes = Number(match[3] ?? 0);
+  const seconds = Number(match[4] ?? 0);
+  return days * 86400 + hours * 3600 + minutes * 60 + seconds;
+}
+
 /** Top-level comments for a video, most relevant first. Empty if comments are disabled. */
 export function getComments(videoId: string): VideoComment[] {
   let response: GoogleAppsScript.YouTube.Schema.CommentThreadListResponse;

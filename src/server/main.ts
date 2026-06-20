@@ -37,8 +37,36 @@ export function include(filename: string): string {
 export function getFeedPage(options: FeedPageOptions): FeedPage {
   const all = feed.getUploadsFeed(options.forceRefresh);
   flagSeen(all);
+  let visible = all;
+  if (options.hideShorts) {
+    enrichDurations(visible);
+    visible = visible.filter((video) => !isShort(video));
+  }
   const start = options.page * options.pageSize;
-  return { videos: all.slice(start, start + options.pageSize), total: all.length };
+  return { videos: visible.slice(start, start + options.pageSize), total: visible.length };
+}
+
+// A Short is a vertical clip up to ~3 minutes. RSS exposes no duration and no
+// "is a Short" flag, so we approximate by length: any video at or under
+// SHORT_MAX_SECONDS counts as a Short. This has false positives (a normal short
+// clip), which is why the UI offers a toggle to show Shorts again.
+const SHORT_MAX_SECONDS = 180;
+
+function enrichDurations(videos: Video[]): void {
+  try {
+    const durations = youtube.getVideoDurationsSeconds(videos.map((video) => video.videoId));
+    for (const video of videos) video.durationSeconds = durations[video.videoId];
+  } catch {
+    // Length lookup is best-effort; without it no video is treated as a Short.
+  }
+}
+
+function isShort(video: Video): boolean {
+  return (
+    video.durationSeconds !== undefined &&
+    video.durationSeconds > 0 &&
+    video.durationSeconds <= SHORT_MAX_SECONDS
+  );
 }
 
 /** Description text of a single video, for the player screen. */
