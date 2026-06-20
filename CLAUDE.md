@@ -60,6 +60,12 @@ a pattern future code must follow).
   top-level wrapper functions to `dist/Code.js`. A function that is not exported
   fails at runtime: "function not found" for `doGet`, or "is not a function" for
   a `google.script.run` call.
+- **No `//` inside template literals in browser code.** Apps Script's page
+  serializer treats `//` inside a backtick template literal as a line comment
+  and corrupts the whole bundle, crashing the page with "missing ) after
+  argument list". It surfaces only at runtime (inside Google's serializer), not
+  in the build or typecheck. Build URLs and any string containing `//` with
+  double-quoted concatenation instead (see `setupSearch` in `src/ui/main.ts`).
 - **OAuth scopes grow per milestone** in `appsscript.json`. Adding a scope forces
   users to re-consent. The final scope set is in PLAN.md section 4.
 - **Watch Later and History are not readable via the YouTube API.** Never call

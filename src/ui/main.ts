@@ -198,9 +198,13 @@ function setupSearch(): void {
   form?.addEventListener("submit", (event): void => {
     event.preventDefault();
     const term = input?.value.trim();
-    if (term) {
-      window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(term)}`, "_blank");
-    }
+    if (!term) return;
+    // Build with concatenation, NOT a template literal: Apps Script's page
+    // serializer mishandles "//" inside a backtick template literal (treats it
+    // as a line comment), which broke the whole bundle. Double-quoted strings
+    // with "//" are fine (see the IFrame API URL in playerView.ts).
+    const searchUrl = "https://www.youtube.com/results?search_query=" + encodeURIComponent(term);
+    window.open(searchUrl, "_blank");
   });
 }
 
