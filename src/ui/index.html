@@ -16,7 +16,8 @@
       .app-header {
         display: flex;
         align-items: center;
-        gap: 1.5rem;
+        gap: 1rem 1.5rem;
+        flex-wrap: wrap;
         padding: 1rem 1.5rem;
         border-bottom: 1px solid #222;
       }
@@ -56,6 +57,7 @@
         padding: 0.4rem 0.6rem;
         color: #f1f1f1;
         font: inherit;
+        min-width: 0;
       }
       .app-search button {
         background: #272727;
@@ -341,6 +343,51 @@
       .player-view button:disabled {
         opacity: 0.4;
         cursor: default;
+      }
+
+      /* Mobile: stack the header, let the search fill the row, and pack the
+         grid into smaller cards so two fit side by side on a phone. */
+      @media (max-width: 600px) {
+        .app-header {
+          gap: 0.6rem 1rem;
+          padding: 0.75rem 1rem;
+        }
+        .app-header h1 {
+          font-size: 1.15rem;
+        }
+        .app-nav {
+          flex-wrap: wrap;
+        }
+        .app-search {
+          margin-left: 0;
+          width: 100%;
+        }
+        .app-search input {
+          flex: 1;
+        }
+        #app {
+          padding: 0.75rem;
+        }
+        .video-list {
+          grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+          gap: 0.6rem;
+        }
+        .video-title {
+          font-size: 0.9rem;
+        }
+        .video-channel,
+        .video-date {
+          font-size: 0.75rem;
+        }
+        .list-size {
+          margin-left: 0;
+        }
+        .player-bar {
+          gap: 0.6rem;
+        }
+        .player-autoplay {
+          margin-left: 0;
+        }
       }
     </style>
   </head>
