@@ -42,9 +42,10 @@ architecture or adding a feature.** Human setup/run/deploy: [README.md](README.m
   the shared script cache since length is the same for everyone), hidden when
   `<= 180s`. A toggle re-shows them because the length heuristic has false
   positives.
-- **Seen = watch history OR a single "seen before" cutoff date** (one user
-  property, not a row per video). `flagSeen` ORs both. "Hide viewed" filters on
-  the resulting `seen` flag.
+- **Seen = watch history only.** `flagSeen` sets it from the history ids;
+  "Hide viewed" filters on it. The feed also has a date filter (`beforeDate` in
+  `getFeedPage`, a localStorage pref) that hides older videos but does not touch
+  the `seen` flag, so playlists and Watch Later are unaffected.
 - UI toggles persist in `localStorage` via `src/ui/preferences.ts` (works inside
   the Apps Script iframe; no server round-trip).
 - **All navigation goes through `go()`/`render()` in `src/ui/main.ts`.** A

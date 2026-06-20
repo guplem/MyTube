@@ -45,6 +45,10 @@ export function getFeedPage(options: FeedPageOptions): FeedPage {
   if (options.hideViewed) {
     visible = visible.filter((video) => !video.seen);
   }
+  if (options.beforeDate) {
+    // Keep videos published on or after the cutoff date; compare date parts only.
+    visible = visible.filter((video) => video.publishedAt.slice(0, 10) >= options.beforeDate);
+  }
   const start = options.page * options.pageSize;
   return { videos: visible.slice(start, start + options.pageSize), total: visible.length };
 }
@@ -97,16 +101,6 @@ export function getHistory(): Video[] {
   return history.getHistory();
 }
 
-/** The current "mark everything before this date as seen" cutoff (YYYY-MM-DD), or "". */
-export function getSeenBeforeDate(): string {
-  return history.getSeenBeforeDate();
-}
-
-/** Sets (or clears with "") the date before which videos are treated as seen. */
-export function setSeenBeforeDate(date: string): void {
-  history.setSeenBeforeDate(date);
-}
-
 /** The user's own playlists. */
 export function getPlaylists(): PlaylistSummary[] {
   return youtube.getPlaylists();
@@ -140,13 +134,7 @@ export function removeFromWatchLater(videoId: string): void {
 function flagSeen(videos: Video[]): void {
   try {
     const seen = new Set(history.getSeenVideoIds());
-    const cutoff = history.getSeenBeforeDate();
-    for (const video of videos) {
-      // Seen if explicitly marked, or published before the cutoff date. Compare
-      // only the date part of the ISO timestamp so "before X" means whole days.
-      video.seen =
-        seen.has(video.videoId) || (cutoff !== "" && video.publishedAt.slice(0, 10) < cutoff);
-    }
+    for (const video of videos) video.seen = seen.has(video.videoId);
   } catch {
     // History is best-effort.
   }

@@ -15,12 +15,15 @@ import {
   removeFromWatchLater,
   markVideoSeen,
   removeVideoSeen,
-  getSeenBeforeDate,
-  setSeenBeforeDate,
 } from "./serverBridge";
 import { VideoListView, PagedVideoListView, type VideoAction } from "./videoListView";
 import { PlayerView } from "./playerView";
-import { getBoolPreference, setBoolPreference } from "./preferences";
+import {
+  getBoolPreference,
+  setBoolPreference,
+  getStringPreference,
+  setStringPreference,
+} from "./preferences";
 import {
   pushUrlState,
   replaceUrlState,
@@ -31,6 +34,7 @@ import {
 
 const HIDE_SHORTS_PREF = "mytube.hideShorts";
 const HIDE_VIEWED_PREF = "mytube.hideViewed";
+const BEFORE_DATE_PREF = "mytube.beforeDate";
 
 // A navigable screen. The player carries its queue/index in memory when opened
 // from a list; on a shared link or forward-nav the queue is rebuilt from context.
@@ -169,18 +173,26 @@ function showFeed(forceFirstLoad: boolean = false): void {
   const toolbar = document.createElement("div");
   toolbar.className = "feed-toolbar";
 
+  // Filters on the left; changing any of them re-renders the feed (showFeed),
+  // which resets to page 0 and reloads with the new state. The loader reads each
+  // preference fresh on every page request.
+  const filters = document.createElement("div");
+  filters.className = "feed-filters";
+  filters.append(
+    feedToggle("Hide Shorts", HIDE_SHORTS_PREF, true),
+    feedToggle("Hide viewed", HIDE_VIEWED_PREF, false),
+    beforeDateControl(),
+  );
+
+  // The cache refresh sits apart on the right: it force-fetches fresh RSS for
+  // every channel (bypassing the 30-minute cache), unlike the filters.
   const refresh = document.createElement("button");
   refresh.type = "button";
-  refresh.className = "refresh-button";
-  refresh.textContent = "↻ Refresh";
+  refresh.className = "refresh-button refresh-button--right";
+  refresh.textContent = "↻ Clear cache and refresh";
   refresh.addEventListener("click", (): void => showFeed(true));
 
-  // Re-rendering the whole feed (showFeed) resets to page 0 and reloads with the
-  // new toggle state, which the loader reads fresh on each page request.
-  const hideShortsToggle = feedToggle("Hide Shorts", HIDE_SHORTS_PREF, true);
-  const hideViewedToggle = feedToggle("Hide viewed", HIDE_VIEWED_PREF, false);
-
-  toolbar.append(refresh, hideShortsToggle, hideViewedToggle, seenBeforeControl());
+  toolbar.append(filters, refresh);
   app.appendChild(toolbar);
 
   let pendingForce = forceFirstLoad;
@@ -195,6 +207,7 @@ function showFeed(forceFirstLoad: boolean = false): void {
           forceRefresh,
           hideShorts: getBoolPreference(HIDE_SHORTS_PREF, true),
           hideViewed: getBoolPreference(HIDE_VIEWED_PREF, false),
+          beforeDate: getStringPreference(BEFORE_DATE_PREF, ""),
         });
       },
       {
@@ -221,55 +234,22 @@ function feedToggle(labelText: string, prefKey: string, defaultValue: boolean): 
   return label;
 }
 
-// "Mark everything before this date as seen": stores a single cutoff date on the
-// server (history.setSeenBeforeDate) instead of writing a history row per video.
-// Videos published before the cutoff then show as seen and obey "Hide viewed".
-function seenBeforeControl(): HTMLElement {
-  const wrap = document.createElement("div");
-  wrap.className = "seen-before";
-
+// Feed-only date filter: hide videos published before the chosen date. Auto-
+// applies on change (clearing the field shows all). Stored in localStorage; it
+// does not mark anything as seen, so playlists and Watch Later are unaffected.
+function beforeDateControl(): HTMLElement {
+  const label = document.createElement("label");
+  label.className = "feed-toggle";
   const input = document.createElement("input");
   input.type = "date";
-
-  const apply = document.createElement("button");
-  apply.type = "button";
-  apply.className = "refresh-button";
-  apply.textContent = "Mark earlier as seen";
-
-  const clear = document.createElement("button");
-  clear.type = "button";
-  clear.className = "refresh-button";
-  clear.textContent = "Clear";
-
-  const note = document.createElement("span");
-  note.className = "list-info";
-
-  const today = new Date().toISOString().slice(0, 10);
-  getSeenBeforeDate()
-    .then((cutoff): void => {
-      input.value = cutoff || today;
-      note.textContent = cutoff ? `Marked seen before ${cutoff}` : "";
-    })
-    .catch((): void => {
-      input.value = today;
-    });
-
-  apply.addEventListener("click", (): void => applyCutoff(input.value));
-  clear.addEventListener("click", (): void => applyCutoff(""));
-
-  function applyCutoff(date: string): void {
-    apply.disabled = true;
-    clear.disabled = true;
-    setSeenBeforeDate(date)
-      .then((): void => showFeed())
-      .catch((): void => {
-        apply.disabled = false;
-        clear.disabled = false;
-      });
-  }
-
-  wrap.append(input, apply, clear, note);
-  return wrap;
+  input.className = "feed-date";
+  input.value = getStringPreference(BEFORE_DATE_PREF, "");
+  input.addEventListener("change", (): void => {
+    setStringPreference(BEFORE_DATE_PREF, input.value);
+    showFeed();
+  });
+  label.append(document.createTextNode("Hide before "), input);
+  return label;
 }
 
 // "Hide viewed" is intentionally absent here: the history list is entirely seen

@@ -19,3 +19,22 @@ export function setBoolPreference(key: string, value: boolean): void {
     // Storage unavailable; the toggle still works for this session.
   }
 }
+
+export function getStringPreference(key: string, fallback: string): string {
+  try {
+    const stored = window.localStorage.getItem(key);
+    return stored === null ? fallback : stored;
+  } catch {
+    return fallback;
+  }
+}
+
+/** Stores a string preference; an empty value clears it. */
+export function setStringPreference(key: string, value: string): void {
+  try {
+    if (value) window.localStorage.setItem(key, value);
+    else window.localStorage.removeItem(key);
+  } catch {
+    // Storage unavailable; ignored.
+  }
+}
