@@ -38,16 +38,19 @@ export function getFeedPage(options: FeedPageOptions): FeedPage {
   const all = feed.getUploadsFeed(options.forceRefresh);
   flagSeen(all);
   let visible = all;
-  if (options.hideShorts) {
-    enrichDurations(visible);
-    visible = visible.filter((video) => !isShort(video));
-  }
+  // Apply the cheap filters first. The duration lookup (hideShorts) is the
+  // expensive step, so shrinking the list with the free filters beforehand means
+  // we only fetch durations for the videos that survive them.
   if (options.hideViewed) {
     visible = visible.filter((video) => !video.seen);
   }
   if (options.beforeDate) {
     // Keep videos published on or after the cutoff date; compare date parts only.
     visible = visible.filter((video) => video.publishedAt.slice(0, 10) >= options.beforeDate);
+  }
+  if (options.hideShorts) {
+    enrichDurations(visible);
+    visible = visible.filter((video) => !isShort(video));
   }
   const start = options.page * options.pageSize;
   return { videos: visible.slice(start, start + options.pageSize), total: visible.length };
