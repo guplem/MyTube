@@ -14,12 +14,35 @@
         color: #f1f1f1;
       }
       .app-header {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
         padding: 1rem 1.5rem;
         border-bottom: 1px solid #222;
       }
       .app-header h1 {
         margin: 0;
         font-size: 1.3rem;
+      }
+      .app-nav {
+        display: flex;
+        gap: 0.5rem;
+      }
+      .app-nav button {
+        background: none;
+        border: none;
+        color: #aaa;
+        font: inherit;
+        cursor: pointer;
+        padding: 0.3rem 0.6rem;
+        border-radius: 6px;
+      }
+      .app-nav button:hover {
+        color: #fff;
+      }
+      .app-nav button.active {
+        color: #fff;
+        background: #272727;
       }
       #app {
         padding: 1.5rem;
@@ -196,7 +219,13 @@
     </style>
   </head>
   <body>
-    <header class="app-header"><h1>MyTube</h1></header>
+    <header class="app-header">
+      <h1>MyTube</h1>
+      <nav class="app-nav">
+        <button type="button" data-view="feed" class="active">Feed</button>
+        <button type="button" data-view="history">History</button>
+      </nav>
+    </header>
     <main id="app" class="muted">Loading…</main>
 
     <!-- Browser TypeScript bundle (built from src/ui by esbuild). -->

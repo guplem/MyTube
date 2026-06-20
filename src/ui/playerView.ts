@@ -6,7 +6,7 @@
 // See PLAN.md section 13.
 
 import type { Video } from "../shared/video";
-import { getVideoDescription } from "./serverBridge";
+import { getVideoDescription, markVideoSeen } from "./serverBridge";
 
 // Minimal typing for the YouTube IFrame Player API (loaded from youtube.com).
 interface YouTubePlayerEvent {
@@ -75,6 +75,21 @@ export function PlayerView(props: PlayerViewProps): HTMLElement {
   const position = document.createElement("span");
   position.className = "player-position";
 
+  const seenButton = document.createElement("button");
+  seenButton.type = "button";
+  seenButton.addEventListener("click", (): void => {
+    const video = queue[currentIndex];
+    if (!video || video.seen) return;
+    void markVideoSeen(video)
+      .then((): void => {
+        video.seen = true;
+        updateSeenButton();
+      })
+      .catch((): void => {
+        // Leave the button as-is so the user can retry.
+      });
+  });
+
   const autoplayLabel = document.createElement("label");
   autoplayLabel.className = "player-autoplay";
   const autoplayCheckbox = document.createElement("input");
@@ -84,7 +99,7 @@ export function PlayerView(props: PlayerViewProps): HTMLElement {
   });
   autoplayLabel.append(autoplayCheckbox, document.createTextNode(" Autoplay next"));
 
-  bar.append(backButton, position, autoplayLabel);
+  bar.append(backButton, position, seenButton, autoplayLabel);
 
   const frame = document.createElement("div");
   frame.className = "player-frame";
@@ -126,6 +141,14 @@ export function PlayerView(props: PlayerViewProps): HTMLElement {
     title.textContent = video ? video.title : "";
     prevButton.disabled = currentIndex <= 0;
     nextButton.disabled = currentIndex >= queue.length - 1;
+    updateSeenButton();
+  }
+
+  function updateSeenButton(): void {
+    const video = queue[currentIndex];
+    const seen = Boolean(video && video.seen);
+    seenButton.textContent = seen ? "Seen ✓" : "Mark as seen";
+    seenButton.disabled = seen;
   }
 
   async function loadDescription(videoId: string): Promise<void> {

@@ -11,6 +11,8 @@ interface ScriptRunner {
   withFailureHandler(callback: (error: Error) => void): ScriptRunner;
   getUploadsFeed(forceRefresh: boolean): void;
   getVideoDescription(videoId: string): void;
+  markVideoSeen(video: Video): void;
+  getHistory(): void;
 }
 declare const google: { script: { run: ScriptRunner } };
 
@@ -29,5 +31,23 @@ export function getVideoDescription(videoId: string): Promise<string> {
       .withSuccessHandler<string>(resolve)
       .withFailureHandler(reject)
       .getVideoDescription(videoId);
+  });
+}
+
+export function markVideoSeen(video: Video): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    google.script.run
+      .withSuccessHandler<void>((): void => resolve())
+      .withFailureHandler(reject)
+      .markVideoSeen(video);
+  });
+}
+
+export function getHistory(): Promise<Video[]> {
+  return new Promise<Video[]>((resolve, reject) => {
+    google.script.run
+      .withSuccessHandler<Video[]>(resolve)
+      .withFailureHandler(reject)
+      .getHistory();
   });
 }

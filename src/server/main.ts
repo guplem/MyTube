@@ -10,6 +10,7 @@
 import type { Video } from "../shared/video";
 import * as feed from "./feed";
 import * as youtube from "./youtube";
+import * as history from "./history";
 
 /** Serves the single web app page. Called by Apps Script for GET requests. */
 export function doGet(): GoogleAppsScript.HTML.HtmlOutput {
@@ -25,15 +26,33 @@ export function include(filename: string): string {
 }
 
 /**
- * Recent uploads from the user's subscriptions, newest first. Channel ids come
- * from the YouTube API (cached per user); the videos come from each channel's
- * RSS feed. Pass true to bypass the channel cache.
+ * Recent uploads from the user's subscriptions, newest first, with each video
+ * flagged seen against the watch history. Channel ids come from the YouTube API
+ * (cached per user); the videos come from each channel's RSS feed. Pass true to
+ * bypass the channel cache.
  */
 export function getUploadsFeed(forceRefresh: boolean): Video[] {
-  return feed.getUploadsFeed(forceRefresh);
+  const videos = feed.getUploadsFeed(forceRefresh);
+  try {
+    const seen = new Set(history.getSeenVideoIds());
+    for (const video of videos) video.seen = seen.has(video.videoId);
+  } catch {
+    // History is best-effort; never let it break the feed.
+  }
+  return videos;
 }
 
 /** Description text of a single video, for the player screen. */
 export function getVideoDescription(videoId: string): string {
   return youtube.getVideoDescription(videoId);
+}
+
+/** Records a video as seen in the user's watch history. */
+export function markVideoSeen(video: Video): void {
+  history.markVideoSeen(video);
+}
+
+/** The user's watch history as a video list, newest first. */
+export function getHistory(): Video[] {
+  return history.getHistory();
 }
