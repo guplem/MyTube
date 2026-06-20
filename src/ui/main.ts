@@ -74,7 +74,7 @@ function appContainer(): HTMLElement | null {
 // --- Per-card actions ------------------------------------------------------
 
 const addToWatchLaterAction: VideoAction = {
-  label: "+ Later",
+  label: "+ Watch Later",
   onClick: (video, button): void => {
     button.disabled = true;
     button.textContent = "Adding…";
@@ -84,7 +84,7 @@ const addToWatchLaterAction: VideoAction = {
       })
       .catch((): void => {
         button.disabled = false;
-        button.textContent = "+ Later";
+        button.textContent = "+ Watch Later";
       });
   },
 };
@@ -106,7 +106,7 @@ const removeFromWatchLaterAction: VideoAction = {
 // Reflects the current seen state on the card and its toggle button.
 function reflectSeen(video: Video, button: HTMLButtonElement): void {
   button.disabled = false;
-  button.textContent = video.seen ? "Seen ✓" : "Seen";
+  button.textContent = video.seen ? "Seen ✓" : "Mark seen";
   button.closest(".video-card")?.classList.toggle("video-card--seen", video.seen);
 }
 
@@ -126,13 +126,13 @@ function toggleSeen(video: Video, button: HTMLButtonElement): void {
 }
 
 const markSeenAction: VideoAction = {
-  label: (video) => (video.seen ? "Seen ✓" : "Seen"),
+  label: (video) => (video.seen ? "Seen ✓" : "Mark seen"),
   onClick: toggleSeen,
 };
 
 // Watch Later: marking a video seen also drops it from the playlist.
 const watchLaterSeenAction: VideoAction = {
-  label: (video) => (video.seen ? "Seen ✓" : "Seen"),
+  label: (video) => (video.seen ? "Seen ✓" : "Mark seen"),
   onClick: (video, button): void => {
     if (video.seen) {
       toggleSeen(video, button);
@@ -166,10 +166,12 @@ const historySeenAction: VideoAction = {
   },
 };
 
-// Reflects the current dismissed state on the card and its toggle button.
+// Reflects the current dismissed state on the corner button and dims the card.
+// The button is a top-right cross (✕ to dismiss, ↩ to undo); feed only.
 function reflectDismissed(video: Video, button: HTMLButtonElement): void {
   button.disabled = false;
-  button.textContent = video.dismissed ? "Dismissed ✓" : "Dismiss";
+  button.textContent = video.dismissed ? "↩" : "✕";
+  button.setAttribute("aria-label", video.dismissed ? "Undo dismiss" : "Dismiss video from feed");
   button.closest(".video-card")?.classList.toggle("video-card--dismissed", Boolean(video.dismissed));
 }
 
@@ -192,7 +194,7 @@ function toggleDismiss(video: Video, button: HTMLButtonElement): void {
 }
 
 const dismissAction: VideoAction = {
-  label: (video) => (video.dismissed ? "Dismissed ✓" : "Dismiss"),
+  label: (video) => (video.dismissed ? "↩" : "✕"),
   onClick: toggleDismiss,
 };
 
@@ -247,7 +249,8 @@ function showFeed(forceFirstLoad: boolean = false): void {
       },
       {
         onPlay: (index, queue): void => playFromList(queue, index, { source: "feed" }),
-        actions: [addToWatchLaterAction, dismissAction, markSeenAction],
+        actions: [addToWatchLaterAction, markSeenAction],
+        cornerAction: dismissAction,
       },
     ),
   );

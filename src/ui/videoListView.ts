@@ -22,6 +22,8 @@ export interface VideoAction {
 export interface VideoListOptions {
   onPlay: (index: number, queue: Video[]) => void;
   actions?: VideoAction[];
+  /** Optional button overlaid on the top-right corner of the card (e.g. dismiss). */
+  cornerAction?: VideoAction;
 }
 
 interface VideoPage {
@@ -176,7 +178,9 @@ function renderList(load: PageLoader, options: VideoListOptions, fullQueue: Vide
     videos.forEach((video, indexInPage): void => {
       const queue = fullQueue ?? videos;
       const index = fullQueue ? page * pageSize + indexInPage : indexInPage;
-      grid.appendChild(videoCard(video, (): void => options.onPlay(index, queue), actions));
+      grid.appendChild(
+        videoCard(video, (): void => options.onPlay(index, queue), actions, options.cornerAction),
+      );
     });
 
     info.textContent = `Page ${page + 1} of ${pageCount} · ${total} videos`;
@@ -190,10 +194,17 @@ function renderList(load: PageLoader, options: VideoListOptions, fullQueue: Vide
   return root;
 }
 
-function videoCard(video: Video, onPlay: () => void, actions: VideoAction[]): HTMLElement {
+function videoCard(
+  video: Video,
+  onPlay: () => void,
+  actions: VideoAction[],
+  cornerAction?: VideoAction,
+): HTMLElement {
   const card = document.createElement("div");
   card.className = "video-card";
   if (video.seen) card.classList.add("video-card--seen");
+  // dismissed is set on feed videos only, so this dims dismissed cards in the feed.
+  if (video.dismissed) card.classList.add("video-card--dismissed");
 
   const play = document.createElement("button");
   play.type = "button";
@@ -235,6 +246,17 @@ function videoCard(video: Video, onPlay: () => void, actions: VideoAction[]): HT
   meta.append(title, channel, date);
   play.append(thumbWrap, meta);
   card.appendChild(play);
+
+  if (cornerAction) {
+    const corner = document.createElement("button");
+    corner.type = "button";
+    corner.className = "video-card-corner";
+    corner.setAttribute("aria-label", "Dismiss video from feed");
+    corner.textContent =
+      typeof cornerAction.label === "function" ? cornerAction.label(video) : cornerAction.label;
+    corner.addEventListener("click", (): void => cornerAction.onClick(video, corner));
+    card.appendChild(corner);
+  }
 
   if (actions.length > 0) {
     const actionRow = document.createElement("div");

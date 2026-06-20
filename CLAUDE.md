@@ -48,8 +48,9 @@ architecture or adding a feature.** Human setup/run/deploy: [README.md](README.m
   the `seen` flag, so playlists and Watch Later are unaffected.
 - **Dismissed = a feed-only hidden list** (`src/server/dismissed.ts`, video ids
   in user properties, mirrors `history.ts`). `flagDismissed` sets it; the
-  feed-only "Hide dismissed" toggle filters on it. The Dismiss button and the
-  toggle appear on the feed only, never on the other lists.
+  feed-only "Hide dismissed" toggle filters on it. The dismiss control is the
+  top-right corner cross on feed cards (`VideoListOptions.cornerAction`), never
+  shown on the other lists; dismissed feed cards are dimmed like seen ones.
 - UI toggles persist in `localStorage` via `src/ui/preferences.ts` (works inside
   the Apps Script iframe; no server round-trip).
 - **All navigation goes through `go()`/`render()` in `src/ui/main.ts`.** A
