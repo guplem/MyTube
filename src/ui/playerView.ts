@@ -6,7 +6,8 @@
 // See PLAN.md section 13.
 
 import type { Video } from "../shared/video";
-import { getVideoDescription, markVideoSeen } from "./serverBridge";
+import type { VideoComment } from "../shared/comment";
+import { getVideoDescription, getComments, markVideoSeen } from "./serverBridge";
 
 // Minimal typing for the YouTube IFrame Player API (loaded from youtube.com).
 interface YouTubePlayerEvent {
@@ -124,11 +125,17 @@ export function PlayerView(props: PlayerViewProps): HTMLElement {
   const description = document.createElement("p");
   description.className = "player-desc";
 
+  const commentsHeading = document.createElement("h3");
+  commentsHeading.className = "player-comments-heading";
+  commentsHeading.textContent = "Comments";
+  const comments = document.createElement("div");
+  comments.className = "player-comments";
+
   const endCard = document.createElement("div");
   endCard.className = "player-end-card";
   endCard.hidden = true;
 
-  root.append(bar, frame, title, nav, description, endCard);
+  root.append(bar, frame, title, nav, description, commentsHeading, comments, endCard);
 
   function leave(): void {
     if (player) player.destroy();
@@ -158,6 +165,35 @@ export function PlayerView(props: PlayerViewProps): HTMLElement {
       description.textContent = text || "(no description)";
     } catch {
       description.textContent = "(could not load description)";
+    }
+  }
+
+  async function loadComments(videoId: string): Promise<void> {
+    comments.textContent = "Loading comments…";
+    try {
+      renderComments(await getComments(videoId));
+    } catch {
+      comments.textContent = "(could not load comments)";
+    }
+  }
+
+  function renderComments(list: VideoComment[]): void {
+    comments.innerHTML = "";
+    if (list.length === 0) {
+      comments.textContent = "No comments.";
+      return;
+    }
+    for (const comment of list) {
+      const item = document.createElement("div");
+      item.className = "comment";
+      const author = document.createElement("span");
+      author.className = "comment-author";
+      author.textContent = comment.author;
+      const text = document.createElement("span");
+      text.className = "comment-text";
+      text.textContent = comment.text;
+      item.append(author, text);
+      comments.appendChild(item);
     }
   }
 
@@ -202,6 +238,7 @@ export function PlayerView(props: PlayerViewProps): HTMLElement {
     endCard.hidden = true;
     updateChrome();
     void loadDescription(video.videoId);
+    void loadComments(video.videoId);
 
     const api = await loadYouTubeApi();
     if (!player) {

@@ -166,10 +166,25 @@ function setupNav(): void {
   });
 }
 
+// The search box redirects to YouTube's results page (PLAN.md section 4); we do
+// not run in-app search, which would cost 100 quota units per query.
+function setupSearch(): void {
+  const form = document.querySelector<HTMLFormElement>(".app-search");
+  const input = form?.querySelector<HTMLInputElement>("input");
+  form?.addEventListener("submit", (event): void => {
+    event.preventDefault();
+    const term = input?.value.trim();
+    if (term) {
+      window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(term)}`, "_blank");
+    }
+  });
+}
+
 async function start(): Promise<void> {
   const app = appContainer();
   if (!app) return;
   setupNav();
+  setupSearch();
   app.textContent = "Loading your subscriptions…";
   try {
     feedVideos = await getUploadsFeed(false);

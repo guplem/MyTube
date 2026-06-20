@@ -44,6 +44,31 @@
         color: #fff;
         background: #272727;
       }
+      .app-search {
+        margin-left: auto;
+        display: flex;
+        gap: 0.4rem;
+      }
+      .app-search input {
+        background: #1c1c1c;
+        border: 1px solid #3a3a3a;
+        border-radius: 6px;
+        padding: 0.4rem 0.6rem;
+        color: #f1f1f1;
+        font: inherit;
+      }
+      .app-search button {
+        background: #272727;
+        color: #f1f1f1;
+        border: 1px solid #3a3a3a;
+        border-radius: 6px;
+        padding: 0.4rem 0.7rem;
+        font: inherit;
+        cursor: pointer;
+      }
+      .app-search button:hover {
+        background: #333;
+      }
       #app {
         padding: 1.5rem;
       }
@@ -248,6 +273,30 @@
         padding: 1rem;
         border-radius: 8px;
       }
+      .player-comments-heading {
+        margin: 0.5rem 0 0;
+        font-size: 1rem;
+        color: #ddd;
+      }
+      .player-comments {
+        display: flex;
+        flex-direction: column;
+        gap: 0.8rem;
+      }
+      .comment {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+      }
+      .comment-author {
+        font-weight: 600;
+        font-size: 0.85rem;
+        color: #bbb;
+      }
+      .comment-text {
+        white-space: pre-wrap;
+        line-height: 1.4;
+      }
       .player-view button {
         background: #272727;
         color: #f1f1f1;
@@ -275,6 +324,10 @@
         <button type="button" data-view="playlists">Playlists</button>
         <button type="button" data-view="history">History</button>
       </nav>
+      <form class="app-search">
+        <input type="search" placeholder="Search YouTube…" aria-label="Search YouTube" />
+        <button type="submit">Search</button>
+      </form>
     </header>
     <main id="app" class="muted">Loading…</main>
 

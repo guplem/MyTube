@@ -9,6 +9,7 @@
 
 import type { Video } from "../shared/video";
 import type { PlaylistSummary } from "../shared/playlist";
+import type { VideoComment } from "../shared/comment";
 import * as feed from "./feed";
 import * as youtube from "./youtube";
 import * as history from "./history";
@@ -39,6 +40,11 @@ export function getUploadsFeed(forceRefresh: boolean): Video[] {
 /** Description text of a single video, for the player screen. */
 export function getVideoDescription(videoId: string): string {
   return youtube.getVideoDescription(videoId);
+}
+
+/** Top-level comments for a video (empty if comments are disabled). */
+export function getComments(videoId: string): VideoComment[] {
+  return youtube.getComments(videoId);
 }
 
 /** Records a video as seen in the user's watch history. */

@@ -6,12 +6,14 @@
 
 import type { Video } from "../shared/video";
 import type { PlaylistSummary } from "../shared/playlist";
+import type { VideoComment } from "../shared/comment";
 
 interface ScriptRunner {
   withSuccessHandler<T>(callback: (value: T) => void): ScriptRunner;
   withFailureHandler(callback: (error: Error) => void): ScriptRunner;
   getUploadsFeed(forceRefresh: boolean): void;
   getVideoDescription(videoId: string): void;
+  getComments(videoId: string): void;
   markVideoSeen(video: Video): void;
   getHistory(): void;
   getPlaylists(): void;
@@ -36,6 +38,10 @@ export function getUploadsFeed(forceRefresh: boolean): Promise<Video[]> {
 
 export function getVideoDescription(videoId: string): Promise<string> {
   return call<string>((runner) => runner.getVideoDescription(videoId));
+}
+
+export function getComments(videoId: string): Promise<VideoComment[]> {
+  return call<VideoComment[]>((runner) => runner.getComments(videoId));
 }
 
 export function markVideoSeen(video: Video): Promise<void> {

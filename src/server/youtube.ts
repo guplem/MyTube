@@ -6,6 +6,7 @@
 
 import type { Video } from "../shared/video";
 import type { PlaylistSummary } from "../shared/playlist";
+import type { VideoComment } from "../shared/comment";
 
 export interface SubscriptionChannel {
   channelId: string;
@@ -180,4 +181,33 @@ function bestThumbnailUrl(
 ): string {
   if (!thumbnails) return "";
   return thumbnails.medium?.url ?? thumbnails.default?.url ?? thumbnails.high?.url ?? "";
+}
+
+/** Top-level comments for a video, most relevant first. Empty if comments are disabled. */
+export function getComments(videoId: string): VideoComment[] {
+  let response: GoogleAppsScript.YouTube.Schema.CommentThreadListResponse;
+  try {
+    response = YouTube.CommentThreads!.list("snippet", {
+      videoId,
+      maxResults: 50,
+      order: "relevance",
+      textFormat: "plainText",
+    });
+  } catch {
+    // Comments are disabled for some videos; the API throws. Treat as none.
+    return [];
+  }
+  const comments: VideoComment[] = [];
+  for (const thread of response.items ?? []) {
+    const snippet = thread.snippet?.topLevelComment?.snippet;
+    if (!snippet) continue;
+    comments.push({
+      author: snippet.authorDisplayName ?? "",
+      authorImageUrl: snippet.authorProfileImageUrl ?? "",
+      text: snippet.textDisplay ?? "",
+      likeCount: snippet.likeCount ?? 0,
+      publishedAt: snippet.publishedAt ?? "",
+    });
+  }
+  return comments;
 }
