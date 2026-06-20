@@ -38,6 +38,11 @@ You do these once. They need your Google login and cannot be scripted.
    ```
    `clasp create` writes `.clasp.json` with your script id. Confirm it contains
    `"rootDir": "dist"` (see `.clasp.json.example`).
+   - Gotcha: clasp may write `.clasp.json` **inside `dist/`** instead of the
+     project root. `clasp push`/`deploy` (run from the root) only look at the
+     root and parent folders, never subfolders, so they report "No valid
+     .clasp.json". If that happens, move the file to the root:
+     `Move-Item dist\.clasp.json .clasp.json`.
 2. **Link a standard Google Cloud project.** In the Apps Script editor: Project
    Settings, then set a Google Cloud Platform project. In that Cloud project:
    - Enable the **YouTube Data API v3** (needed from milestone 2 on).
