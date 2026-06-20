@@ -115,6 +115,8 @@
         padding: 0 0.7rem 0.7rem;
       }
       .video-action {
+        flex: 1;
+        text-align: center;
         background: #272727;
         color: #f1f1f1;
         border: 1px solid #3a3a3a;
@@ -184,7 +186,7 @@
         align-items: center;
         gap: 0.75rem;
         flex-wrap: wrap;
-        margin-bottom: 1rem;
+        margin-top: 1rem;
       }
       .list-info {
         color: #aaa;
@@ -407,7 +409,6 @@
   </head>
   <body>
     <header class="app-header">
-      <h1>MyTube</h1>
       <nav class="app-nav">
         <button type="button" data-view="feed" class="active">Feed</button>
         <button type="button" data-view="watchlater">Watch Later</button>
@@ -416,7 +417,6 @@
       </nav>
       <form class="app-search">
         <input type="search" placeholder="Search YouTube…" aria-label="Search YouTube" />
-        <button type="submit">Search</button>
       </form>
     </header>
     <main id="app" class="muted">Loading…</main>

@@ -14,7 +14,8 @@
 import type { Video } from "../shared/video";
 
 export interface VideoAction {
-  label: string;
+  /** Static text, or a function of the video (e.g. "Seen ✓" vs "Mark seen"). */
+  label: string | ((video: Video) => string);
   onClick: (video: Video, button: HTMLButtonElement) => void;
 }
 
@@ -150,7 +151,8 @@ function renderList(load: PageLoader, options: VideoListOptions, fullQueue: Vide
     nextButton.disabled = page >= pageCount - 1;
   }
 
-  root.append(controls, grid);
+  // Controls go below the grid so paging lives at the bottom of the list.
+  root.append(grid, controls);
   void render();
   return root;
 }
@@ -197,7 +199,7 @@ function videoCard(video: Video, onPlay: () => void, actions: VideoAction[]): HT
       const button = document.createElement("button");
       button.type = "button";
       button.className = "video-action";
-      button.textContent = action.label;
+      button.textContent = typeof action.label === "function" ? action.label(video) : action.label;
       button.addEventListener("click", (): void => action.onClick(video, button));
       actionRow.appendChild(button);
     }
