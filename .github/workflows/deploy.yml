@@ -1,0 +1,35 @@
+name: Deploy to Apps Script
+
+# Auto-deploys on every push to main. Requires three repository secrets:
+#   CLASPRC_JSON  - contents of ~/.clasprc.json after `clasp login`
+#   CLASP_JSON    - contents of the project .clasp.json (script id + rootDir)
+#   DEPLOYMENT_ID - the web app deployment to update (see `clasp deployments`)
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: Restore clasp credentials
+        run: |
+          printf '%s' '${{ secrets.CLASPRC_JSON }}' > "$HOME/.clasprc.json"
+          printf '%s' '${{ secrets.CLASP_JSON }}' > .clasp.json
+
+      - name: Push and deploy
+        run: |
+          npx clasp push -f
+          npx clasp deploy --deploymentId "${{ secrets.DEPLOYMENT_ID }}"
