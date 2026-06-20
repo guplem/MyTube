@@ -32,6 +32,8 @@ export interface PlayerViewProps {
   startIndex: number;
   contextLabel: string;
   onBack: () => void;
+  /** Called whenever the playing video changes, so the caller can sync the URL. */
+  onVideoChange?: (videoId: string, index: number) => void;
 }
 
 // The IFrame API script is loaded once for the whole app and shared by players.
@@ -57,7 +59,7 @@ function loadYouTubeApi(): Promise<YouTubeNamespace> {
 }
 
 export function PlayerView(props: PlayerViewProps): HTMLElement {
-  const { queue, contextLabel, onBack } = props;
+  const { queue, contextLabel, onBack, onVideoChange } = props;
   let currentIndex = Math.max(0, Math.min(props.startIndex, queue.length - 1));
   let autoplayNext = false;
   let player: YouTubePlayer | null = null;
@@ -237,6 +239,7 @@ export function PlayerView(props: PlayerViewProps): HTMLElement {
     const video = queue[currentIndex];
     endCard.hidden = true;
     updateChrome();
+    if (onVideoChange) onVideoChange(video.videoId, currentIndex);
     void loadDescription(video.videoId);
     void loadComments(video.videoId);
 
