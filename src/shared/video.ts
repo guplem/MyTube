@@ -16,4 +16,7 @@ export interface Video {
   seen: boolean;
   /** Whether the user dismissed this video from the feed. Set on feed videos only. */
   dismissed?: boolean;
+  /** Whether this video is already in the Watch Later playlist. Set where the
+   *  "+ Watch Later" button shows (feed, playlists, history). */
+  inWatchLater?: boolean;
 }

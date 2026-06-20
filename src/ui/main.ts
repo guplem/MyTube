@@ -74,13 +74,16 @@ function appContainer(): HTMLElement | null {
 // --- Per-card actions ------------------------------------------------------
 
 const addToWatchLaterAction: VideoAction = {
-  label: "+ Watch Later",
+  label: (video) => (video.inWatchLater ? "Added ✓" : "+ Watch Later"),
+  disabled: (video) => Boolean(video.inWatchLater),
   onClick: (video, button): void => {
     button.disabled = true;
     button.textContent = "Adding…";
     addToWatchLater(video.videoId)
       .then((): void => {
+        video.inWatchLater = true;
         button.textContent = "Added ✓";
+        // Stays disabled: the video is now in Watch Later.
       })
       .catch((): void => {
         button.disabled = false;

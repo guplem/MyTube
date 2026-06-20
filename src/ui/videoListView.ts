@@ -17,6 +17,8 @@ export interface VideoAction {
   /** Static text, or a function of the video (e.g. "Seen ✓" vs "Mark seen"). */
   label: string | ((video: Video) => string);
   onClick: (video: Video, button: HTMLButtonElement) => void;
+  /** Optional: start the button disabled for this video (e.g. already added). */
+  disabled?: (video: Video) => boolean;
 }
 
 export interface VideoListOptions {
@@ -266,6 +268,7 @@ function videoCard(
       button.type = "button";
       button.className = "video-action";
       button.textContent = typeof action.label === "function" ? action.label(video) : action.label;
+      if (action.disabled) button.disabled = action.disabled(video);
       button.addEventListener("click", (): void => action.onClick(video, button));
       actionRow.appendChild(button);
     }

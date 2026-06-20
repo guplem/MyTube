@@ -15,6 +15,8 @@ export interface SubscriptionChannel {
 
 const WATCH_LATER_ID_KEY = "watchLaterPlaylistId";
 const WATCH_LATER_TITLE = "MyTube — Watch Later";
+const WATCH_LATER_IDS_CACHE_KEY = "watchLaterVideoIds";
+const WATCH_LATER_IDS_TTL_SECONDS = 600; // 10 min; kept fresh by add/remove below
 
 const CACHE_KEY = "subscriptionChannels";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // refresh the channel list at most daily
@@ -143,6 +145,51 @@ export function getWatchLaterPlaylistId(): string {
   return id;
 }
 
+/** The Watch Later playlist id if it already exists, or "" without creating one. */
+function findWatchLaterPlaylistId(): string {
+  return PropertiesService.getUserProperties().getProperty(WATCH_LATER_ID_KEY) ?? "";
+}
+
+/**
+ * The set of video ids in Watch Later, for flagging "already added" in lists.
+ * Returns [] (no API call) if the user has no Watch Later playlist yet. Cached
+ * per user for 10 minutes; add/removeFromWatchLater keep the cache in sync.
+ */
+export function getWatchLaterVideoIds(): string[] {
+  const playlistId = findWatchLaterPlaylistId();
+  if (!playlistId) return [];
+  const cache = CacheService.getUserCache();
+  const cached = cache.get(WATCH_LATER_IDS_CACHE_KEY);
+  if (cached) {
+    try {
+      return JSON.parse(cached) as string[];
+    } catch {
+      // fall through and refetch
+    }
+  }
+  const ids = getPlaylistVideos(playlistId).map((video) => video.videoId);
+  cache.put(WATCH_LATER_IDS_CACHE_KEY, JSON.stringify(ids), WATCH_LATER_IDS_TTL_SECONDS);
+  return ids;
+}
+
+// Keeps the cached id set in sync after an add/remove, avoiding a refetch.
+function updateCachedWatchLaterIds(videoId: string, present: boolean): void {
+  const cache = CacheService.getUserCache();
+  const cached = cache.get(WATCH_LATER_IDS_CACHE_KEY);
+  if (!cached) return; // no cache yet; the next read fetches fresh
+  try {
+    const ids = JSON.parse(cached) as string[];
+    const next = present
+      ? ids.includes(videoId)
+        ? ids
+        : [...ids, videoId]
+      : ids.filter((id) => id !== videoId);
+    cache.put(WATCH_LATER_IDS_CACHE_KEY, JSON.stringify(next), WATCH_LATER_IDS_TTL_SECONDS);
+  } catch {
+    // Leave the cache; it will expire and refetch.
+  }
+}
+
 /** Videos in the app-managed Watch Later playlist. */
 export function getWatchLaterVideos(): Video[] {
   return getPlaylistVideos(getWatchLaterPlaylistId());
@@ -159,6 +206,7 @@ export function addToWatchLater(videoId: string): void {
     },
     "snippet",
   );
+  updateCachedWatchLaterIds(videoId, true);
 }
 
 /** Removes the first Watch Later item matching the video id. */
@@ -171,6 +219,7 @@ export function removeFromWatchLater(videoId: string): void {
     for (const item of response.items ?? []) {
       if (item.id && item.snippet?.resourceId?.videoId === videoId) {
         YouTube.PlaylistItems!.remove(item.id);
+        updateCachedWatchLaterIds(videoId, false);
         return;
       }
     }

@@ -62,6 +62,7 @@ export function getFeedPage(options: FeedPageOptions): FeedPage {
   // Durations power the on-card badge. With hideShorts on they are already
   // looked up for the whole list above; otherwise fetch them just for this page.
   if (!options.hideShorts) enrichDurations(pageVideos);
+  flagInWatchLater(pageVideos);
   return { videos: pageVideos, total: visible.length };
 }
 
@@ -122,6 +123,7 @@ export function removeVideoDismissed(videoId: string): void {
 export function getHistory(): Video[] {
   const videos = history.getHistory();
   enrichDurations(videos);
+  flagInWatchLater(videos);
   return videos;
 }
 
@@ -135,6 +137,7 @@ export function getPlaylistVideos(playlistId: string): Video[] {
   const videos = youtube.getPlaylistVideos(playlistId);
   flagSeen(videos);
   enrichDurations(videos);
+  flagInWatchLater(videos);
   return videos;
 }
 
@@ -173,5 +176,17 @@ function flagDismissed(videos: Video[]): void {
     for (const video of videos) video.dismissed = ids.has(video.videoId);
   } catch {
     // Dismissed list is best-effort.
+  }
+}
+
+/** Flags each video that is already in Watch Later. Best-effort; no-op if the
+ *  user has no Watch Later playlist yet (so it costs nothing then). */
+function flagInWatchLater(videos: Video[]): void {
+  try {
+    const ids = new Set(youtube.getWatchLaterVideoIds());
+    if (ids.size === 0) return;
+    for (const video of videos) video.inWatchLater = ids.has(video.videoId);
+  } catch {
+    // Watch Later membership is best-effort.
   }
 }
