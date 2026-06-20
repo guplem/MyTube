@@ -33,6 +33,20 @@ architecture or adding a feature.** Human setup/run/deploy: [README.md](README.m
 - Every data source (RSS feed, playlist, Watch Later, history) returns `Video[]`.
   Add a new source as an adapter that returns `Video[]`, never a new UI.
 - Explicit types on all parameters and return values (project standard).
+- **The feed pages on the server.** `getFeedPage` returns one page (`{videos,
+  total}`); the browser never holds the whole 1000+ video list. `VideoListView`
+  has two modes: `PagedVideoListView(loader)` for the feed and the in-memory
+  array form for the smaller lists. Do not reintroduce shipping the full feed.
+- **Shorts are detected by length, not a real flag** (RSS has none): duration
+  via `youtube.getVideoDurationsSeconds` (Data API `contentDetails`, cached in
+  the shared script cache since length is the same for everyone), hidden when
+  `<= 180s`. A toggle re-shows them because the length heuristic has false
+  positives.
+- **Seen = watch history OR a single "seen before" cutoff date** (one user
+  property, not a row per video). `flagSeen` ORs both. "Hide viewed" filters on
+  the resulting `seen` flag.
+- UI toggles persist in `localStorage` via `src/ui/preferences.ts` (works inside
+  the Apps Script iframe; no server round-trip).
 
 ## Architecture decisions (ADRs)
 
