@@ -11,16 +11,28 @@ interface GoogleScriptRunner {
 declare const google: { script: { run: GoogleScriptRunner } };
 
 function showSignedInEmail(): void {
-  google.script.run
-    .withSuccessHandler((email: string): void => {
-      const target = document.getElementById("email");
-      if (target) target.textContent = email || "(unknown account)";
-    })
-    .withFailureHandler((error: Error): void => {
-      const target = document.getElementById("email");
-      if (target) target.textContent = `error: ${error.message}`;
-    })
-    .getActiveUserEmail();
+  const target = document.getElementById("email");
+  if (!target) return;
+  try {
+    google.script.run
+      .withSuccessHandler((email: string): void => {
+        target.textContent = email || "(unknown account)";
+      })
+      .withFailureHandler((error: Error): void => {
+        target.textContent = `server error: ${error.message}`;
+      })
+      .getActiveUserEmail();
+  } catch (error) {
+    // If the google.script.run bridge is not available yet, this surfaces the
+    // problem on the page instead of leaving it stuck on "checking…".
+    target.textContent = `bridge error: ${(error as Error).message}`;
+  }
 }
 
-showSignedInEmail();
+// Call only after the page (and the google.script bridge) is fully loaded.
+// Calling at parse time can hit a not-yet-ready bridge and hang.
+if (document.readyState === "complete") {
+  showSignedInEmail();
+} else {
+  window.addEventListener("load", showSignedInEmail);
+}
