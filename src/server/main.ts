@@ -9,6 +9,7 @@
 
 import type { Video } from "../shared/video";
 import * as feed from "./feed";
+import * as youtube from "./youtube";
 
 /** Serves the single web app page. Called by Apps Script for GET requests. */
 export function doGet(): GoogleAppsScript.HTML.HtmlOutput {
@@ -30,4 +31,9 @@ export function include(filename: string): string {
  */
 export function getUploadsFeed(forceRefresh: boolean): Video[] {
   return feed.getUploadsFeed(forceRefresh);
+}
+
+/** Description text of a single video, for the player screen. */
+export function getVideoDescription(videoId: string): string {
+  return youtube.getVideoDescription(videoId);
 }

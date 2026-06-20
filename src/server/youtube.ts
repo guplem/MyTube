@@ -54,3 +54,12 @@ function fetchAllSubscriptionChannels(): SubscriptionChannel[] {
   } while (pageToken);
   return channels;
 }
+
+/** Returns the description text of a single video. Costs 1 quota unit. */
+export function getVideoDescription(videoId: string): string {
+  const response: GoogleAppsScript.YouTube.Schema.VideoListResponse =
+    YouTube.Videos!.list("snippet", { id: videoId });
+  const items = response.items ?? [];
+  if (items.length === 0) return "";
+  return items[0].snippet?.description ?? "";
+}
