@@ -13,10 +13,17 @@ architecture or adding a feature.** Human setup/run/deploy: [README.md](README.m
   (clasp pushes it as `Code.gs`).
 - Frontend: TypeScript in `src/ui/`, bundled to `dist/ui.html` (a `<script>`),
   inlined into `dist/index.html` via the `include()` template call.
-- `npm run build` bundles to `dist/`; `npm run typecheck` is `tsc --noEmit`;
-  `npm run deploy` builds, pushes, and deploys.
 - Deploy model: "Execute as: user accessing" + access "Anyone", so each visitor
   uses their own Google account. Storage is therefore per-user.
+
+## Commands
+
+| Task | Command | Notes |
+|---|---|---|
+| Build | `npm run build` | Bundle `src/` to `dist/` with esbuild |
+| Typecheck | `npm run typecheck` | `tsc --noEmit` |
+| Push | `npm run push` | Build + `clasp push` |
+| Deploy | `npm run deploy` | Build, push, `clasp deploy` (writes to Apps Script) |
 
 ## Conventions
 
@@ -26,6 +33,21 @@ architecture or adding a feature.** Human setup/run/deploy: [README.md](README.m
 - Every data source (RSS feed, playlist, Watch Later, history) returns `Video[]`.
   Add a new source as an adapter that returns `Video[]`, never a new UI.
 - Explicit types on all parameters and return values (project standard).
+
+## Architecture decisions (ADRs)
+
+Design rationale with trade-offs lives in `adr/`; PLAN.md holds the broader
+forward-looking design.
+
+| ADR | Decision |
+|---|---|
+| [0001](adr/0001-use-google-apps-script.md) | Platform: Google Apps Script web app |
+| [0002](adr/0002-watch-later-as-real-youtube-playlist.md) | Watch Later is a real YouTube playlist (write scope) |
+| [0003](adr/0003-expose-server-functions-via-top-level-wrappers.md) | Expose server functions via generated top-level wrappers |
+| [0004](adr/0004-component-reuse-model.md) | One `Video` type, one `VideoListView`, one `PlayerView` |
+
+Add an ADR when a decision has lasting trade-offs (a new scope, a storage choice,
+a pattern future code must follow).
 
 ## Gotchas
 
