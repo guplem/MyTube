@@ -8,6 +8,7 @@
 // `export function` names and appends matching top-level wrappers to the bundle.
 
 import type { Video } from "../shared/video";
+import type { PlaylistSummary } from "../shared/playlist";
 import * as feed from "./feed";
 import * as youtube from "./youtube";
 import * as history from "./history";
@@ -26,19 +27,12 @@ export function include(filename: string): string {
 }
 
 /**
- * Recent uploads from the user's subscriptions, newest first, with each video
- * flagged seen against the watch history. Channel ids come from the YouTube API
- * (cached per user); the videos come from each channel's RSS feed. Pass true to
- * bypass the channel cache.
+ * Recent uploads from the user's subscriptions, newest first, each flagged seen
+ * against the watch history. Pass true to bypass the channel cache.
  */
 export function getUploadsFeed(forceRefresh: boolean): Video[] {
   const videos = feed.getUploadsFeed(forceRefresh);
-  try {
-    const seen = new Set(history.getSeenVideoIds());
-    for (const video of videos) video.seen = seen.has(video.videoId);
-  } catch {
-    // History is best-effort; never let it break the feed.
-  }
+  flagSeen(videos);
   return videos;
 }
 
@@ -55,4 +49,43 @@ export function markVideoSeen(video: Video): void {
 /** The user's watch history as a video list, newest first. */
 export function getHistory(): Video[] {
   return history.getHistory();
+}
+
+/** The user's own playlists. */
+export function getPlaylists(): PlaylistSummary[] {
+  return youtube.getPlaylists();
+}
+
+/** Videos in a playlist, flagged seen. */
+export function getPlaylistVideos(playlistId: string): Video[] {
+  const videos = youtube.getPlaylistVideos(playlistId);
+  flagSeen(videos);
+  return videos;
+}
+
+/** Videos in the app-managed Watch Later playlist, flagged seen. */
+export function getWatchLaterVideos(): Video[] {
+  const videos = youtube.getWatchLaterVideos();
+  flagSeen(videos);
+  return videos;
+}
+
+/** Adds a video to the Watch Later playlist. */
+export function addToWatchLater(videoId: string): void {
+  youtube.addToWatchLater(videoId);
+}
+
+/** Removes a video from the Watch Later playlist. */
+export function removeFromWatchLater(videoId: string): void {
+  youtube.removeFromWatchLater(videoId);
+}
+
+/** Flags each video seen against the watch history. Best-effort: never breaks a list. */
+function flagSeen(videos: Video[]): void {
+  try {
+    const seen = new Set(history.getSeenVideoIds());
+    for (const video of videos) video.seen = seen.has(video.videoId);
+  } catch {
+    // History is best-effort.
+  }
 }

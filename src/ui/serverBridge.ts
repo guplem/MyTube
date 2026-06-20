@@ -5,6 +5,7 @@
 // src/server/main.ts.
 
 import type { Video } from "../shared/video";
+import type { PlaylistSummary } from "../shared/playlist";
 
 interface ScriptRunner {
   withSuccessHandler<T>(callback: (value: T) => void): ScriptRunner;
@@ -13,41 +14,54 @@ interface ScriptRunner {
   getVideoDescription(videoId: string): void;
   markVideoSeen(video: Video): void;
   getHistory(): void;
+  getPlaylists(): void;
+  getPlaylistVideos(playlistId: string): void;
+  getWatchLaterVideos(): void;
+  addToWatchLater(videoId: string): void;
+  removeFromWatchLater(videoId: string): void;
 }
 declare const google: { script: { run: ScriptRunner } };
 
-export function getUploadsFeed(forceRefresh: boolean): Promise<Video[]> {
-  return new Promise<Video[]>((resolve, reject) => {
-    google.script.run
-      .withSuccessHandler<Video[]>(resolve)
-      .withFailureHandler(reject)
-      .getUploadsFeed(forceRefresh);
+function call<T>(invoke: (runner: ScriptRunner) => void): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    let runner = google.script.run.withSuccessHandler<T>(resolve);
+    runner = runner.withFailureHandler(reject);
+    invoke(runner);
   });
+}
+
+export function getUploadsFeed(forceRefresh: boolean): Promise<Video[]> {
+  return call<Video[]>((runner) => runner.getUploadsFeed(forceRefresh));
 }
 
 export function getVideoDescription(videoId: string): Promise<string> {
-  return new Promise<string>((resolve, reject) => {
-    google.script.run
-      .withSuccessHandler<string>(resolve)
-      .withFailureHandler(reject)
-      .getVideoDescription(videoId);
-  });
+  return call<string>((runner) => runner.getVideoDescription(videoId));
 }
 
 export function markVideoSeen(video: Video): Promise<void> {
-  return new Promise<void>((resolve, reject) => {
-    google.script.run
-      .withSuccessHandler<void>((): void => resolve())
-      .withFailureHandler(reject)
-      .markVideoSeen(video);
-  });
+  return call<void>((runner) => runner.markVideoSeen(video));
 }
 
 export function getHistory(): Promise<Video[]> {
-  return new Promise<Video[]>((resolve, reject) => {
-    google.script.run
-      .withSuccessHandler<Video[]>(resolve)
-      .withFailureHandler(reject)
-      .getHistory();
-  });
+  return call<Video[]>((runner) => runner.getHistory());
+}
+
+export function getPlaylists(): Promise<PlaylistSummary[]> {
+  return call<PlaylistSummary[]>((runner) => runner.getPlaylists());
+}
+
+export function getPlaylistVideos(playlistId: string): Promise<Video[]> {
+  return call<Video[]>((runner) => runner.getPlaylistVideos(playlistId));
+}
+
+export function getWatchLaterVideos(): Promise<Video[]> {
+  return call<Video[]>((runner) => runner.getWatchLaterVideos());
+}
+
+export function addToWatchLater(videoId: string): Promise<void> {
+  return call<void>((runner) => runner.addToWatchLater(videoId));
+}
+
+export function removeFromWatchLater(videoId: string): Promise<void> {
+  return call<void>((runner) => runner.removeFromWatchLater(videoId));
 }

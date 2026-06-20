@@ -60,22 +60,70 @@
       .video-card {
         display: flex;
         flex-direction: column;
+        background: #1c1c1c;
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .video-card--seen {
+        opacity: 0.55;
+      }
+      .video-play {
+        display: flex;
+        flex-direction: column;
         gap: 0.5rem;
         text-align: left;
-        background: #1c1c1c;
+        background: none;
         border: none;
-        border-radius: 8px;
         padding: 0;
-        overflow: hidden;
         color: inherit;
         font: inherit;
         cursor: pointer;
       }
-      .video-card:hover {
+      .video-play:hover {
         background: #272727;
       }
-      .video-card--seen {
-        opacity: 0.55;
+      .video-actions {
+        display: flex;
+        gap: 0.5rem;
+        padding: 0 0.7rem 0.7rem;
+      }
+      .video-action {
+        background: #272727;
+        color: #f1f1f1;
+        border: 1px solid #3a3a3a;
+        border-radius: 6px;
+        padding: 0.35rem 0.6rem;
+        font: inherit;
+        font-size: 0.8rem;
+        cursor: pointer;
+      }
+      .video-action:hover:not(:disabled) {
+        background: #333;
+      }
+      .video-action:disabled {
+        opacity: 0.6;
+        cursor: default;
+      }
+
+      /* Playlists list */
+      .playlist-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        max-width: 600px;
+      }
+      .playlist-item {
+        text-align: left;
+        background: #1c1c1c;
+        border: 1px solid #2a2a2a;
+        border-radius: 8px;
+        padding: 0.8rem 1rem;
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
+      }
+      .playlist-item:hover {
+        background: #272727;
       }
       .video-thumb {
         width: 100%;
@@ -223,6 +271,8 @@
       <h1>MyTube</h1>
       <nav class="app-nav">
         <button type="button" data-view="feed" class="active">Feed</button>
+        <button type="button" data-view="watchlater">Watch Later</button>
+        <button type="button" data-view="playlists">Playlists</button>
         <button type="button" data-view="history">History</button>
       </nav>
     </header>

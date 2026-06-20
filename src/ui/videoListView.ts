@@ -1,15 +1,26 @@
 // Renders a Video[] as a paginated grid of cards. Reused by every screen that
-// shows a list of videos: the feed, playlists, Watch Later, history. See
-// PLAN.md section 13. onPlay is called with the video's index in the FULL list
-// (not the page), so the caller can open the player with the whole list as the
-// queue and the player can navigate across page boundaries.
+// shows a list of videos: feed, playlists, Watch Later, history. See PLAN.md
+// section 13. onPlay reports the index in the FULL list (not the page) so the
+// caller opens the player with the whole list as its queue. Optional per-card
+// actions (e.g. add/remove Watch Later) render as buttons under each card.
 
 import type { Video } from "../shared/video";
+
+export interface VideoAction {
+  label: string;
+  onClick: (video: Video, button: HTMLButtonElement) => void;
+}
+
+export interface VideoListOptions {
+  onPlay: (index: number) => void;
+  actions?: VideoAction[];
+}
 
 const PAGE_SIZE_OPTIONS = [24, 48, 96];
 const DEFAULT_PAGE_SIZE = 24;
 
-export function VideoListView(videos: Video[], onPlay: (index: number) => void): HTMLElement {
+export function VideoListView(videos: Video[], options: VideoListOptions): HTMLElement {
+  const actions = options.actions ?? [];
   const root = document.createElement("div");
   root.className = "list-view";
 
@@ -76,7 +87,7 @@ export function VideoListView(videos: Video[], onPlay: (index: number) => void):
 
     grid.innerHTML = "";
     pageVideos.forEach((video, indexInPage): void => {
-      grid.appendChild(videoCard(video, (): void => onPlay(start + indexInPage)));
+      grid.appendChild(videoCard(video, (): void => options.onPlay(start + indexInPage), actions));
     });
 
     info.textContent = `Page ${page + 1} of ${pageCount} · ${videos.length} videos`;
@@ -89,12 +100,15 @@ export function VideoListView(videos: Video[], onPlay: (index: number) => void):
   return root;
 }
 
-function videoCard(video: Video, onClick: () => void): HTMLElement {
-  const card = document.createElement("button");
-  card.type = "button";
+function videoCard(video: Video, onPlay: () => void, actions: VideoAction[]): HTMLElement {
+  const card = document.createElement("div");
   card.className = "video-card";
   if (video.seen) card.classList.add("video-card--seen");
-  card.addEventListener("click", onClick);
+
+  const play = document.createElement("button");
+  play.type = "button";
+  play.className = "video-play";
+  play.addEventListener("click", onPlay);
 
   const thumbnail = document.createElement("img");
   thumbnail.className = "video-thumb";
@@ -118,7 +132,23 @@ function videoCard(video: Video, onClick: () => void): HTMLElement {
   date.textContent = formatDate(video.publishedAt);
 
   meta.append(title, channel, date);
-  card.append(thumbnail, meta);
+  play.append(thumbnail, meta);
+  card.appendChild(play);
+
+  if (actions.length > 0) {
+    const actionRow = document.createElement("div");
+    actionRow.className = "video-actions";
+    for (const action of actions) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "video-action";
+      button.textContent = action.label;
+      button.addEventListener("click", (): void => action.onClick(video, button));
+      actionRow.appendChild(button);
+    }
+    card.appendChild(actionRow);
+  }
+
   return card;
 }
 
