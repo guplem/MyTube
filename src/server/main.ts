@@ -7,6 +7,9 @@
 // the pushed file. esbuild hides ours inside an IIFE, so build.mjs reads these
 // `export function` names and appends matching top-level wrappers to the bundle.
 
+import type { Video } from "../shared/video";
+import * as feed from "./feed";
+
 /** Serves the single web app page. Called by Apps Script for GET requests. */
 export function doGet(): GoogleAppsScript.HTML.HtmlOutput {
   return HtmlService.createTemplateFromFile("index")
@@ -20,7 +23,11 @@ export function include(filename: string): string {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
 
-/** Returns the email of the logged-in user. Called from the browser to prove login works. */
-export function getActiveUserEmail(): string {
-  return Session.getActiveUser().getEmail();
+/**
+ * Recent uploads from the user's subscriptions, newest first. Channel ids come
+ * from the YouTube API (cached per user); the videos come from each channel's
+ * RSS feed. Pass true to bypass the channel cache.
+ */
+export function getUploadsFeed(forceRefresh: boolean): Video[] {
+  return feed.getUploadsFeed(forceRefresh);
 }

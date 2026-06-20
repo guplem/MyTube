@@ -3,8 +3,19 @@
   "runtimeVersion": "V8",
   "exceptionLogging": "STACKDRIVER",
   "oauthScopes": [
-    "https://www.googleapis.com/auth/userinfo.email"
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/youtube",
+    "https://www.googleapis.com/auth/script.external_request"
   ],
+  "dependencies": {
+    "enabledAdvancedServices": [
+      {
+        "userSymbol": "YouTube",
+        "serviceId": "youtube",
+        "version": "v3"
+      }
+    ]
+  },
   "webapp": {
     "executeAs": "USER_ACCESSING",
     "access": "ANYONE"

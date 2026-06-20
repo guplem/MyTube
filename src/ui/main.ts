@@ -1,38 +1,40 @@
-// Browser entry point. Runs in the page. Talks to the server through
-// google.script.run, the Apps Script bridge for calling server functions.
+// Browser entry point. Loads the uploads feed from the server and renders it
+// with the shared VideoListView. Talks to the server through google.script.run.
 
-// Minimal typing for the bridge calls this milestone uses. We extend this as we
-// add more server calls.
+import type { Video } from "../shared/video";
+import { VideoListView } from "./videoListView";
+
 interface GoogleScriptRunner {
-  withSuccessHandler(callback: (value: string) => void): GoogleScriptRunner;
+  withSuccessHandler<T>(callback: (value: T) => void): GoogleScriptRunner;
   withFailureHandler(callback: (error: Error) => void): GoogleScriptRunner;
-  getActiveUserEmail(): void;
+  getUploadsFeed(forceRefresh: boolean): void;
 }
 declare const google: { script: { run: GoogleScriptRunner } };
 
-function showSignedInEmail(): void {
-  const target = document.getElementById("email");
-  if (!target) return;
-  try {
-    google.script.run
-      .withSuccessHandler((email: string): void => {
-        target.textContent = email || "(unknown account)";
-      })
-      .withFailureHandler((error: Error): void => {
-        target.textContent = `server error: ${error.message}`;
-      })
-      .getActiveUserEmail();
-  } catch (error) {
-    // If the google.script.run bridge is not available yet, this surfaces the
-    // problem on the page instead of leaving it stuck on "checking…".
-    target.textContent = `bridge error: ${(error as Error).message}`;
-  }
+function renderFeed(): void {
+  const container = document.getElementById("feed");
+  if (!container) return;
+  container.textContent = "Loading your subscriptions…";
+
+  google.script.run
+    .withSuccessHandler<Video[]>((videos): void => {
+      container.innerHTML = "";
+      container.appendChild(
+        VideoListView(videos, (index): void => {
+          // The player arrives in milestone 3; for now just record the choice.
+          console.log("play", videos[index]?.videoId);
+        }),
+      );
+    })
+    .withFailureHandler((error): void => {
+      container.textContent = `Could not load your feed: ${error.message}`;
+    })
+    .getUploadsFeed(false);
 }
 
 // Call only after the page (and the google.script bridge) is fully loaded.
-// Calling at parse time can hit a not-yet-ready bridge and hang.
 if (document.readyState === "complete") {
-  showSignedInEmail();
+  renderFeed();
 } else {
-  window.addEventListener("load", showSignedInEmail);
+  window.addEventListener("load", renderFeed);
 }

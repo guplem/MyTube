@@ -7,18 +7,72 @@
       body {
         font-family: system-ui, -apple-system, sans-serif;
         margin: 0;
-        padding: 2rem;
+        padding: 1.5rem;
         background: #0f0f0f;
         color: #f1f1f1;
       }
-      h1 { margin: 0 0 0.5rem; }
-      .muted { color: #aaa; }
+      h1 {
+        margin: 0 0 1rem;
+        font-size: 1.4rem;
+      }
+      .muted {
+        color: #aaa;
+      }
+      .video-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 1rem;
+      }
+      .video-card {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        text-align: left;
+        background: #1c1c1c;
+        border: none;
+        border-radius: 8px;
+        padding: 0;
+        overflow: hidden;
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
+      }
+      .video-card:hover {
+        background: #272727;
+      }
+      .video-card--seen {
+        opacity: 0.55;
+      }
+      .video-thumb {
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        object-fit: cover;
+        display: block;
+        background: #000;
+      }
+      .video-meta {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+        padding: 0.6rem 0.7rem 0.8rem;
+      }
+      .video-title {
+        font-weight: 600;
+        line-height: 1.25;
+      }
+      .video-channel {
+        color: #bbb;
+        font-size: 0.85rem;
+      }
+      .video-date {
+        color: #888;
+        font-size: 0.8rem;
+      }
     </style>
   </head>
   <body>
     <h1>MyTube</h1>
-    <p class="muted">Milestone 1: login and deploy pipeline.</p>
-    <p>Signed in as <strong id="email">checking…</strong></p>
+    <div id="feed" class="muted">Loading…</div>
 
     <!-- Browser TypeScript bundle (built from src/ui by esbuild). -->
     <?!= include('ui'); ?>
