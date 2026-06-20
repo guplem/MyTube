@@ -25,11 +25,16 @@ jobs:
       - run: npm run build
 
       - name: Restore clasp credentials
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+          CLASP_JSON: ${{ secrets.CLASP_JSON }}
         run: |
-          printf '%s' '${{ secrets.CLASPRC_JSON }}' > "$HOME/.clasprc.json"
-          printf '%s' '${{ secrets.CLASP_JSON }}' > .clasp.json
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          printf '%s' "$CLASP_JSON" > .clasp.json
 
       - name: Push and deploy
+        env:
+          DEPLOYMENT_ID: ${{ secrets.DEPLOYMENT_ID }}
         run: |
           npx clasp push -f
-          npx clasp deploy --deploymentId "${{ secrets.DEPLOYMENT_ID }}"
+          npx clasp deploy --deploymentId "$DEPLOYMENT_ID" --description "CI ${GITHUB_SHA::7}"
