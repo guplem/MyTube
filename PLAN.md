@@ -124,9 +124,10 @@ Two kinds of data, stored in two places:
   ID, and adds/removes videos with the write permission. It syncs with your
   phone's YouTube app. This is the only place we write to YouTube.
 - **History and settings = stored by us, per user.**
-  - **History** (which videos you marked seen, and when): a **Google Sheet
-    created in the user's own Drive** on first login. Reason: history grows over
-    time, and a Sheet has plenty of room and is easy to inspect or export.
+  - **History** (which videos you marked seen, and when): `PropertiesService`
+    user properties, chunked across keys and capped at ~500 recent entries.
+    (Originally a Google Sheet; moved to properties to drop the `spreadsheets`
+    scope. See ADR 0005.)
   - **Small settings** (the Watch Later playlist ID, autoplay toggle, cached
     channel IDs, last-refresh time): `PropertiesService` user properties.
     Reason: tiny key/value data, fastest to read, no Sheet needed.

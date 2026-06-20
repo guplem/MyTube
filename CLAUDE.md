@@ -45,6 +45,7 @@ forward-looking design.
 | [0002](adr/0002-watch-later-as-real-youtube-playlist.md) | Watch Later is a real YouTube playlist (write scope) |
 | [0003](adr/0003-expose-server-functions-via-top-level-wrappers.md) | Expose server functions via generated top-level wrappers |
 | [0004](adr/0004-component-reuse-model.md) | One `Video` type, one `VideoListView`, one `PlayerView` |
+| [0005](adr/0005-store-history-in-properties.md) | Store watch history in PropertiesService, not a Sheet |
 
 Add an ADR when a decision has lasting trade-offs (a new scope, a storage choice,
 a pattern future code must follow).
@@ -62,6 +63,6 @@ a pattern future code must follow).
 - **OAuth scopes grow per milestone** in `appsscript.json`. Adding a scope forces
   users to re-consent. The final scope set is in PLAN.md section 4.
 - **Watch Later and History are not readable via the YouTube API.** Never call
-  the API for them. We use our own playlist plus our own per-user Sheet
-  (PLAN.md sections 2 and 6).
+  the API for them. Watch Later is our own playlist; history is per-user script
+  properties (PLAN.md sections 2 and 6, ADR 0005).
 - `dist/`, `.clasp.json`, and `.clasprc.json` are gitignored. Never commit them.
