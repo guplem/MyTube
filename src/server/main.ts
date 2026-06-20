@@ -14,6 +14,7 @@ import type { FeedPage, FeedPageOptions } from "../shared/feed";
 import * as feed from "./feed";
 import * as youtube from "./youtube";
 import * as history from "./history";
+import * as dismissed from "./dismissed";
 
 /** Serves the single web app page. Called by Apps Script for GET requests. */
 export function doGet(): GoogleAppsScript.HTML.HtmlOutput {
@@ -37,12 +38,16 @@ export function include(filename: string): string {
 export function getFeedPage(options: FeedPageOptions): FeedPage {
   const all = feed.getUploadsFeed(options.forceRefresh);
   flagSeen(all);
+  flagDismissed(all);
   let visible = all;
   // Apply the cheap filters first. The duration lookup (hideShorts) is the
   // expensive step, so shrinking the list with the free filters beforehand means
   // we only fetch durations for the videos that survive them.
   if (options.hideViewed) {
     visible = visible.filter((video) => !video.seen);
+  }
+  if (options.hideDismissed) {
+    visible = visible.filter((video) => !video.dismissed);
   }
   if (options.beforeDate) {
     // Keep videos published on or after the cutoff date; compare date parts only.
@@ -99,6 +104,16 @@ export function removeVideoSeen(videoId: string): void {
   history.removeVideoSeen(videoId);
 }
 
+/** Marks a video dismissed from the feed. */
+export function markVideoDismissed(videoId: string): void {
+  dismissed.markVideoDismissed(videoId);
+}
+
+/** Removes a video from the dismissed list (un-dismisses it). */
+export function removeVideoDismissed(videoId: string): void {
+  dismissed.removeVideoDismissed(videoId);
+}
+
 /** The user's watch history as a video list, newest first. */
 export function getHistory(): Video[] {
   return history.getHistory();
@@ -140,5 +155,15 @@ function flagSeen(videos: Video[]): void {
     for (const video of videos) video.seen = seen.has(video.videoId);
   } catch {
     // History is best-effort.
+  }
+}
+
+/** Flags each video dismissed against the dismissed list. Best-effort. */
+function flagDismissed(videos: Video[]): void {
+  try {
+    const ids = new Set(dismissed.getDismissedVideoIds());
+    for (const video of videos) video.dismissed = ids.has(video.videoId);
+  } catch {
+    // Dismissed list is best-effort.
   }
 }

@@ -14,6 +14,8 @@ export interface FeedPageOptions {
   hideShorts: boolean;
   /** Hide every video already in the watch history (seen). */
   hideViewed: boolean;
+  /** Hide every video the user dismissed from the feed. */
+  hideDismissed: boolean;
   /** Hide videos published before this date (YYYY-MM-DD); "" means no cutoff. */
   beforeDate: string;
 }

@@ -17,6 +17,8 @@ interface ScriptRunner {
   getComments(videoId: string): void;
   markVideoSeen(video: Video): void;
   removeVideoSeen(videoId: string): void;
+  markVideoDismissed(videoId: string): void;
+  removeVideoDismissed(videoId: string): void;
   getHistory(): void;
   getPlaylists(): void;
   getPlaylistVideos(playlistId: string): void;
@@ -52,6 +54,14 @@ export function markVideoSeen(video: Video): Promise<void> {
 
 export function removeVideoSeen(videoId: string): Promise<void> {
   return call<void>((runner) => runner.removeVideoSeen(videoId));
+}
+
+export function markVideoDismissed(videoId: string): Promise<void> {
+  return call<void>((runner) => runner.markVideoDismissed(videoId));
+}
+
+export function removeVideoDismissed(videoId: string): Promise<void> {
+  return call<void>((runner) => runner.removeVideoDismissed(videoId));
 }
 
 export function getHistory(): Promise<Video[]> {

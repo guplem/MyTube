@@ -15,6 +15,8 @@ import {
   removeFromWatchLater,
   markVideoSeen,
   removeVideoSeen,
+  markVideoDismissed,
+  removeVideoDismissed,
 } from "./serverBridge";
 import { VideoListView, PagedVideoListView, skeletonGrid, type VideoAction } from "./videoListView";
 import { PlayerView } from "./playerView";
@@ -34,6 +36,7 @@ import {
 
 const HIDE_SHORTS_PREF = "mytube.hideShorts";
 const HIDE_VIEWED_PREF = "mytube.hideViewed";
+const HIDE_DISMISSED_PREF = "mytube.hideDismissed";
 const BEFORE_DATE_PREF = "mytube.beforeDate";
 
 // A navigable screen. The player carries its queue/index in memory when opened
@@ -71,7 +74,7 @@ function appContainer(): HTMLElement | null {
 // --- Per-card actions ------------------------------------------------------
 
 const addToWatchLaterAction: VideoAction = {
-  label: "+ Watch Later",
+  label: "+ Later",
   onClick: (video, button): void => {
     button.disabled = true;
     button.textContent = "Adding…";
@@ -81,7 +84,7 @@ const addToWatchLaterAction: VideoAction = {
       })
       .catch((): void => {
         button.disabled = false;
-        button.textContent = "+ Watch Later";
+        button.textContent = "+ Later";
       });
   },
 };
@@ -103,7 +106,7 @@ const removeFromWatchLaterAction: VideoAction = {
 // Reflects the current seen state on the card and its toggle button.
 function reflectSeen(video: Video, button: HTMLButtonElement): void {
   button.disabled = false;
-  button.textContent = video.seen ? "Seen ✓" : "Mark seen";
+  button.textContent = video.seen ? "Seen ✓" : "Seen";
   button.closest(".video-card")?.classList.toggle("video-card--seen", video.seen);
 }
 
@@ -123,13 +126,13 @@ function toggleSeen(video: Video, button: HTMLButtonElement): void {
 }
 
 const markSeenAction: VideoAction = {
-  label: (video) => (video.seen ? "Seen ✓" : "Mark seen"),
+  label: (video) => (video.seen ? "Seen ✓" : "Seen"),
   onClick: toggleSeen,
 };
 
 // Watch Later: marking a video seen also drops it from the playlist.
 const watchLaterSeenAction: VideoAction = {
-  label: (video) => (video.seen ? "Seen ✓" : "Mark seen"),
+  label: (video) => (video.seen ? "Seen ✓" : "Seen"),
   onClick: (video, button): void => {
     if (video.seen) {
       toggleSeen(video, button);
@@ -163,6 +166,36 @@ const historySeenAction: VideoAction = {
   },
 };
 
+// Reflects the current dismissed state on the card and its toggle button.
+function reflectDismissed(video: Video, button: HTMLButtonElement): void {
+  button.disabled = false;
+  button.textContent = video.dismissed ? "Dismissed ✓" : "Dismiss";
+  button.closest(".video-card")?.classList.toggle("video-card--dismissed", Boolean(video.dismissed));
+}
+
+// Feed-only: toggles a video in/out of the dismissed list. Mirrors the seen
+// toggle; the card stays in place (dimmed) and "Hide dismissed" removes it on
+// the next feed load.
+function toggleDismiss(video: Video, button: HTMLButtonElement): void {
+  button.disabled = true;
+  const request = video.dismissed
+    ? removeVideoDismissed(video.videoId)
+    : markVideoDismissed(video.videoId);
+  request
+    .then((): void => {
+      video.dismissed = !video.dismissed;
+      reflectDismissed(video, button);
+    })
+    .catch((): void => {
+      button.disabled = false;
+    });
+}
+
+const dismissAction: VideoAction = {
+  label: (video) => (video.dismissed ? "Dismissed ✓" : "Dismiss"),
+  onClick: toggleDismiss,
+};
+
 // --- Screens ---------------------------------------------------------------
 
 function showFeed(forceFirstLoad: boolean = false): void {
@@ -181,6 +214,7 @@ function showFeed(forceFirstLoad: boolean = false): void {
   filters.append(
     feedToggle("Hide Shorts", HIDE_SHORTS_PREF, true),
     feedToggle("Hide viewed", HIDE_VIEWED_PREF, false),
+    feedToggle("Hide dismissed", HIDE_DISMISSED_PREF, true),
     beforeDateControl(),
   );
 
@@ -207,12 +241,13 @@ function showFeed(forceFirstLoad: boolean = false): void {
           forceRefresh,
           hideShorts: getBoolPreference(HIDE_SHORTS_PREF, true),
           hideViewed: getBoolPreference(HIDE_VIEWED_PREF, false),
+          hideDismissed: getBoolPreference(HIDE_DISMISSED_PREF, true),
           beforeDate: getStringPreference(BEFORE_DATE_PREF, ""),
         });
       },
       {
         onPlay: (index, queue): void => playFromList(queue, index, { source: "feed" }),
-        actions: [addToWatchLaterAction, markSeenAction],
+        actions: [addToWatchLaterAction, dismissAction, markSeenAction],
       },
     ),
   );

@@ -94,6 +94,9 @@
       .video-card--seen {
         opacity: 0.55;
       }
+      .video-card--dismissed {
+        opacity: 0.4;
+      }
 
       /* Loading placeholders (skeletons) shown while a list/page loads. */
       .video-card--skeleton {
@@ -154,17 +157,23 @@
       }
       .video-actions {
         display: flex;
+        flex-wrap: wrap;
         gap: 0.5rem;
         padding: 0 0.7rem 0.7rem;
+        /* Stick the buttons to the bottom of the card, even when titles differ
+           in length and the grid stretches cards to equal height. */
+        margin-top: auto;
       }
       .video-action {
-        flex: 1;
+        flex: 1 1 auto;
+        min-width: 3.5rem;
         text-align: center;
+        white-space: nowrap;
         background: #272727;
         color: #f1f1f1;
         border: 1px solid #3a3a3a;
         border-radius: 6px;
-        padding: 0.35rem 0.6rem;
+        padding: 0.35rem 0.5rem;
         font: inherit;
         font-size: 0.8rem;
         cursor: pointer;

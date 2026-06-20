@@ -14,4 +14,6 @@ export interface Video {
   durationSeconds?: number;
   /** Whether the user marked this video seen (history, milestone 4). */
   seen: boolean;
+  /** Whether the user dismissed this video from the feed. Set on feed videos only. */
+  dismissed?: boolean;
 }
