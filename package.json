@@ -1,0 +1,19 @@
+{
+  "name": "mytube",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Personal YouTube-watching web app on Google Apps Script: subscriptions, playlists, own history, no recommendations.",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit",
+    "push": "npm run build && clasp push -f",
+    "deploy": "npm run build && clasp push -f && clasp deploy"
+  },
+  "devDependencies": {
+    "@google/clasp": "^2.4.2",
+    "@types/google-apps-script": "^1.0.83",
+    "esbuild": "^0.20.2",
+    "typescript": "^5.4.5"
+  }
+}
