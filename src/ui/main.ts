@@ -16,7 +16,7 @@ import {
   markVideoSeen,
   removeVideoSeen,
 } from "./serverBridge";
-import { VideoListView, PagedVideoListView, type VideoAction } from "./videoListView";
+import { VideoListView, PagedVideoListView, skeletonGrid, type VideoAction } from "./videoListView";
 import { PlayerView } from "./playerView";
 import {
   getBoolPreference,
@@ -255,21 +255,21 @@ function beforeDateControl(): HTMLElement {
 // "Hide viewed" is intentionally absent here: the history list is entirely seen
 // videos, so hiding them would empty it.
 function showHistory(): void {
-  renderVideoScreen("Loading your history…", getHistory(), () => ({
+  renderVideoScreen(getHistory(), () => ({
     onPlay: (index, queue): void => playFromList(queue, index, { source: "history" }),
     actions: [addToWatchLaterAction, historySeenAction],
   }));
 }
 
 function showWatchLater(): void {
-  renderVideoScreen("Loading Watch Later…", getWatchLaterVideos(), () => ({
+  renderVideoScreen(getWatchLaterVideos(), () => ({
     onPlay: (index, queue): void => playFromList(queue, index, { source: "watchlater" }),
     actions: [watchLaterSeenAction, removeFromWatchLaterAction],
   }));
 }
 
 function showPlaylist(playlistId: string, title: string): void {
-  renderVideoScreen(`Loading "${title}"…`, getPlaylistVideos(playlistId), () => ({
+  renderVideoScreen(getPlaylistVideos(playlistId), () => ({
     onPlay: (index, queue): void =>
       playFromList(queue, index, { source: "playlist", playlistId, title }),
     actions: [addToWatchLaterAction, markSeenAction],
@@ -279,7 +279,8 @@ function showPlaylist(playlistId: string, title: string): void {
 function showPlaylists(): void {
   const app = appContainer();
   if (!app) return;
-  app.textContent = "Loading your playlists…";
+  app.innerHTML = "";
+  app.appendChild(skeletonPlaylistList());
   getPlaylists()
     .then((playlists): void => {
       app.innerHTML = "";
@@ -306,16 +307,28 @@ function showPlaylists(): void {
     });
 }
 
-// Loads a Video[] and renders it with VideoListView, showing a loading message
-// and a failure message in the #app container.
+// Placeholder rows shown while the playlists index loads.
+function skeletonPlaylistList(): HTMLElement {
+  const list = document.createElement("div");
+  list.className = "playlist-list";
+  for (let index = 0; index < 6; index += 1) {
+    const item = document.createElement("div");
+    item.className = "playlist-item playlist-item--skeleton";
+    list.appendChild(item);
+  }
+  return list;
+}
+
+// Loads a Video[] and renders it with VideoListView. Shows placeholder cards
+// while loading (old content is cleared first) and a failure message on error.
 function renderVideoScreen(
-  loadingMessage: string,
   load: Promise<Video[]>,
   optionsFor: () => { onPlay: (index: number, queue: Video[]) => void; actions: VideoAction[] },
 ): void {
   const app = appContainer();
   if (!app) return;
-  app.textContent = loadingMessage;
+  app.innerHTML = "";
+  app.appendChild(skeletonGrid());
   load
     .then((videos): void => {
       app.innerHTML = "";

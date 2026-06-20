@@ -34,6 +34,36 @@ type PageLoader = (page: number, pageSize: number) => Promise<VideoPage>;
 
 const PAGE_SIZE_OPTIONS = [24, 48, 96];
 const DEFAULT_PAGE_SIZE = 24;
+const SKELETON_COUNT = 12; // placeholder cards shown while a page loads
+
+function skeletonCard(): HTMLElement {
+  const card = document.createElement("div");
+  card.className = "video-card video-card--skeleton";
+  const thumb = document.createElement("div");
+  thumb.className = "skeleton-thumb";
+  const meta = document.createElement("div");
+  meta.className = "video-meta";
+  const line = document.createElement("div");
+  line.className = "skeleton-line";
+  const lineShort = document.createElement("div");
+  lineShort.className = "skeleton-line skeleton-line--short";
+  meta.append(line, lineShort);
+  card.append(thumb, meta);
+  return card;
+}
+
+function fillWithSkeletons(grid: HTMLElement, count: number): void {
+  grid.innerHTML = "";
+  for (let index = 0; index < count; index += 1) grid.appendChild(skeletonCard());
+}
+
+/** A standalone placeholder grid, for a screen loading its first batch. */
+export function skeletonGrid(count: number = SKELETON_COUNT): HTMLElement {
+  const grid = document.createElement("div");
+  grid.className = "video-list";
+  fillWithSkeletons(grid, count);
+  return grid;
+}
 
 /** Paged list backed by an async loader (the feed pages on the server). */
 export function PagedVideoListView(load: PageLoader, options: VideoListOptions): HTMLElement {
@@ -97,7 +127,6 @@ function renderList(load: PageLoader, options: VideoListOptions, fullQueue: Vide
 
   const grid = document.createElement("div");
   grid.className = "video-list";
-  grid.innerHTML = '<p class="muted">Loading…</p>';
 
   function goToPage(target: number): void {
     page = target;
@@ -108,6 +137,10 @@ function renderList(load: PageLoader, options: VideoListOptions, fullQueue: Vide
   async function render(): Promise<void> {
     prevButton.disabled = true;
     nextButton.disabled = true;
+    // Replace the old page with placeholders right away so stale cards never
+    // linger during the load. An in-memory load resolves on the same task, so
+    // its skeletons never paint; only a real server fetch shows them.
+    fillWithSkeletons(grid, Math.min(pageSize, SKELETON_COUNT));
     let result: VideoPage;
     try {
       result = await load(page, pageSize);
