@@ -65,12 +65,36 @@ function showFeed(): void {
   const app = appContainer();
   if (!app) return;
   app.innerHTML = "";
+
+  const refresh = document.createElement("button");
+  refresh.type = "button";
+  refresh.className = "refresh-button";
+  refresh.textContent = "↻ Refresh";
+  refresh.addEventListener("click", refreshFeed);
+  app.appendChild(refresh);
+
   app.appendChild(
     VideoListView(feedVideos, {
       onPlay: (index): void => showPlayer(feedVideos, index, "Subscriptions", showFeed),
       actions: [addToWatchLaterAction],
     }),
   );
+}
+
+// Re-fetches the feed bypassing the per-channel cache (the cached load is fast
+// but can be stale; this pulls fresh RSS for every channel).
+function refreshFeed(): void {
+  const app = appContainer();
+  if (!app) return;
+  app.textContent = "Refreshing your subscriptions…";
+  getUploadsFeed(true)
+    .then((videos): void => {
+      feedVideos = videos;
+      showFeed();
+    })
+    .catch((error: Error): void => {
+      app.textContent = `Could not refresh your feed: ${error.message}`;
+    });
 }
 
 function showHistory(): void {
