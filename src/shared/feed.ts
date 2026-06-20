@@ -12,6 +12,8 @@ export interface FeedPageOptions {
   forceRefresh: boolean;
   /** Hide videos at or under the Shorts length threshold (detected by duration). */
   hideShorts: boolean;
+  /** Hide every video already in the watch history (seen). */
+  hideViewed: boolean;
 }
 
 export interface FeedPage {

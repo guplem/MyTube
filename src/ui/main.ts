@@ -18,6 +18,7 @@ import { PlayerView } from "./playerView";
 import { getBoolPreference, setBoolPreference } from "./preferences";
 
 const HIDE_SHORTS_PREF = "mytube.hideShorts";
+const HIDE_VIEWED_PREF = "mytube.hideViewed";
 
 function appContainer(): HTMLElement | null {
   return document.getElementById("app");
@@ -83,8 +84,9 @@ function showFeed(forceFirstLoad: boolean = false): void {
   // Re-rendering the whole feed (showFeed) resets to page 0 and reloads with the
   // new toggle state, which the loader reads fresh on each page request.
   const hideShortsToggle = feedToggle("Hide Shorts", HIDE_SHORTS_PREF, true);
+  const hideViewedToggle = feedToggle("Hide viewed", HIDE_VIEWED_PREF, false);
 
-  toolbar.append(refresh, hideShortsToggle);
+  toolbar.append(refresh, hideShortsToggle, hideViewedToggle);
   app.appendChild(toolbar);
 
   let pendingForce = forceFirstLoad;
@@ -98,6 +100,7 @@ function showFeed(forceFirstLoad: boolean = false): void {
           pageSize,
           forceRefresh,
           hideShorts: getBoolPreference(HIDE_SHORTS_PREF, true),
+          hideViewed: getBoolPreference(HIDE_VIEWED_PREF, false),
         });
       },
       {

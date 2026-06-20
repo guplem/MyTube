@@ -42,6 +42,9 @@ export function getFeedPage(options: FeedPageOptions): FeedPage {
     enrichDurations(visible);
     visible = visible.filter((video) => !isShort(video));
   }
+  if (options.hideViewed) {
+    visible = visible.filter((video) => !video.seen);
+  }
   const start = options.page * options.pageSize;
   return { videos: visible.slice(start, start + options.pageSize), total: visible.length };
 }
