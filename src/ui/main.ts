@@ -12,6 +12,8 @@ import {
   getWatchLaterVideos,
   addToWatchLater,
   removeFromWatchLater,
+  getSeenBeforeDate,
+  setSeenBeforeDate,
 } from "./serverBridge";
 import { VideoListView, PagedVideoListView, type VideoAction } from "./videoListView";
 import { PlayerView } from "./playerView";
@@ -86,7 +88,7 @@ function showFeed(forceFirstLoad: boolean = false): void {
   const hideShortsToggle = feedToggle("Hide Shorts", HIDE_SHORTS_PREF, true);
   const hideViewedToggle = feedToggle("Hide viewed", HIDE_VIEWED_PREF, false);
 
-  toolbar.append(refresh, hideShortsToggle, hideViewedToggle);
+  toolbar.append(refresh, hideShortsToggle, hideViewedToggle, seenBeforeControl());
   app.appendChild(toolbar);
 
   let pendingForce = forceFirstLoad;
@@ -125,6 +127,57 @@ function feedToggle(labelText: string, prefKey: string, defaultValue: boolean): 
   });
   label.append(checkbox, document.createTextNode(labelText));
   return label;
+}
+
+// "Mark everything before this date as seen": stores a single cutoff date on the
+// server (history.setSeenBeforeDate) instead of writing a history row per video.
+// Videos published before the cutoff then show as seen and obey "Hide viewed".
+function seenBeforeControl(): HTMLElement {
+  const wrap = document.createElement("div");
+  wrap.className = "seen-before";
+
+  const input = document.createElement("input");
+  input.type = "date";
+
+  const apply = document.createElement("button");
+  apply.type = "button";
+  apply.className = "refresh-button";
+  apply.textContent = "Mark earlier as seen";
+
+  const clear = document.createElement("button");
+  clear.type = "button";
+  clear.className = "refresh-button";
+  clear.textContent = "Clear";
+
+  const note = document.createElement("span");
+  note.className = "list-info";
+
+  const today = new Date().toISOString().slice(0, 10);
+  getSeenBeforeDate()
+    .then((cutoff): void => {
+      input.value = cutoff || today;
+      note.textContent = cutoff ? `Marked seen before ${cutoff}` : "";
+    })
+    .catch((): void => {
+      input.value = today;
+    });
+
+  apply.addEventListener("click", (): void => applyCutoff(input.value));
+  clear.addEventListener("click", (): void => applyCutoff(""));
+
+  function applyCutoff(date: string): void {
+    apply.disabled = true;
+    clear.disabled = true;
+    setSeenBeforeDate(date)
+      .then((): void => showFeed())
+      .catch((): void => {
+        apply.disabled = false;
+        clear.disabled = false;
+      });
+  }
+
+  wrap.append(input, apply, clear, note);
+  return wrap;
 }
 
 function showHistory(): void {

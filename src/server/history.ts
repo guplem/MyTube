@@ -15,6 +15,7 @@ import type { Video } from "../shared/video";
 const CHUNK_PREFIX = "history_";
 const CHUNK_SIZE = 3000; // chars; stays under the 9KB-per-value limit even for multi-byte text
 const MAX_ENTRIES = 500; // keep the most recent; bounds the 500KB store
+const SEEN_BEFORE_KEY = "seenBeforeDate"; // a single date cutoff, not per-video history
 
 interface HistoryEntry {
   videoId: string;
@@ -45,6 +46,22 @@ export function markVideoSeen(video: Video): void {
 /** All seen video ids, used to flag videos in other lists. */
 export function getSeenVideoIds(): string[] {
   return readEntries().map((entry) => entry.videoId);
+}
+
+/**
+ * Date (YYYY-MM-DD) before which every video is treated as seen, or "" if unset.
+ * This is one stored cutoff instead of 1000+ history rows, so "mark everything
+ * before X as seen" stays cheap and never hits the history entry cap.
+ */
+export function getSeenBeforeDate(): string {
+  return PropertiesService.getUserProperties().getProperty(SEEN_BEFORE_KEY) ?? "";
+}
+
+/** Sets the seen-before cutoff date, or clears it when given "". */
+export function setSeenBeforeDate(date: string): void {
+  const properties = PropertiesService.getUserProperties();
+  if (date) properties.setProperty(SEEN_BEFORE_KEY, date);
+  else properties.deleteProperty(SEEN_BEFORE_KEY);
 }
 
 /** The watch history as Video[], newest first. */

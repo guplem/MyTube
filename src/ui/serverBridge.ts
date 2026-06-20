@@ -17,6 +17,8 @@ interface ScriptRunner {
   getComments(videoId: string): void;
   markVideoSeen(video: Video): void;
   getHistory(): void;
+  getSeenBeforeDate(): void;
+  setSeenBeforeDate(date: string): void;
   getPlaylists(): void;
   getPlaylistVideos(playlistId: string): void;
   getWatchLaterVideos(): void;
@@ -51,6 +53,14 @@ export function markVideoSeen(video: Video): Promise<void> {
 
 export function getHistory(): Promise<Video[]> {
   return call<Video[]>((runner) => runner.getHistory());
+}
+
+export function getSeenBeforeDate(): Promise<string> {
+  return call<string>((runner) => runner.getSeenBeforeDate());
+}
+
+export function setSeenBeforeDate(date: string): Promise<void> {
+  return call<void>((runner) => runner.setSeenBeforeDate(date));
 }
 
 export function getPlaylists(): Promise<PlaylistSummary[]> {
