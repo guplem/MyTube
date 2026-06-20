@@ -29,10 +29,14 @@ architecture or adding a feature.** Human setup/run/deploy: [README.md](README.m
 
 ## Gotchas
 
-- **Global functions:** esbuild wraps each bundle in an IIFE. Any function Apps
-  Script must find — `doGet`, `include`, and every function called via
-  `google.script.run` — must be assigned to `globalThis` at the bottom of
-  `src/server/main.ts`. Forgetting it gives a "function not found" error at runtime.
+- **Exposing server functions:** Apps Script only finds functions written as
+  top-level declarations in the pushed file, but esbuild wraps the bundle in an
+  IIFE. So `export` every function Apps Script must reach (`doGet`, `include`,
+  and every function the browser calls via `google.script.run`) from
+  `src/server/main.ts`. `build.mjs` reads those exports and appends matching
+  top-level wrapper functions to `dist/Code.js`. A function that is not exported
+  fails at runtime: "function not found" for `doGet`, or "is not a function" for
+  a `google.script.run` call.
 - **OAuth scopes grow per milestone** in `appsscript.json`. Adding a scope forces
   users to re-consent. The final scope set is in PLAN.md section 4.
 - **Watch Later and History are not readable via the YouTube API.** Never call

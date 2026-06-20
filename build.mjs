@@ -6,27 +6,48 @@
 //
 // dist/index.html includes dist/ui.html, and Apps Script serves index.html.
 //
-// Note: esbuild wraps each bundle in an IIFE. The server entry file
-// (src/server/main.ts) must attach its entry points (doGet, include, and any
-// function called from the browser) to globalThis, or Apps Script cannot find them.
+// Key detail: Apps Script only exposes a function to google.script.run / web app
+// entry points if it appears as a TOP-LEVEL function declaration in the pushed
+// file. esbuild wraps the bundle in an IIFE, hiding our declarations. So for the
+// server bundle we read every `export function` name from src/server/main.ts and
+// append top-level wrapper functions that forward into the bundle.
 
 import { build } from "esbuild";
-import { mkdir, copyFile, writeFile } from "node:fs/promises";
+import { mkdir, copyFile, writeFile, readFile } from "node:fs/promises";
 
 const DIST = "dist";
+const SERVER_ENTRY = "src/server/main.ts";
 
 await mkdir(DIST, { recursive: true });
 
 // 1. Server bundle -> dist/Code.js
+// Discover the functions to expose (every `export function` in the entry file).
+const serverSource = await readFile(SERVER_ENTRY, "utf8");
+const exposedFunctions = [...serverSource.matchAll(/export\s+function\s+(\w+)/g)].map(
+  (match) => match[1],
+);
+if (exposedFunctions.length === 0) {
+  throw new Error(`No "export function" found in ${SERVER_ENTRY}; nothing would be callable.`);
+}
+console.log("Exposing server functions to Apps Script:", exposedFunctions.join(", "));
+
+// Top-level wrappers that Apps Script can find, each forwarding to the bundle
+// (esbuild stores the entry's exports on the global __server when globalName is set).
+const globalWrappers = exposedFunctions
+  .map((name) => `function ${name}() { return __server.${name}.apply(__server, arguments); }`)
+  .join("\n");
+
 await build({
-  entryPoints: ["src/server/main.ts"],
+  entryPoints: [SERVER_ENTRY],
   bundle: true,
   format: "iife",
+  globalName: "__server",
   target: "es2020",
   outfile: `${DIST}/Code.js`,
   // Do not minify: keeping original names makes functions visible and debuggable
   // in the Apps Script editor.
   minify: false,
+  footer: { js: globalWrappers },
 });
 
 // 2. Browser bundle -> dist/ui.html (wrapped in a <script> tag)
