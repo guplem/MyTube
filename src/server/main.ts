@@ -10,6 +10,7 @@
 import type { Video } from "../shared/video";
 import type { PlaylistSummary } from "../shared/playlist";
 import type { VideoComment } from "../shared/comment";
+import type { FeedPage, FeedPageOptions } from "../shared/feed";
 import * as feed from "./feed";
 import * as youtube from "./youtube";
 import * as history from "./history";
@@ -28,13 +29,16 @@ export function include(filename: string): string {
 }
 
 /**
- * Recent uploads from the user's subscriptions, newest first, each flagged seen
- * against the watch history. Pass true to bypass the channel cache.
+ * One page of the subscriptions feed (newest first), each video flagged seen
+ * against the watch history. The full feed is built from the per-channel RSS
+ * cache on every call (cheap when warm); only the requested page is returned,
+ * so the browser never receives the whole 1000+ video list at once.
  */
-export function getUploadsFeed(forceRefresh: boolean): Video[] {
-  const videos = feed.getUploadsFeed(forceRefresh);
-  flagSeen(videos);
-  return videos;
+export function getFeedPage(options: FeedPageOptions): FeedPage {
+  const all = feed.getUploadsFeed(options.forceRefresh);
+  flagSeen(all);
+  const start = options.page * options.pageSize;
+  return { videos: all.slice(start, start + options.pageSize), total: all.length };
 }
 
 /** Description text of a single video, for the player screen. */

@@ -1,8 +1,15 @@
-// Renders a Video[] as a paginated grid of cards. Reused by every screen that
-// shows a list of videos: feed, playlists, Watch Later, history. See PLAN.md
-// section 13. onPlay reports the index in the FULL list (not the page) so the
-// caller opens the player with the whole list as its queue. Optional per-card
-// actions (e.g. add/remove Watch Later) render as buttons under each card.
+// Renders a paginated grid of video cards. Reused by every screen that shows a
+// list of videos: feed, playlists, Watch Later, history. See PLAN.md section 13.
+//
+// Two entry points share one renderer:
+//   - VideoListView(videos, options): pages over an in-memory array (small
+//     lists already fully loaded: playlists, Watch Later, history).
+//   - PagedVideoListView(load, options): pages by calling an async loader (the
+//     feed, which pages on the server so the browser never holds the whole list).
+//
+// onPlay reports the queue the player should use and the index within it. For
+// in-memory lists that queue is the full array (play continues across the whole
+// list); for the server-paged feed it is just the current page.
 
 import type { Video } from "../shared/video";
 
@@ -12,25 +19,42 @@ export interface VideoAction {
 }
 
 export interface VideoListOptions {
-  onPlay: (index: number) => void;
+  onPlay: (index: number, queue: Video[]) => void;
   actions?: VideoAction[];
 }
+
+interface VideoPage {
+  videos: Video[];
+  total: number;
+}
+
+/** Loads one page of videos. Returns the page slice and the total count. */
+type PageLoader = (page: number, pageSize: number) => Promise<VideoPage>;
 
 const PAGE_SIZE_OPTIONS = [24, 48, 96];
 const DEFAULT_PAGE_SIZE = 24;
 
+/** Paged list backed by an async loader (the feed pages on the server). */
+export function PagedVideoListView(load: PageLoader, options: VideoListOptions): HTMLElement {
+  return renderList(load, options, null);
+}
+
+/** In-memory list over a full array (playlists, Watch Later, history). */
 export function VideoListView(videos: Video[], options: VideoListOptions): HTMLElement {
+  const load: PageLoader = (page, pageSize) =>
+    Promise.resolve({
+      videos: videos.slice(page * pageSize, page * pageSize + pageSize),
+      total: videos.length,
+    });
+  return renderList(load, options, videos);
+}
+
+// fullQueue is the array to use as the player queue in in-memory mode, or null
+// for server-paged mode (where the queue is just the current page).
+function renderList(load: PageLoader, options: VideoListOptions, fullQueue: Video[] | null): HTMLElement {
   const actions = options.actions ?? [];
   const root = document.createElement("div");
   root.className = "list-view";
-
-  if (videos.length === 0) {
-    const empty = document.createElement("p");
-    empty.className = "muted";
-    empty.textContent = "No videos here yet.";
-    root.appendChild(empty);
-    return root;
-  }
 
   let pageSize = DEFAULT_PAGE_SIZE;
   let page = 0;
@@ -64,7 +88,7 @@ export function VideoListView(videos: Video[], options: VideoListOptions): HTMLE
   sizeSelect.addEventListener("change", (): void => {
     pageSize = Number(sizeSelect.value);
     page = 0;
-    render();
+    void render();
   });
   sizeLabel.append(document.createTextNode("Per page "), sizeSelect);
 
@@ -72,31 +96,62 @@ export function VideoListView(videos: Video[], options: VideoListOptions): HTMLE
 
   const grid = document.createElement("div");
   grid.className = "video-list";
+  grid.innerHTML = '<p class="muted">Loading…</p>';
 
   function goToPage(target: number): void {
     page = target;
-    render();
+    void render();
     window.scrollTo({ top: 0 });
   }
 
-  function render(): void {
-    const pageCount = Math.max(1, Math.ceil(videos.length / pageSize));
-    page = Math.min(Math.max(page, 0), pageCount - 1);
-    const start = page * pageSize;
-    const pageVideos = videos.slice(start, start + pageSize);
+  async function render(): Promise<void> {
+    prevButton.disabled = true;
+    nextButton.disabled = true;
+    let result: VideoPage;
+    try {
+      result = await load(page, pageSize);
+    } catch (error) {
+      grid.innerHTML = "";
+      const failure = document.createElement("p");
+      failure.className = "muted";
+      failure.textContent = `Could not load videos: ${(error as Error).message}`;
+      grid.appendChild(failure);
+      return;
+    }
+
+    const { videos, total } = result;
+    const pageCount = Math.max(1, Math.ceil(total / pageSize));
+    if (page > pageCount - 1) {
+      // The page no longer exists (e.g. a filter shrank the list); clamp and reload.
+      page = pageCount - 1;
+      void render();
+      return;
+    }
 
     grid.innerHTML = "";
-    pageVideos.forEach((video, indexInPage): void => {
-      grid.appendChild(videoCard(video, (): void => options.onPlay(start + indexInPage), actions));
+    if (total === 0) {
+      controls.style.display = "none";
+      const empty = document.createElement("p");
+      empty.className = "muted";
+      empty.textContent = "No videos here yet.";
+      grid.appendChild(empty);
+      return;
+    }
+    controls.style.display = "";
+
+    videos.forEach((video, indexInPage): void => {
+      const queue = fullQueue ?? videos;
+      const index = fullQueue ? page * pageSize + indexInPage : indexInPage;
+      grid.appendChild(videoCard(video, (): void => options.onPlay(index, queue), actions));
     });
 
-    info.textContent = `Page ${page + 1} of ${pageCount} · ${videos.length} videos`;
+    info.textContent = `Page ${page + 1} of ${pageCount} · ${total} videos`;
     prevButton.disabled = page <= 0;
     nextButton.disabled = page >= pageCount - 1;
   }
 
   root.append(controls, grid);
-  render();
+  void render();
   return root;
 }
 

@@ -7,11 +7,12 @@
 import type { Video } from "../shared/video";
 import type { PlaylistSummary } from "../shared/playlist";
 import type { VideoComment } from "../shared/comment";
+import type { FeedPage, FeedPageOptions } from "../shared/feed";
 
 interface ScriptRunner {
   withSuccessHandler<T>(callback: (value: T) => void): ScriptRunner;
   withFailureHandler(callback: (error: Error) => void): ScriptRunner;
-  getUploadsFeed(forceRefresh: boolean): void;
+  getFeedPage(options: FeedPageOptions): void;
   getVideoDescription(videoId: string): void;
   getComments(videoId: string): void;
   markVideoSeen(video: Video): void;
@@ -32,8 +33,8 @@ function call<T>(invoke: (runner: ScriptRunner) => void): Promise<T> {
   });
 }
 
-export function getUploadsFeed(forceRefresh: boolean): Promise<Video[]> {
-  return call<Video[]>((runner) => runner.getUploadsFeed(forceRefresh));
+export function getFeedPage(options: FeedPageOptions): Promise<FeedPage> {
+  return call<FeedPage>((runner) => runner.getFeedPage(options));
 }
 
 export function getVideoDescription(videoId: string): Promise<string> {

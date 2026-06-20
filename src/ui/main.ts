@@ -5,7 +5,7 @@
 import type { Video } from "../shared/video";
 import type { PlaylistSummary } from "../shared/playlist";
 import {
-  getUploadsFeed,
+  getFeedPage,
   getHistory,
   getPlaylists,
   getPlaylistVideos,
@@ -13,10 +13,8 @@ import {
   addToWatchLater,
   removeFromWatchLater,
 } from "./serverBridge";
-import { VideoListView, type VideoAction } from "./videoListView";
+import { VideoListView, PagedVideoListView, type VideoAction } from "./videoListView";
 import { PlayerView } from "./playerView";
-
-let feedVideos: Video[] = [];
 
 function appContainer(): HTMLElement | null {
   return document.getElementById("app");
@@ -61,7 +59,11 @@ function showPlayer(queue: Video[], startIndex: number, contextLabel: string, on
   app.appendChild(PlayerView({ queue, startIndex, contextLabel, onBack }));
 }
 
-function showFeed(): void {
+// The feed pages on the server (PagedVideoListView): each page is a separate
+// google.script.run call, so the browser never receives the whole 1000+ video
+// list at once. Refresh rebuilds the view and forces a fresh RSS fetch for the
+// first page load only (forceRefresh on every page would refetch all channels).
+function showFeed(forceFirstLoad: boolean = false): void {
   const app = appContainer();
   if (!app) return;
   app.innerHTML = "";
@@ -70,50 +72,42 @@ function showFeed(): void {
   refresh.type = "button";
   refresh.className = "refresh-button";
   refresh.textContent = "↻ Refresh";
-  refresh.addEventListener("click", refreshFeed);
+  refresh.addEventListener("click", (): void => showFeed(true));
   app.appendChild(refresh);
 
+  let pendingForce = forceFirstLoad;
   app.appendChild(
-    VideoListView(feedVideos, {
-      onPlay: (index): void => showPlayer(feedVideos, index, "Subscriptions", showFeed),
-      actions: [addToWatchLaterAction],
-    }),
+    PagedVideoListView(
+      (page, pageSize) => {
+        const forceRefresh = pendingForce;
+        pendingForce = false;
+        return getFeedPage({ page, pageSize, forceRefresh });
+      },
+      {
+        onPlay: (index, queue): void => showPlayer(queue, index, "Subscriptions", (): void => showFeed()),
+        actions: [addToWatchLaterAction],
+      },
+    ),
   );
 }
 
-// Re-fetches the feed bypassing the per-channel cache (the cached load is fast
-// but can be stale; this pulls fresh RSS for every channel).
-function refreshFeed(): void {
-  const app = appContainer();
-  if (!app) return;
-  app.textContent = "Refreshing your subscriptions…";
-  getUploadsFeed(true)
-    .then((videos): void => {
-      feedVideos = videos;
-      showFeed();
-    })
-    .catch((error: Error): void => {
-      app.textContent = `Could not refresh your feed: ${error.message}`;
-    });
-}
-
 function showHistory(): void {
-  renderVideoScreen("Loading your history…", getHistory(), (videos) => ({
-    onPlay: (index): void => showPlayer(videos, index, "History", showHistory),
+  renderVideoScreen("Loading your history…", getHistory(), () => ({
+    onPlay: (index, queue): void => showPlayer(queue, index, "History", showHistory),
     actions: [addToWatchLaterAction],
   }));
 }
 
 function showWatchLater(): void {
-  renderVideoScreen("Loading Watch Later…", getWatchLaterVideos(), (videos) => ({
-    onPlay: (index): void => showPlayer(videos, index, "Watch Later", showWatchLater),
+  renderVideoScreen("Loading Watch Later…", getWatchLaterVideos(), () => ({
+    onPlay: (index, queue): void => showPlayer(queue, index, "Watch Later", showWatchLater),
     actions: [removeFromWatchLaterAction],
   }));
 }
 
 function showPlaylist(playlist: PlaylistSummary): void {
-  renderVideoScreen(`Loading "${playlist.title}"…`, getPlaylistVideos(playlist.playlistId), (videos) => ({
-    onPlay: (index): void => showPlayer(videos, index, playlist.title, (): void => showPlaylist(playlist)),
+  renderVideoScreen(`Loading "${playlist.title}"…`, getPlaylistVideos(playlist.playlistId), () => ({
+    onPlay: (index, queue): void => showPlayer(queue, index, playlist.title, (): void => showPlaylist(playlist)),
     actions: [addToWatchLaterAction],
   }));
 }
@@ -151,7 +145,7 @@ function showPlaylists(): void {
 function renderVideoScreen(
   loadingMessage: string,
   load: Promise<Video[]>,
-  optionsFor: (videos: Video[]) => { onPlay: (index: number) => void; actions: VideoAction[] },
+  optionsFor: () => { onPlay: (index: number, queue: Video[]) => void; actions: VideoAction[] },
 ): void {
   const app = appContainer();
   if (!app) return;
@@ -159,7 +153,7 @@ function renderVideoScreen(
   load
     .then((videos): void => {
       app.innerHTML = "";
-      app.appendChild(VideoListView(videos, optionsFor(videos)));
+      app.appendChild(VideoListView(videos, optionsFor()));
     })
     .catch((error: Error): void => {
       app.textContent = `Could not load this list: ${error.message}`;
@@ -208,23 +202,17 @@ function setupSearch(): void {
   });
 }
 
-async function start(): Promise<void> {
+function start(): void {
   const app = appContainer();
   if (!app) return;
   setupNav();
   setupSearch();
-  app.textContent = "Loading your subscriptions…";
-  try {
-    feedVideos = await getUploadsFeed(false);
-    showFeed();
-  } catch (error) {
-    app.textContent = `Could not load your feed: ${(error as Error).message}`;
-  }
+  showFeed();
 }
 
 // Run only after the page (and the google.script bridge) is fully loaded.
 if (document.readyState === "complete") {
-  void start();
+  start();
 } else {
-  window.addEventListener("load", (): void => void start());
+  window.addEventListener("load", (): void => start());
 }
