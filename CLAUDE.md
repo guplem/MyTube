@@ -47,6 +47,12 @@ architecture or adding a feature.** Human setup/run/deploy: [README.md](README.m
   the resulting `seen` flag.
 - UI toggles persist in `localStorage` via `src/ui/preferences.ts` (works inside
   the Apps Script iframe; no server round-trip).
+- **All navigation goes through `go()`/`render()` in `src/ui/main.ts`.** A
+  `Screen` describes the view; `go()` renders it and pushes it to the URL,
+  `render()` only draws (used by back/forward and first load). State lives in the
+  URL via `src/ui/urlState.ts` (`google.script.history`/`google.script.url`,
+  with a no-op fallback). Add a screen to the `Screen` type plus `paramsFor`,
+  `screenFromParams`, and `sectionOf`; never render a screen without routing it.
 
 ## Architecture decisions (ADRs)
 
