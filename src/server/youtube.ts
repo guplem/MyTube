@@ -198,7 +198,13 @@ export function getVideoDurationsSeconds(videoIds: string[]): { [id: string]: nu
   if (videoIds.length === 0) return result;
 
   const cache = CacheService.getScriptCache();
-  const cached = cache.getAll(videoIds.map((id) => DURATION_CACHE_PREFIX + id));
+  const keys = videoIds.map((id) => DURATION_CACHE_PREFIX + id);
+  // getAll has a per-call size limit, and the feed can be 1000+ ids; read in
+  // chunks so a large feed never trips it.
+  const cached: { [key: string]: string } = {};
+  for (let offset = 0; offset < keys.length; offset += 100) {
+    Object.assign(cached, cache.getAll(keys.slice(offset, offset + 100)));
+  }
   const missing: string[] = [];
   for (const id of videoIds) {
     const hit = cached[DURATION_CACHE_PREFIX + id];
