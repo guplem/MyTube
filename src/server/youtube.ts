@@ -115,7 +115,9 @@ export function getPlaylistVideos(playlistId: string): Video[] {
         channelId: snippet.videoOwnerChannelId ?? snippet.channelId ?? "",
         channelTitle: snippet.videoOwnerChannelTitle ?? snippet.channelTitle ?? "",
         thumbnailUrl: bestThumbnailUrl(snippet.thumbnails),
-        publishedAt: snippet.publishedAt ?? "",
+        // Use the video's real upload date (contentDetails.videoPublishedAt),
+        // not snippet.publishedAt, which is the date it was added to the playlist.
+        publishedAt: item.contentDetails?.videoPublishedAt ?? snippet.publishedAt ?? "",
         seen: false,
       });
     }

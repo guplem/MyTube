@@ -296,15 +296,17 @@ function showHistory(): void {
   }));
 }
 
+// Watch Later defaults to oldest upload first (the natural "watch the backlog"
+// order); other playlists default to their YouTube order.
 function showWatchLater(): void {
-  renderVideoScreen(getWatchLaterVideos(), () => ({
+  renderPlaylistScreen(getWatchLaterVideos(), "oldest", () => ({
     onPlay: (index, queue): void => playFromList(queue, index, { source: "watchlater" }),
     actions: [watchLaterSeenAction, removeFromWatchLaterAction],
   }));
 }
 
 function showPlaylist(playlistId: string, title: string): void {
-  renderVideoScreen(getPlaylistVideos(playlistId), () => ({
+  renderPlaylistScreen(getPlaylistVideos(playlistId), "playlist", () => ({
     onPlay: (index, queue): void =>
       playFromList(queue, index, { source: "playlist", playlistId, title }),
     actions: [addToWatchLaterAction, markSeenAction],
@@ -368,6 +370,78 @@ function renderVideoScreen(
     .then((videos): void => {
       app.innerHTML = "";
       app.appendChild(VideoListView(videos, optionsFor()));
+    })
+    .catch((error: Error): void => {
+      app.textContent = `Could not load this list: ${error.message}`;
+    });
+}
+
+// Sort orders offered on playlist screens. "playlist" keeps YouTube's own order.
+type SortKey = "playlist" | "newest" | "oldest" | "title";
+
+const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: "playlist", label: "Playlist order" },
+  { key: "newest", label: "Upload date (newest first)" },
+  { key: "oldest", label: "Upload date (oldest first)" },
+  { key: "title", label: "Title (A–Z)" },
+];
+
+// Returns a sorted copy; "playlist" keeps the original (YouTube) order.
+function sortVideos(videos: Video[], key: SortKey): Video[] {
+  if (key === "playlist") return videos;
+  const sorted = videos.slice();
+  if (key === "newest") sorted.sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
+  else if (key === "oldest") sorted.sort((a, b) => a.publishedAt.localeCompare(b.publishedAt));
+  else sorted.sort((a, b) => a.title.localeCompare(b.title));
+  return sorted;
+}
+
+// Like renderVideoScreen, but with a sort-order selector at the top. Re-sorting
+// re-renders only the list. The player queue follows the displayed order.
+function renderPlaylistScreen(
+  load: Promise<Video[]>,
+  defaultSort: SortKey,
+  optionsFor: () => { onPlay: (index: number, queue: Video[]) => void; actions: VideoAction[] },
+): void {
+  const app = appContainer();
+  if (!app) return;
+  app.innerHTML = "";
+  app.appendChild(skeletonGrid());
+  load
+    .then((videos): void => {
+      app.innerHTML = "";
+      let currentSort = defaultSort;
+
+      const toolbar = document.createElement("div");
+      toolbar.className = "feed-toolbar";
+      const label = document.createElement("label");
+      label.className = "feed-toggle";
+      const select = document.createElement("select");
+      select.className = "sort-select";
+      for (const option of SORT_OPTIONS) {
+        const element = document.createElement("option");
+        element.value = option.key;
+        element.textContent = option.label;
+        if (option.key === currentSort) element.selected = true;
+        select.appendChild(element);
+      }
+      label.append(document.createTextNode("Sort "), select);
+      toolbar.appendChild(label);
+
+      const listHost = document.createElement("div");
+
+      function renderList(): void {
+        listHost.innerHTML = "";
+        listHost.appendChild(VideoListView(sortVideos(videos, currentSort), optionsFor()));
+      }
+
+      select.addEventListener("change", (): void => {
+        currentSort = select.value as SortKey;
+        renderList();
+      });
+
+      app.append(toolbar, listHost);
+      renderList();
     })
     .catch((error: Error): void => {
       app.textContent = `Could not load this list: ${error.message}`;
