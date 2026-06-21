@@ -85,6 +85,8 @@ You do these once. They need your Google login and cannot be scripted.
      - `userinfo.email` — who is logged in.
      - `youtube` — manage your YouTube account (needed to create and edit the
        Watch Later playlist).
+     - `youtube.force-ssl` — read video comments (the comment endpoints require
+       this scope).
      - `script.external_request` — fetch channel RSS feeds.
    - Set publishing status to **In production** so anyone can log in. PLAN.md
      section 4 explains the unverified-app warning and the user cap.

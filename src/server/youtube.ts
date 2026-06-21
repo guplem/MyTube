@@ -316,9 +316,15 @@ export function getComments(videoId: string): VideoComment[] {
       order: "relevance",
       textFormat: "plainText",
     });
-  } catch {
-    // Comments are disabled for some videos; the API throws. Treat as none.
-    return [];
+  } catch (error) {
+    const message = String((error as { message?: string })?.message ?? error);
+    // A video with comments turned off returns "disabled comments"; that is a
+    // normal empty case. Surface anything else (e.g. a missing OAuth scope)
+    // instead of silently hiding it as "No comments".
+    if (message.indexOf("disabled comments") >= 0 || message.indexOf("commentsDisabled") >= 0) {
+      return [];
+    }
+    throw new Error(message);
   }
   const comments: VideoComment[] = [];
   for (const thread of response.items ?? []) {

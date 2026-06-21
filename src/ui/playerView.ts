@@ -185,8 +185,8 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     comments.textContent = "Loading comments…";
     try {
       renderComments(await getComments(videoId));
-    } catch {
-      comments.textContent = "(could not load comments)";
+    } catch (error) {
+      comments.textContent = "Could not load comments: " + (error as Error).message;
     }
   }
 
