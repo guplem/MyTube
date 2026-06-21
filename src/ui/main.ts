@@ -19,7 +19,7 @@ import {
   removeVideoDismissed,
 } from "./serverBridge";
 import { VideoListView, PagedVideoListView, skeletonGrid, type VideoAction } from "./videoListView";
-import { PlayerView } from "./playerView";
+import { PlayerView, type PlayerController } from "./playerView";
 import {
   getBoolPreference,
   setBoolPreference,
@@ -456,6 +456,10 @@ function renderPlaylistScreen(
 
 // --- Player ----------------------------------------------------------------
 
+// The currently mounted player, so back/forward and prev/next can switch the
+// video in place (loadVideoById) instead of reloading the iframe.
+let activePlayer: { controller: PlayerController; key: string } | null = null;
+
 function playFromList(queue: Video[], index: number, context: PlayerContext): void {
   const video = queue[index];
   if (!video) return;
@@ -464,23 +468,55 @@ function playFromList(queue: Video[], index: number, context: PlayerContext): vo
 
 function renderPlayer(screen: PlayerScreen): void {
   if (screen.queue && screen.queue.length > 0) {
-    mountPlayer(screen, screen.queue, screen.index ?? 0);
+    showPlayer(screen, screen.queue);
     return;
   }
   // No in-memory queue (shared link or forward navigation): rebuild it.
   const app = appContainer();
   if (app) app.textContent = "Loading video…";
   rebuildQueue(screen.context, screen.videoId)
-    .then((queue): void => {
-      const index = Math.max(
-        0,
-        queue.findIndex((video) => video.videoId === screen.videoId),
-      );
-      mountPlayer(screen, queue, index);
-    })
-    .catch((): void => {
-      mountPlayer(screen, [minimalVideo(screen.videoId)], 0);
-    });
+    .then((queue): void => showPlayer(screen, queue))
+    .catch((): void => showPlayer(screen, [minimalVideo(screen.videoId)]));
+}
+
+// Shows the player for a screen. If a player for the same queue is already
+// mounted (prev/next or back/forward within the same session), it just switches
+// the video in place; otherwise it mounts a fresh player.
+function showPlayer(screen: PlayerScreen, queue: Video[]): void {
+  const key = playerQueueKey(screen.context, queue);
+  if (activePlayer && activePlayer.key === key && activePlayer.controller.hasVideo(screen.videoId)) {
+    activePlayer.controller.goToVideo(screen.videoId);
+    return;
+  }
+  const app = appContainer();
+  if (!app) return;
+  clearActivePlayer();
+  app.innerHTML = "";
+  const controller = PlayerView({
+    queue,
+    startIndex: Math.max(0, queue.findIndex((video) => video.videoId === screen.videoId)),
+    contextLabel: screen.label,
+    onBack: (): void => go(screenForContext(screen.context)),
+    // prev/next/autoplay request navigation; go() pushes one history entry per
+    // video, then drives this same player via goToVideo above.
+    onNavigate: (videoId, navIndex): void => go({ ...screen, videoId, index: navIndex, queue }),
+  });
+  activePlayer = { controller, key };
+  app.appendChild(controller.element);
+}
+
+// Identifies a player session: same source and same ordered queue. Back/forward
+// to a video in this same queue updates the live player rather than remounting.
+function playerQueueKey(context: PlayerContext, queue: Video[]): string {
+  const base = context.source === "playlist" ? "playlist:" + context.playlistId : context.source;
+  return base + "|" + queue.map((video) => video.videoId).join(",");
+}
+
+function clearActivePlayer(): void {
+  if (activePlayer) {
+    activePlayer.controller.destroy();
+    activePlayer = null;
+  }
 }
 
 function rebuildQueue(context: PlayerContext, videoId: string): Promise<Video[]> {
@@ -502,26 +538,6 @@ function minimalVideo(videoId: string): Video {
   return { videoId, title: "", channelId: "", channelTitle: "", thumbnailUrl: "", publishedAt: "", seen: false };
 }
 
-function mountPlayer(screen: PlayerScreen, queue: Video[], index: number): void {
-  const app = appContainer();
-  if (!app) return;
-  app.innerHTML = "";
-  app.appendChild(
-    PlayerView({
-      queue,
-      startIndex: index,
-      contextLabel: screen.label,
-      onBack: (): void => go(screenForContext(screen.context)),
-      onVideoChange: (videoId, currentIndex): void => {
-        // Reflect the current video in the URL without a new history entry, so
-        // the link is shareable but prev/next does not flood back/forward.
-        const next: PlayerScreen = { ...screen, videoId, index: currentIndex, queue };
-        replaceUrlState(next, paramsFor(next));
-      },
-    }),
-  );
-}
-
 // --- Routing ---------------------------------------------------------------
 
 function go(screen: Screen): void {
@@ -535,6 +551,8 @@ function go(screen: Screen): void {
 
 function render(screen: Screen): void {
   setActiveNav(sectionOf(screen));
+  // Leaving the player: tear down the YouTube iframe so it stops playing.
+  if (screen.view !== "player") clearActivePlayer();
   switch (screen.view) {
     case "watchlater":
       showWatchLater();

@@ -1,9 +1,14 @@
 // The player screen. Embeds the YouTube IFrame player with basic controls and
 // no recommendation rabbit hole: when a video ends it shows a "next / back" card
 // (or auto-advances if the toggle is on), so the YouTube end-screen never takes
-// over. Reused by every screen that plays a list: the feed now, playlists and
-// Watch Later later. Input is an ordered Video[] queue plus a start index.
-// See PLAN.md section 13.
+// over. Reused by every screen that plays a list. Input is an ordered Video[]
+// queue plus a start index. See PLAN.md section 13.
+//
+// The player is URL-driven: prev/next, autoplay, and the end card do NOT change
+// the video directly. They call onNavigate, which the router turns into a history
+// push; the router then drives playback via the returned controller's goToVideo.
+// So every video is its own history entry, and back/forward update this same
+// player in place (loadVideoById) instead of reloading the iframe.
 
 import type { Video } from "../shared/video";
 import type { VideoComment } from "../shared/comment";
@@ -32,8 +37,18 @@ export interface PlayerViewProps {
   startIndex: number;
   contextLabel: string;
   onBack: () => void;
-  /** Called whenever the playing video changes, so the caller can sync the URL. */
-  onVideoChange?: (videoId: string, index: number) => void;
+  /** Request navigation to another video in the queue (the router pushes history). */
+  onNavigate: (videoId: string, index: number) => void;
+}
+
+// Handle the router holds onto a mounted player so it can drive it (back/forward,
+// prev/next) without remounting the iframe.
+export interface PlayerController {
+  element: HTMLElement;
+  hasVideo(videoId: string): boolean;
+  /** Play a video already in the queue, without pushing history. */
+  goToVideo(videoId: string): void;
+  destroy(): void;
 }
 
 // The IFrame API script is loaded once for the whole app and shared by players.
@@ -58,8 +73,8 @@ function loadYouTubeApi(): Promise<YouTubeNamespace> {
   return youTubeApiPromise;
 }
 
-export function PlayerView(props: PlayerViewProps): HTMLElement {
-  const { queue, contextLabel, onBack, onVideoChange } = props;
+export function PlayerView(props: PlayerViewProps): PlayerController {
+  const { queue, contextLabel, onBack, onNavigate } = props;
   let currentIndex = Math.max(0, Math.min(props.startIndex, queue.length - 1));
   let autoplayNext = false;
   let player: YouTubePlayer | null = null;
@@ -73,7 +88,7 @@ export function PlayerView(props: PlayerViewProps): HTMLElement {
   const backButton = document.createElement("button");
   backButton.type = "button";
   backButton.textContent = "← Back";
-  backButton.addEventListener("click", leave);
+  backButton.addEventListener("click", (): void => onBack());
 
   const position = document.createElement("span");
   position.className = "player-position";
@@ -117,11 +132,11 @@ export function PlayerView(props: PlayerViewProps): HTMLElement {
   const prevButton = document.createElement("button");
   prevButton.type = "button";
   prevButton.textContent = "← Previous";
-  prevButton.addEventListener("click", (): void => void playAt(currentIndex - 1));
+  prevButton.addEventListener("click", (): void => requestNavigate(currentIndex - 1));
   const nextButton = document.createElement("button");
   nextButton.type = "button";
   nextButton.textContent = "Next →";
-  nextButton.addEventListener("click", (): void => void playAt(currentIndex + 1));
+  nextButton.addEventListener("click", (): void => requestNavigate(currentIndex + 1));
   nav.append(prevButton, nextButton);
 
   const description = document.createElement("p");
@@ -139,9 +154,10 @@ export function PlayerView(props: PlayerViewProps): HTMLElement {
 
   root.append(bar, frame, title, nav, description, commentsHeading, comments, endCard);
 
-  function leave(): void {
-    if (player) player.destroy();
-    onBack();
+  // Ask the router to navigate; it pushes history and calls goToVideo back.
+  function requestNavigate(index: number): void {
+    if (index < 0 || index >= queue.length) return;
+    onNavigate(queue[index].videoId, index);
   }
 
   function updateChrome(): void {
@@ -211,14 +227,14 @@ export function PlayerView(props: PlayerViewProps): HTMLElement {
       const playNext = document.createElement("button");
       playNext.type = "button";
       playNext.textContent = "Play next";
-      playNext.addEventListener("click", (): void => void playAt(currentIndex + 1));
+      playNext.addEventListener("click", (): void => requestNavigate(currentIndex + 1));
       endCard.appendChild(playNext);
     }
 
     const back = document.createElement("button");
     back.type = "button";
     back.textContent = "Back to list";
-    back.addEventListener("click", leave);
+    back.addEventListener("click", (): void => onBack());
     endCard.appendChild(back);
 
     endCard.hidden = false;
@@ -227,19 +243,19 @@ export function PlayerView(props: PlayerViewProps): HTMLElement {
   function handleStateChange(event: YouTubePlayerEvent): void {
     if (event.data !== PLAYER_STATE_ENDED) return;
     if (autoplayNext && currentIndex < queue.length - 1) {
-      void playAt(currentIndex + 1);
+      requestNavigate(currentIndex + 1);
     } else {
       showEndCard();
     }
   }
 
+  // Pure playback: load and show the video at index. Does not touch history.
   async function playAt(index: number): Promise<void> {
     if (index < 0 || index >= queue.length) return;
     currentIndex = index;
     const video = queue[currentIndex];
     endCard.hidden = true;
     updateChrome();
-    if (onVideoChange) onVideoChange(video.videoId, currentIndex);
     void loadDescription(video.videoId);
     void loadComments(video.videoId);
 
@@ -256,5 +272,19 @@ export function PlayerView(props: PlayerViewProps): HTMLElement {
   }
 
   void playAt(currentIndex);
-  return root;
+
+  return {
+    element: root,
+    hasVideo: (videoId: string): boolean => queue.some((video) => video.videoId === videoId),
+    goToVideo: (videoId: string): void => {
+      const index = queue.findIndex((video) => video.videoId === videoId);
+      if (index >= 0) void playAt(index);
+    },
+    destroy: (): void => {
+      if (player) {
+        player.destroy();
+        player = null;
+      }
+    },
+  };
 }
