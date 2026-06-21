@@ -8,7 +8,7 @@
     "build": "node build.mjs",
     "typecheck": "tsc --noEmit",
     "push": "npm run build && clasp push -f",
-    "deploy": "npm run build && clasp push -f && clasp deploy"
+    "deploy": "npm run build && clasp push -f && clasp deploy -i AKfycbxKXGIgGhnj4jFBsx9KvMLQW9tRbVToQN2jfyZXrGRcWUynjrX6oWBnUDleJZlvT9E1"
   },
   "devDependencies": {
     "@google/clasp": "^2.4.2",
