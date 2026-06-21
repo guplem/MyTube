@@ -94,6 +94,10 @@ a pattern future code must follow).
   double-quoted concatenation instead (see `setupSearch` in `src/ui/main.ts`).
 - **OAuth scopes grow per milestone** in `appsscript.json`. Adding a scope forces
   users to re-consent. The final scope set is in PLAN.md section 4.
+- **Reading comments needs the `youtube.force-ssl` scope** — the `youtube` scope
+  does NOT authorize `commentThreads.list`. `getComments` returns `[]` only for
+  comments-disabled videos and throws on any other error, so a missing scope
+  surfaces in the UI instead of hiding silently as "No comments".
 - **Watch Later and History are not readable via the YouTube API.** Never call
   the API for them. Watch Later is our own playlist; history is per-user script
   properties (PLAN.md sections 2 and 6, ADR 0005).

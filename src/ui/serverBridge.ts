@@ -6,7 +6,7 @@
 
 import type { Video } from "../shared/video";
 import type { PlaylistSummary } from "../shared/playlist";
-import type { VideoComment } from "../shared/comment";
+import type { CommentOrder, CommentPage } from "../shared/comment";
 import type { FeedPage, FeedPageOptions } from "../shared/feed";
 
 interface ScriptRunner {
@@ -14,7 +14,7 @@ interface ScriptRunner {
   withFailureHandler(callback: (error: Error) => void): ScriptRunner;
   getFeedPage(options: FeedPageOptions): void;
   getVideoDescription(videoId: string): void;
-  getComments(videoId: string): void;
+  getComments(videoId: string, order: CommentOrder, pageToken: string): void;
   markVideoSeen(video: Video): void;
   removeVideoSeen(videoId: string): void;
   markVideoDismissed(videoId: string): void;
@@ -44,8 +44,12 @@ export function getVideoDescription(videoId: string): Promise<string> {
   return call<string>((runner) => runner.getVideoDescription(videoId));
 }
 
-export function getComments(videoId: string): Promise<VideoComment[]> {
-  return call<VideoComment[]>((runner) => runner.getComments(videoId));
+export function getComments(
+  videoId: string,
+  order: CommentOrder,
+  pageToken: string,
+): Promise<CommentPage> {
+  return call<CommentPage>((runner) => runner.getComments(videoId, order, pageToken));
 }
 
 export function markVideoSeen(video: Video): Promise<void> {

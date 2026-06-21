@@ -11,7 +11,7 @@
 // player in place (loadVideoById) instead of reloading the iframe.
 
 import type { Video } from "../shared/video";
-import type { VideoComment } from "../shared/comment";
+import type { VideoComment, CommentOrder } from "../shared/comment";
 import { getVideoDescription, getComments, markVideoSeen } from "./serverBridge";
 
 // Minimal typing for the YouTube IFrame Player API (loaded from youtube.com).
@@ -25,12 +25,16 @@ interface YouTubePlayerOptions {
 }
 interface YouTubePlayer {
   loadVideoById(videoId: string): void;
+  seekTo(seconds: number, allowSeekAhead: boolean): void;
   destroy(): void;
 }
 interface YouTubeNamespace {
   Player: new (element: HTMLElement, options: YouTubePlayerOptions) => YouTubePlayer;
 }
 const PLAYER_STATE_ENDED = 0;
+
+// Matches "M:SS" and "H:MM:SS" timestamps in comment/description text.
+const TIMESTAMP_PATTERN = /(\d{1,2}):([0-5]\d)(?::([0-5]\d))?/g;
 
 export interface PlayerViewProps {
   queue: Video[];
@@ -78,6 +82,12 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   let currentIndex = Math.max(0, Math.min(props.startIndex, queue.length - 1));
   let autoplayNext = false;
   let player: YouTubePlayer | null = null;
+
+  // Comment paging/sorting state.
+  let commentsOrder: CommentOrder = "relevance";
+  let commentsToken = "";
+  let commentsVideoId = "";
+  let commentsLoading = false;
 
   const root = document.createElement("div");
   root.className = "player-view";
@@ -137,22 +147,58 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   const description = document.createElement("p");
   description.className = "player-desc";
 
+  // Comments header: title + sort selector.
+  const commentsHeader = document.createElement("div");
+  commentsHeader.className = "player-comments-header";
   const commentsHeading = document.createElement("h3");
   commentsHeading.className = "player-comments-heading";
   commentsHeading.textContent = "Comments";
+  const orderSelect = document.createElement("select");
+  orderSelect.className = "sort-select";
+  for (const option of [
+    { value: "relevance", label: "Top comments" },
+    { value: "time", label: "Newest first" },
+  ]) {
+    const element = document.createElement("option");
+    element.value = option.value;
+    element.textContent = option.label;
+    orderSelect.appendChild(element);
+  }
+  orderSelect.addEventListener("change", (): void => {
+    commentsOrder = orderSelect.value as CommentOrder;
+    if (commentsVideoId) loadComments(commentsVideoId);
+  });
+  commentsHeader.append(commentsHeading, orderSelect);
+
   const comments = document.createElement("div");
   comments.className = "player-comments";
+
+  const showMoreButton = document.createElement("button");
+  showMoreButton.type = "button";
+  showMoreButton.className = "show-more";
+  showMoreButton.textContent = "Show more comments";
+  showMoreButton.hidden = true;
+  showMoreButton.addEventListener("click", (): void => {
+    if (commentsVideoId) void fetchCommentsPage(commentsVideoId, false);
+  });
 
   const endCard = document.createElement("div");
   endCard.className = "player-end-card";
   endCard.hidden = true;
 
-  root.append(bar, frame, title, nav, description, commentsHeading, comments, endCard);
+  root.append(bar, frame, title, nav, description, commentsHeader, comments, showMoreButton, endCard);
 
   // Ask the router to navigate; it pushes history and calls goToVideo back.
   function requestNavigate(index: number): void {
     if (index < 0 || index >= queue.length) return;
     onNavigate(queue[index].videoId, index);
+  }
+
+  // Seeks the current video to a timestamp (clicked in a comment or description)
+  // and scrolls back up so the player is visible.
+  function seek(seconds: number): void {
+    if (player) player.seekTo(seconds, true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function updateChrome(): void {
@@ -175,38 +221,109 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     description.textContent = "Loading description…";
     try {
       const text = await getVideoDescription(videoId);
-      description.textContent = text || "(no description)";
+      if (queue[currentIndex]?.videoId !== videoId) return; // video changed mid-load
+      if (text) appendTextWithTimestamps(description, text);
+      else description.textContent = "(no description)";
     } catch {
       description.textContent = "(could not load description)";
     }
   }
 
-  async function loadComments(videoId: string): Promise<void> {
+  // Resets and loads the first page of comments for a video.
+  function loadComments(videoId: string): void {
+    commentsVideoId = videoId;
+    commentsToken = "";
+    comments.innerHTML = "";
     comments.textContent = "Loading comments…";
+    showMoreButton.hidden = true;
+    void fetchCommentsPage(videoId, true);
+  }
+
+  async function fetchCommentsPage(videoId: string, first: boolean): Promise<void> {
+    if (commentsLoading) return;
+    commentsLoading = true;
+    showMoreButton.disabled = true;
     try {
-      renderComments(await getComments(videoId));
+      const page = await getComments(videoId, commentsOrder, commentsToken);
+      if (commentsVideoId !== videoId) return; // a different video loaded meanwhile
+      if (first) comments.innerHTML = "";
+      if (first && page.comments.length === 0) {
+        comments.textContent = "No comments.";
+      }
+      for (const comment of page.comments) comments.appendChild(renderComment(comment));
+      commentsToken = page.nextPageToken;
+      showMoreButton.hidden = commentsToken === "";
     } catch (error) {
+      if (commentsVideoId !== videoId) return;
       comments.textContent = "Could not load comments: " + (error as Error).message;
+      showMoreButton.hidden = true;
+    } finally {
+      commentsLoading = false;
+      showMoreButton.disabled = false;
     }
   }
 
-  function renderComments(list: VideoComment[]): void {
-    comments.innerHTML = "";
-    if (list.length === 0) {
-      comments.textContent = "No comments.";
-      return;
+  function renderComment(comment: VideoComment): HTMLElement {
+    const item = document.createElement("div");
+    item.className = "comment";
+
+    const avatar = document.createElement("img");
+    avatar.className = "comment-avatar";
+    avatar.src = comment.authorImageUrl;
+    avatar.alt = "";
+    avatar.loading = "lazy";
+
+    const body = document.createElement("div");
+    body.className = "comment-body";
+
+    const head = document.createElement("div");
+    head.className = "comment-head";
+    const author = document.createElement("span");
+    author.className = "comment-author";
+    author.textContent = comment.author;
+    const time = document.createElement("span");
+    time.className = "comment-time";
+    time.textContent = formatRelativeTime(comment.publishedAt);
+    head.append(author, time);
+
+    const text = document.createElement("div");
+    text.className = "comment-text";
+    appendTextWithTimestamps(text, comment.text);
+
+    const meta = document.createElement("div");
+    meta.className = "comment-meta";
+    meta.textContent = "👍 " + formatCount(comment.likeCount);
+
+    body.append(head, text, meta);
+    item.append(avatar, body);
+    return item;
+  }
+
+  // Fills an element with text, turning timestamps into buttons that seek.
+  function appendTextWithTimestamps(container: HTMLElement, text: string): void {
+    container.textContent = "";
+    TIMESTAMP_PATTERN.lastIndex = 0;
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = TIMESTAMP_PATTERN.exec(text)) !== null) {
+      const [whole, hoursOrMinutes, middle, maybeSeconds] = match;
+      if (match.index > lastIndex) {
+        container.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+      }
+      const seconds =
+        maybeSeconds !== undefined
+          ? Number(hoursOrMinutes) * 3600 + Number(middle) * 60 + Number(maybeSeconds)
+          : Number(hoursOrMinutes) * 60 + Number(middle);
+      const link = document.createElement("button");
+      link.type = "button";
+      link.className = "ts-link";
+      link.textContent = whole;
+      link.addEventListener("click", (): void => seek(seconds));
+      container.appendChild(link);
+      lastIndex = match.index + whole.length;
     }
-    for (const comment of list) {
-      const item = document.createElement("div");
-      item.className = "comment";
-      const author = document.createElement("span");
-      author.className = "comment-author";
-      author.textContent = comment.author;
-      const text = document.createElement("span");
-      text.className = "comment-text";
-      text.textContent = comment.text;
-      item.append(author, text);
-      comments.appendChild(item);
+    if (lastIndex < text.length) {
+      container.appendChild(document.createTextNode(text.slice(lastIndex)));
     }
   }
 
@@ -252,7 +369,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     endCard.hidden = true;
     updateChrome();
     void loadDescription(video.videoId);
-    void loadComments(video.videoId);
+    loadComments(video.videoId);
 
     const api = await loadYouTubeApi();
     if (!player) {
@@ -282,4 +399,38 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
       }
     },
   };
+}
+
+// Seconds-of-day relative time like "3 days ago". Falls back to a date string.
+function formatRelativeTime(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return "";
+  try {
+    const diffSeconds = Math.round((then - Date.now()) / 1000);
+    const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+    const units: [number, Intl.RelativeTimeFormatUnit][] = [
+      [31557600, "year"],
+      [2629800, "month"],
+      [604800, "week"],
+      [86400, "day"],
+      [3600, "hour"],
+      [60, "minute"],
+      [1, "second"],
+    ];
+    for (const [secondsPerUnit, unit] of units) {
+      if (Math.abs(diffSeconds) >= secondsPerUnit || unit === "second") {
+        return formatter.format(Math.round(diffSeconds / secondsPerUnit), unit);
+      }
+    }
+    return "";
+  } catch {
+    return new Date(iso).toLocaleDateString();
+  }
+}
+
+// Compact like count: 1234 -> "1.2K", 1200000 -> "1.2M".
+function formatCount(count: number): string {
+  if (count >= 1000000) return (count / 1000000).toFixed(1).replace(/\.0$/, "") + "M";
+  if (count >= 1000) return (count / 1000).toFixed(1).replace(/\.0$/, "") + "K";
+  return String(count);
 }

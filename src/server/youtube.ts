@@ -6,7 +6,7 @@
 
 import type { Video } from "../shared/video";
 import type { PlaylistSummary } from "../shared/playlist";
-import type { VideoComment } from "../shared/comment";
+import type { VideoComment, CommentOrder, CommentPage } from "../shared/comment";
 
 export interface SubscriptionChannel {
   channelId: string;
@@ -306,15 +306,20 @@ function parseIso8601Duration(iso: string): number {
   return days * 86400 + hours * 3600 + minutes * 60 + seconds;
 }
 
-/** Top-level comments for a video, most relevant first. Empty if comments are disabled. */
-export function getComments(videoId: string): VideoComment[] {
+/**
+ * One page of top-level comments for a video. order is "relevance" or "time";
+ * pageToken is "" for the first page. Returns no comments (not an error) when
+ * the video has comments turned off.
+ */
+export function getComments(videoId: string, order: CommentOrder, pageToken: string): CommentPage {
   let response: GoogleAppsScript.YouTube.Schema.CommentThreadListResponse;
   try {
     response = YouTube.CommentThreads!.list("snippet", {
       videoId,
       maxResults: 50,
-      order: "relevance",
+      order,
       textFormat: "plainText",
+      pageToken: pageToken || undefined,
     });
   } catch (error) {
     const message = String((error as { message?: string })?.message ?? error);
@@ -322,7 +327,7 @@ export function getComments(videoId: string): VideoComment[] {
     // normal empty case. Surface anything else (e.g. a missing OAuth scope)
     // instead of silently hiding it as "No comments".
     if (message.indexOf("disabled comments") >= 0 || message.indexOf("commentsDisabled") >= 0) {
-      return [];
+      return { comments: [], nextPageToken: "" };
     }
     throw new Error(message);
   }
@@ -338,5 +343,5 @@ export function getComments(videoId: string): VideoComment[] {
       publishedAt: snippet.publishedAt ?? "",
     });
   }
-  return comments;
+  return { comments, nextPageToken: response.nextPageToken ?? "" };
 }

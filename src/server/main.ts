@@ -9,7 +9,7 @@
 
 import type { Video } from "../shared/video";
 import type { PlaylistSummary } from "../shared/playlist";
-import type { VideoComment } from "../shared/comment";
+import type { CommentOrder, CommentPage } from "../shared/comment";
 import type { FeedPage, FeedPageOptions } from "../shared/feed";
 import * as feed from "./feed";
 import * as youtube from "./youtube";
@@ -94,9 +94,9 @@ export function getVideoDescription(videoId: string): string {
   return youtube.getVideoDescription(videoId);
 }
 
-/** Top-level comments for a video (empty if comments are disabled). */
-export function getComments(videoId: string): VideoComment[] {
-  return youtube.getComments(videoId);
+/** One page of a video's top-level comments, sorted by order ("relevance"/"time"). */
+export function getComments(videoId: string, order: CommentOrder, pageToken: string): CommentPage {
+  return youtube.getComments(videoId, order, pageToken);
 }
 
 /** Records a video as seen in the user's watch history. */
