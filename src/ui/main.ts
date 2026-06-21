@@ -525,8 +525,12 @@ function mountPlayer(screen: PlayerScreen, queue: Video[], index: number): void 
 // --- Routing ---------------------------------------------------------------
 
 function go(screen: Screen): void {
-  render(screen);
+  // Push BEFORE render. The player calls onVideoChange during render, which
+  // replaceUrlState()s the current history entry. If we rendered first, that
+  // replace would overwrite the PREVIOUS screen's entry (e.g. the feed) instead
+  // of the player's own, leaving two player entries and breaking browser Back.
   pushUrlState(screen, paramsFor(screen));
+  render(screen);
 }
 
 function render(screen: Screen): void {
