@@ -524,7 +524,9 @@
         opacity: 0.5;
         cursor: default;
       }
-      .player-view button {
+      /* Box style for the player's action buttons. Excludes the link-like
+         buttons (timestamps, comments toggle) so they stay plain text. */
+      .player-view button:not(.ts-link):not(.comments-toggle) {
         background: #272727;
         color: #f1f1f1;
         border: 1px solid #3a3a3a;
@@ -533,10 +535,10 @@
         font: inherit;
         cursor: pointer;
       }
-      .player-view button:hover:not(:disabled) {
+      .player-view button:not(.ts-link):not(.comments-toggle):hover:not(:disabled) {
         background: #333;
       }
-      .player-view button:disabled {
+      .player-view button:not(.ts-link):not(.comments-toggle):disabled {
         opacity: 0.4;
         cursor: default;
       }
