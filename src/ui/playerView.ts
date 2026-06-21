@@ -85,11 +85,6 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   const bar = document.createElement("div");
   bar.className = "player-bar";
 
-  const backButton = document.createElement("button");
-  backButton.type = "button";
-  backButton.textContent = "← Back";
-  backButton.addEventListener("click", (): void => onBack());
-
   const position = document.createElement("span");
   position.className = "player-position";
 
@@ -117,7 +112,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   });
   autoplayLabel.append(autoplayCheckbox, document.createTextNode(" Autoplay next"));
 
-  bar.append(backButton, position, seenButton, autoplayLabel);
+  bar.append(position, seenButton, autoplayLabel);
 
   const frame = document.createElement("div");
   frame.className = "player-frame";
