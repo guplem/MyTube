@@ -417,16 +417,31 @@
         padding: 1rem;
         border-radius: 8px;
       }
-      .player-comments-header {
+      .comments-toggle {
+        align-self: flex-start;
+        margin-top: 0.5rem;
+        background: none;
+        border: none;
+        padding: 0.25rem 0;
+        font: inherit;
+        font-size: 1rem;
+        font-weight: 600;
+        color: #ddd;
+        cursor: pointer;
+      }
+      .comments-toggle:hover {
+        color: #fff;
+      }
+      .comments-body {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      .comments-sort {
         display: flex;
         align-items: center;
-        gap: 0.75rem;
-        margin-top: 0.5rem;
-      }
-      .player-comments-heading {
-        margin: 0;
-        font-size: 1rem;
-        color: #ddd;
+        gap: 0.4rem;
+        color: #aaa;
       }
       .player-comments {
         display: flex;
@@ -477,15 +492,20 @@
         color: #aaa;
       }
       .ts-link {
+        appearance: none;
+        -webkit-appearance: none;
         background: none;
         border: none;
         padding: 0;
+        margin: 0;
         font: inherit;
+        vertical-align: baseline;
         color: #3ea6ff;
+        text-decoration: underline;
         cursor: pointer;
       }
       .ts-link:hover {
-        text-decoration: underline;
+        color: #6cb8ff;
       }
       .show-more {
         align-self: flex-start;

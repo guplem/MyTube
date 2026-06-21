@@ -83,11 +83,15 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   let autoplayNext = false;
   let player: YouTubePlayer | null = null;
 
-  // Comment paging/sorting state.
+  // Comment paging/sorting state. Comments are collapsed and unloaded until the
+  // user expands the section; commentsExpanded persists across videos in this
+  // session so, once opened, later videos load their comments automatically.
   let commentsOrder: CommentOrder = "relevance";
   let commentsToken = "";
   let commentsVideoId = "";
   let commentsLoading = false;
+  let commentsExpanded = false;
+  let commentsLoaded = false;
 
   const root = document.createElement("div");
   root.className = "player-view";
@@ -147,12 +151,22 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   const description = document.createElement("p");
   description.className = "player-desc";
 
-  // Comments header: title + sort selector.
-  const commentsHeader = document.createElement("div");
-  commentsHeader.className = "player-comments-header";
-  const commentsHeading = document.createElement("h3");
-  commentsHeading.className = "player-comments-heading";
-  commentsHeading.textContent = "Comments";
+  // Collapsible comments: a toggle header plus a body that is only loaded when
+  // first expanded, so playing a video does not fetch comments unless wanted.
+  const commentsToggle = document.createElement("button");
+  commentsToggle.type = "button";
+  commentsToggle.className = "comments-toggle";
+  commentsToggle.addEventListener("click", (): void => {
+    commentsExpanded = !commentsExpanded;
+    updateCommentsUi();
+    if (commentsExpanded && commentsVideoId && !commentsLoaded) loadComments(commentsVideoId);
+  });
+
+  const commentsBody = document.createElement("div");
+  commentsBody.className = "comments-body";
+
+  const commentsSort = document.createElement("label");
+  commentsSort.className = "comments-sort";
   const orderSelect = document.createElement("select");
   orderSelect.className = "sort-select";
   for (const option of [
@@ -168,7 +182,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     commentsOrder = orderSelect.value as CommentOrder;
     if (commentsVideoId) loadComments(commentsVideoId);
   });
-  commentsHeader.append(commentsHeading, orderSelect);
+  commentsSort.append(document.createTextNode("Sort "), orderSelect);
 
   const comments = document.createElement("div");
   comments.className = "player-comments";
@@ -182,11 +196,14 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     if (commentsVideoId) void fetchCommentsPage(commentsVideoId, false);
   });
 
+  commentsBody.append(commentsSort, comments, showMoreButton);
+  updateCommentsUi();
+
   const endCard = document.createElement("div");
   endCard.className = "player-end-card";
   endCard.hidden = true;
 
-  root.append(bar, frame, title, nav, description, commentsHeader, comments, showMoreButton, endCard);
+  root.append(bar, frame, title, nav, description, commentsToggle, commentsBody, endCard);
 
   // Ask the router to navigate; it pushes history and calls goToVideo back.
   function requestNavigate(index: number): void {
@@ -229,9 +246,26 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     }
   }
 
+  function updateCommentsUi(): void {
+    commentsToggle.textContent = commentsExpanded ? "▾ Comments" : "▸ Comments";
+    commentsBody.hidden = !commentsExpanded;
+  }
+
+  // Called on each video change: resets comment state and only fetches if the
+  // section is currently expanded.
+  function prepareComments(videoId: string): void {
+    commentsVideoId = videoId;
+    commentsLoaded = false;
+    commentsToken = "";
+    comments.innerHTML = "";
+    showMoreButton.hidden = true;
+    if (commentsExpanded) loadComments(videoId);
+  }
+
   // Resets and loads the first page of comments for a video.
   function loadComments(videoId: string): void {
     commentsVideoId = videoId;
+    commentsLoaded = true;
     commentsToken = "";
     comments.innerHTML = "";
     comments.textContent = "Loading comments…";
@@ -369,7 +403,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     endCard.hidden = true;
     updateChrome();
     void loadDescription(video.videoId);
-    loadComments(video.videoId);
+    prepareComments(video.videoId);
 
     const api = await loadYouTubeApi();
     if (!player) {
