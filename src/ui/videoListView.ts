@@ -26,11 +26,17 @@ export interface VideoListOptions {
   actions?: VideoAction[];
   /** Optional button overlaid on the top-right corner of the card (e.g. dismiss). */
   cornerAction?: VideoAction;
+  /** Called after each page load with the loader's result, e.g. to surface a
+   *  feed load-health warning. */
+  onPageLoaded?: (result: VideoPage) => void;
 }
 
 interface VideoPage {
   videos: Video[];
   total: number;
+  /** Feed only: channels that failed to load fresh and the total tried. */
+  failedChannels?: number;
+  totalChannels?: number;
 }
 
 /** Loads one page of videos. Returns the page slice and the total count. */
@@ -156,6 +162,8 @@ function renderList(load: PageLoader, options: VideoListOptions, fullQueue: Vide
       grid.appendChild(failure);
       return;
     }
+
+    options.onPageLoaded?.(result);
 
     const { videos, total } = result;
     const pageCount = Math.max(1, Math.ceil(total / pageSize));

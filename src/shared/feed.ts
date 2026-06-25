@@ -24,4 +24,19 @@ export interface FeedPage {
   videos: Video[];
   /** Total videos in the feed, for the page-count display. */
   total: number;
+  /** Subscription channels that could not be fetched fresh this load (after
+   *  retries); some may still be shown from cache. Lets the UI warn that the
+   *  feed may be incomplete. */
+  failedChannels: number;
+  /** Total subscription channels considered, for the "N of M" warning. */
+  totalChannels: number;
+}
+
+/** The full subscriptions feed before paging, with load-health counts. */
+export interface UploadsFeed {
+  videos: Video[];
+  /** Channels whose RSS could not be fetched fresh this load (after retries). */
+  failedChannels: number;
+  /** Total subscription channels considered. */
+  totalChannels: number;
 }

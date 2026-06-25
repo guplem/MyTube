@@ -36,7 +36,8 @@ export function include(filename: string): string {
  * so the browser never receives the whole 1000+ video list at once.
  */
 export function getFeedPage(options: FeedPageOptions): FeedPage {
-  const all = feed.getUploadsFeed(options.forceRefresh);
+  const uploads = feed.getUploadsFeed(options.forceRefresh);
+  const all = uploads.videos;
   flagSeen(all);
   flagDismissed(all);
   let visible = all;
@@ -63,7 +64,12 @@ export function getFeedPage(options: FeedPageOptions): FeedPage {
   // looked up for the whole list above; otherwise fetch them just for this page.
   if (!options.hideShorts) enrichDurations(pageVideos);
   flagInWatchLater(pageVideos);
-  return { videos: pageVideos, total: visible.length };
+  return {
+    videos: pageVideos,
+    total: visible.length,
+    failedChannels: uploads.failedChannels,
+    totalChannels: uploads.totalChannels,
+  };
 }
 
 // A Short is a vertical clip up to ~3 minutes. RSS exposes no duration and no

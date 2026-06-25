@@ -234,6 +234,13 @@ function showFeed(forceFirstLoad: boolean = false): void {
   toolbar.append(filters, refresh);
   app.appendChild(toolbar);
 
+  // Warns when some channels' RSS could not be fetched this load, so a partial
+  // feed is never silently mistaken for "no new videos". Hidden until needed.
+  const notice = document.createElement("div");
+  notice.className = "feed-notice";
+  notice.style.display = "none";
+  app.appendChild(notice);
+
   let pendingForce = forceFirstLoad;
   app.appendChild(
     PagedVideoListView(
@@ -254,9 +261,33 @@ function showFeed(forceFirstLoad: boolean = false): void {
         onPlay: (index, queue): void => playFromList(queue, index, { source: "feed" }),
         actions: [addToWatchLaterAction, markSeenAction],
         cornerAction: dismissAction,
+        onPageLoaded: (result): void => updateFeedNotice(notice, result),
       },
     ),
   );
+}
+
+// Shows or hides the feed load-health warning. failedChannels/totalChannels are
+// feed-only fields on the loader result; absent (in-memory lists) means no notice.
+function updateFeedNotice(
+  notice: HTMLElement,
+  result: { failedChannels?: number; totalChannels?: number },
+): void {
+  const failed = result.failedChannels ?? 0;
+  if (failed <= 0) {
+    notice.style.display = "none";
+    notice.textContent = "";
+    return;
+  }
+  const total = result.totalChannels ?? 0;
+  notice.textContent =
+    "⚠ " +
+    failed +
+    " of " +
+    total +
+    " channels couldn't be loaded right now (YouTube may be rate-limiting). " +
+    "Showing cached videos where available — try refreshing in a moment.";
+  notice.style.display = "";
 }
 
 // A persisted checkbox toggle for the feed toolbar. Saves to localStorage and
