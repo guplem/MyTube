@@ -7,13 +7,18 @@
   "scripts": {
     "build": "node build.mjs",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm run typecheck && npm run test && npm run build",
     "push": "npm run build && clasp push -f",
     "deploy": "npm run build && clasp push -f && clasp deploy -i AKfycbxKXGIgGhnj4jFBsx9KvMLQW9tRbVToQN2jfyZXrGRcWUynjrX6oWBnUDleJZlvT9E1"
   },
   "devDependencies": {
     "@google/clasp": "^2.4.2",
     "@types/google-apps-script": "^1.0.83",
+    "@xmldom/xmldom": "^0.9.10",
     "esbuild": "^0.20.2",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "vitest": "^2.1.9"
   }
 }

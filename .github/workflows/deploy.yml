@@ -22,6 +22,11 @@ jobs:
 
       - run: npm ci
 
+      # Never deploy a broken main: re-run the same gate as CI before pushing.
+      - run: npm run typecheck
+
+      - run: npm test
+
       - run: npm run build
 
       - name: Restore clasp credentials

@@ -22,6 +22,9 @@ architecture or adding a feature.** Human setup/run/deploy: [README.md](README.m
 |---|---|---|
 | Build | `npm run build` | Bundle `src/` to `dist/` with esbuild |
 | Typecheck | `npm run typecheck` | `tsc --noEmit` |
+| Test | `npm test` | Run the Vitest suite once (what CI runs) |
+| Test (watch) | `npm run test:watch` | Re-run tests on change while developing |
+| Check | `npm run check` | `typecheck` + `test` + `build`; run before every PR |
 | Push | `npm run push` | Build + `clasp push` |
 | Deploy | `npm run deploy` | Build, push, `clasp deploy` (writes to Apps Script) |
 
@@ -60,6 +63,38 @@ architecture or adding a feature.** Human setup/run/deploy: [README.md](README.m
   with a no-op fallback). Add a screen to the `Screen` type plus `paramsFor`,
   `screenFromParams`, and `sectionOf`; never render a screen without routing it.
 
+## Testing & development protocol (TDD)
+
+**New behaviour is developed test-first, red-green-refactor.** Before changing
+server logic, write a failing test that pins the behaviour you want (**red**),
+make it pass with the smallest change (**green**), then clean up
+(**refactor**) with the test as your safety net. Bug fixes start with a test
+that reproduces the bug.
+
+- **Tests live in `tests/`** (mirroring `src/server/`) and run on Node via
+  **Vitest** (`npm test`). There is no Apps Script in CI, so the runtime globals
+  (`PropertiesService`, `CacheService`, `UrlFetchApp`, `XmlService`, `YouTube`,
+  `Utilities`) are replaced by in-memory fakes in
+  `tests/helpers/appsScriptMock.ts`. Call `installAppsScriptMocks()` in
+  `beforeEach` and `uninstallAppsScriptMocks()` in `afterEach`, then seed
+  state/responses through the returned handle. This runs the **real** server
+  code unchanged — do not add Apps Script shims to `src/` for testing.
+- **What to test:** the server logic in `src/server/` is the testable core —
+  the feed (parse RSS → merge newest-first → cache → retry → last-good
+  fallback), `getFeedPage` filtering/paging, Shorts-by-duration detection, and
+  the history/dismissed persistence. The server reaches Apps Script only through
+  the faked globals, so almost all of it is reachable. The `src/ui/` layer is
+  not unit-tested (it needs a browser + the `google.script.run` bridge); keep UI
+  logic thin and push anything worth testing into `src/server/` or `src/shared/`.
+- **New data source / filter / persistence path → add tests with it**, in the
+  same PR. A new `Video[]` adapter (see Conventions) ships with a test that
+  feeds it a fake API/RSS response and asserts the normalized `Video[]`.
+- **The gate is mandatory.** `npm test` (with typecheck + build) runs in CI on
+  every PR to `main` (`.github/workflows/ci.yml`) and again before deploy
+  (`.github/workflows/deploy.yml`). **A PR does not merge to `main` until the
+  `test` check is green** — mark it a required status check in the branch
+  protection rule for `main`. Run `npm run check` locally before opening a PR.
+
 ## Architecture decisions (ADRs)
 
 Design rationale with trade-offs lives in `adr/`; PLAN.md holds the broader
@@ -72,6 +107,7 @@ forward-looking design.
 | [0003](adr/0003-expose-server-functions-via-top-level-wrappers.md) | Expose server functions via generated top-level wrappers |
 | [0004](adr/0004-component-reuse-model.md) | One `Video` type, one `VideoListView`, one `PlayerView` |
 | [0005](adr/0005-store-history-in-properties.md) | Store watch history in PropertiesService, not a Sheet |
+| [0006](adr/0006-test-first-with-faked-apps-script.md) | Test-first (TDD) on Node/Vitest with faked Apps Script globals; green tests gate every merge |
 
 Add an ADR when a decision has lasting trade-offs (a new scope, a storage choice,
 a pattern future code must follow).
