@@ -20,6 +20,7 @@ import {
 } from "./serverBridge";
 import { VideoListView, PagedVideoListView, skeletonGrid, type VideoAction } from "./videoListView";
 import { PlayerView, type PlayerController } from "./playerView";
+import { showToast } from "./toast";
 import {
   getBoolPreference,
   setBoolPreference,
@@ -72,60 +73,86 @@ function appContainer(): HTMLElement | null {
 }
 
 // --- Per-card actions ------------------------------------------------------
+//
+// Every action is optimistic: it updates the card the instant it is tapped, as
+// if the server call had already succeeded, and only fires the request in the
+// background. If the request fails, the change is rolled back to its previous
+// state and a toast tells the user (with a one-tap page refresh). This keeps
+// the UI snappy even when the underlying Apps Script calls are slow.
+
+// Optimistically removes a card from the list: hides it immediately, then drops
+// it for good once the request succeeds. On failure the card is restored to its
+// original place (it was only hidden, never detached), any extra state change is
+// undone via onRollback, and a toast is shown.
+function optimisticRemove(
+  button: HTMLButtonElement,
+  request: Promise<void>,
+  failMessage: string,
+  onRollback?: () => void,
+): void {
+  const card = button.closest<HTMLElement>(".video-card");
+  if (card) card.style.display = "none";
+  request
+    .then((): void => {
+      card?.remove();
+    })
+    .catch((): void => {
+      if (card) card.style.display = "";
+      onRollback?.();
+      showToast(failMessage);
+    });
+}
 
 const addToWatchLaterAction: VideoAction = {
   label: (video) => (video.inWatchLater ? "Added ✓" : "+ Watch Later"),
   disabled: (video) => Boolean(video.inWatchLater),
   onClick: (video, button): void => {
+    // Assume success: show "Added ✓" and lock the button right away.
+    video.inWatchLater = true;
     button.disabled = true;
-    button.textContent = "Adding…";
-    addToWatchLater(video.videoId)
-      .then((): void => {
-        video.inWatchLater = true;
-        button.textContent = "Added ✓";
-        // Stays disabled: the video is now in Watch Later.
-      })
-      .catch((): void => {
-        button.disabled = false;
-        button.textContent = "+ Watch Later";
-      });
+    button.textContent = "Added ✓";
+    addToWatchLater(video.videoId).catch((): void => {
+      video.inWatchLater = false;
+      button.disabled = false;
+      button.textContent = "+ Watch Later";
+      showToast("Couldn't add to Watch Later");
+    });
   },
 };
 
 const removeFromWatchLaterAction: VideoAction = {
   label: "Remove",
   onClick: (video, button): void => {
-    button.disabled = true;
-    removeFromWatchLater(video.videoId)
-      .then((): void => {
-        button.closest(".video-card")?.remove();
-      })
-      .catch((): void => {
-        button.disabled = false;
-      });
+    optimisticRemove(
+      button,
+      removeFromWatchLater(video.videoId),
+      "Couldn't remove from Watch Later",
+    );
   },
 };
 
 // Reflects the current seen state on the card and its toggle button.
 function reflectSeen(video: Video, button: HTMLButtonElement): void {
-  button.disabled = false;
   button.textContent = video.seen ? "Seen ✓" : "Mark seen";
   button.closest(".video-card")?.classList.toggle("video-card--seen", video.seen);
 }
 
 // Toggles a video in/out of the watch history. Used on the feed and playlists,
-// where the card stays in place and only its seen styling changes.
+// where the card stays in place and only its seen styling changes. Flips the
+// state immediately and rolls back if the request fails.
 function toggleSeen(video: Video, button: HTMLButtonElement): void {
-  button.disabled = true;
-  const request = video.seen ? removeVideoSeen(video.videoId) : markVideoSeen(video);
-  request
-    .then((): void => {
-      video.seen = !video.seen;
+  const target = !video.seen;
+  video.seen = target;
+  reflectSeen(video, button);
+  const request = target ? markVideoSeen(video) : removeVideoSeen(video.videoId);
+  request.catch((): void => {
+    // Only revert if nothing else changed the state in the meantime.
+    if (video.seen === target) {
+      video.seen = !target;
       reflectSeen(video, button);
-    })
-    .catch((): void => {
-      button.disabled = false;
-    });
+    }
+    showToast(target ? "Couldn't mark as seen" : "Couldn't mark as unseen");
+  });
 }
 
 const markSeenAction: VideoAction = {
@@ -133,7 +160,9 @@ const markSeenAction: VideoAction = {
   onClick: toggleSeen,
 };
 
-// Watch Later: marking a video seen also drops it from the playlist.
+// Watch Later: marking a video seen also drops it from the playlist. Already-seen
+// videos just toggle seen in place (like the feed); unseen ones optimistically
+// leave the list.
 const watchLaterSeenAction: VideoAction = {
   label: (video) => (video.seen ? "Seen ✓" : "Mark seen"),
   onClick: (video, button): void => {
@@ -141,15 +170,13 @@ const watchLaterSeenAction: VideoAction = {
       toggleSeen(video, button);
       return;
     }
-    button.disabled = true;
-    markVideoSeen(video)
-      .then((): Promise<void> => removeFromWatchLater(video.videoId))
-      .then((): void => {
-        button.closest(".video-card")?.remove();
-      })
-      .catch((): void => {
-        button.disabled = false;
-      });
+    video.seen = true;
+    const request = markVideoSeen(video).then(
+      (): Promise<void> => removeFromWatchLater(video.videoId),
+    );
+    optimisticRemove(button, request, "Couldn't mark as seen", (): void => {
+      video.seen = false;
+    });
   },
 };
 
@@ -158,21 +185,13 @@ const watchLaterSeenAction: VideoAction = {
 const historySeenAction: VideoAction = {
   label: "Seen ✓",
   onClick: (video, button): void => {
-    button.disabled = true;
-    removeVideoSeen(video.videoId)
-      .then((): void => {
-        button.closest(".video-card")?.remove();
-      })
-      .catch((): void => {
-        button.disabled = false;
-      });
+    optimisticRemove(button, removeVideoSeen(video.videoId), "Couldn't remove from history");
   },
 };
 
 // Reflects the current dismissed state on the corner button and dims the card.
 // The button is a top-right cross (✕ to dismiss, ↩ to undo); feed only.
 function reflectDismissed(video: Video, button: HTMLButtonElement): void {
-  button.disabled = false;
   button.textContent = video.dismissed ? "↩" : "✕";
   button.setAttribute("aria-label", video.dismissed ? "Undo dismiss" : "Dismiss video from feed");
   button.closest(".video-card")?.classList.toggle("video-card--dismissed", Boolean(video.dismissed));
@@ -180,20 +199,21 @@ function reflectDismissed(video: Video, button: HTMLButtonElement): void {
 
 // Feed-only: toggles a video in/out of the dismissed list. Mirrors the seen
 // toggle; the card stays in place (dimmed) and "Hide dismissed" removes it on
-// the next feed load.
+// the next feed load. Flips immediately and rolls back on failure.
 function toggleDismiss(video: Video, button: HTMLButtonElement): void {
-  button.disabled = true;
-  const request = video.dismissed
-    ? removeVideoDismissed(video.videoId)
-    : markVideoDismissed(video.videoId);
-  request
-    .then((): void => {
-      video.dismissed = !video.dismissed;
+  const target = !video.dismissed;
+  video.dismissed = target;
+  reflectDismissed(video, button);
+  const request = target
+    ? markVideoDismissed(video.videoId)
+    : removeVideoDismissed(video.videoId);
+  request.catch((): void => {
+    if (video.dismissed === target) {
+      video.dismissed = !target;
       reflectDismissed(video, button);
-    })
-    .catch((): void => {
-      button.disabled = false;
-    });
+    }
+    showToast(target ? "Couldn't dismiss video" : "Couldn't undo dismiss");
+  });
 }
 
 const dismissAction: VideoAction = {
