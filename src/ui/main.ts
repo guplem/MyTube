@@ -131,6 +131,34 @@ const removeFromWatchLaterAction: VideoAction = {
   },
 };
 
+// Per-button tap counter, so a button tapped repeatedly before its requests
+// settle lets only the LATEST tap own the displayed state. A stale request that
+// fails later is ignored: the newer tap already decided the UI and fired its own
+// request, so reverting (or toasting) on the old one would diverge from both the
+// user's last intent and the server's last write.
+const toggleSeq = new WeakMap<HTMLButtonElement, number>();
+
+// Shared optimistic toggle for the in-place boolean flags (seen, dismissed).
+// Flips the flag, reflects it, fires the request, and rolls back + toasts only
+// if this is still the most recent tap on the button when the request fails.
+function optimisticToggle(
+  button: HTMLButtonElement,
+  get: () => boolean,
+  set: (value: boolean) => void,
+  send: (next: boolean) => Promise<void>,
+  failMessage: (next: boolean) => string,
+): void {
+  const target = !get();
+  const tap = (toggleSeq.get(button) ?? 0) + 1;
+  toggleSeq.set(button, tap);
+  set(target);
+  send(target).catch((): void => {
+    if (toggleSeq.get(button) !== tap) return; // superseded by a newer tap
+    set(!target);
+    showToast(failMessage(target));
+  });
+}
+
 // Reflects the current seen state on the card and its toggle button.
 function reflectSeen(video: Video, button: HTMLButtonElement): void {
   button.textContent = video.seen ? "Seen ✓" : "Mark seen";
@@ -141,18 +169,16 @@ function reflectSeen(video: Video, button: HTMLButtonElement): void {
 // where the card stays in place and only its seen styling changes. Flips the
 // state immediately and rolls back if the request fails.
 function toggleSeen(video: Video, button: HTMLButtonElement): void {
-  const target = !video.seen;
-  video.seen = target;
-  reflectSeen(video, button);
-  const request = target ? markVideoSeen(video) : removeVideoSeen(video.videoId);
-  request.catch((): void => {
-    // Only revert if nothing else changed the state in the meantime.
-    if (video.seen === target) {
-      video.seen = !target;
+  optimisticToggle(
+    button,
+    (): boolean => video.seen,
+    (value): void => {
+      video.seen = value;
       reflectSeen(video, button);
-    }
-    showToast(target ? "Couldn't mark as seen" : "Couldn't mark as unseen");
-  });
+    },
+    (next): Promise<void> => (next ? markVideoSeen(video) : removeVideoSeen(video.videoId)),
+    (next): string => (next ? "Couldn't mark as seen" : "Couldn't mark as unseen"),
+  );
 }
 
 const markSeenAction: VideoAction = {
@@ -201,19 +227,17 @@ function reflectDismissed(video: Video, button: HTMLButtonElement): void {
 // toggle; the card stays in place (dimmed) and "Hide dismissed" removes it on
 // the next feed load. Flips immediately and rolls back on failure.
 function toggleDismiss(video: Video, button: HTMLButtonElement): void {
-  const target = !video.dismissed;
-  video.dismissed = target;
-  reflectDismissed(video, button);
-  const request = target
-    ? markVideoDismissed(video.videoId)
-    : removeVideoDismissed(video.videoId);
-  request.catch((): void => {
-    if (video.dismissed === target) {
-      video.dismissed = !target;
+  optimisticToggle(
+    button,
+    (): boolean => Boolean(video.dismissed),
+    (value): void => {
+      video.dismissed = value;
       reflectDismissed(video, button);
-    }
-    showToast(target ? "Couldn't dismiss video" : "Couldn't undo dismiss");
-  });
+    },
+    (next): Promise<void> =>
+      next ? markVideoDismissed(video.videoId) : removeVideoDismissed(video.videoId),
+    (next): string => (next ? "Couldn't dismiss video" : "Couldn't undo dismiss"),
+  );
 }
 
 const dismissAction: VideoAction = {
