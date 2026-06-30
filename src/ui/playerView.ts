@@ -13,6 +13,11 @@
 import type { Video } from "../shared/video";
 import type { VideoComment, CommentOrder } from "../shared/comment";
 import { getVideoDescription, getComments, markVideoSeen } from "./serverBridge";
+import { getBoolPreference, setBoolPreference } from "./preferences";
+
+// Theater mode (desktop): the player breaks out of the centered column and
+// fills the window. Persisted so it stays on across videos and visits.
+const THEATER_PREF = "mytube.player.theater";
 
 // Minimal typing for the YouTube IFrame Player API (loaded from youtube.com).
 interface YouTubePlayerEvent {
@@ -117,6 +122,18 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
       });
   });
 
+  // Theater mode toggle. Hidden on mobile (where the player is already
+  // full-width) via CSS; the class on the root drives the layout change.
+  let theaterMode = getBoolPreference(THEATER_PREF, false);
+  const theaterButton = document.createElement("button");
+  theaterButton.type = "button";
+  theaterButton.className = "player-theater";
+  theaterButton.addEventListener("click", (): void => {
+    theaterMode = !theaterMode;
+    setBoolPreference(THEATER_PREF, theaterMode);
+    updateTheater();
+  });
+
   const autoplayLabel = document.createElement("label");
   autoplayLabel.className = "player-autoplay";
   const autoplayCheckbox = document.createElement("input");
@@ -126,7 +143,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   });
   autoplayLabel.append(autoplayCheckbox, document.createTextNode(" Autoplay next"));
 
-  bar.append(position, seenButton, autoplayLabel);
+  bar.append(position, seenButton, theaterButton, autoplayLabel);
 
   const frame = document.createElement("div");
   frame.className = "player-frame";
@@ -232,6 +249,13 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     const seen = Boolean(video && video.seen);
     seenButton.textContent = seen ? "Seen ✓" : "Mark as seen";
     seenButton.disabled = seen;
+  }
+
+  function updateTheater(): void {
+    root.classList.toggle("player-view--theater", theaterMode);
+    theaterButton.classList.toggle("active", theaterMode);
+    theaterButton.textContent = theaterMode ? "Theater ✓" : "Theater mode";
+    theaterButton.setAttribute("aria-pressed", String(theaterMode));
   }
 
   async function loadDescription(videoId: string): Promise<void> {
@@ -417,6 +441,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     }
   }
 
+  updateTheater();
   void playAt(currentIndex);
 
   return {
