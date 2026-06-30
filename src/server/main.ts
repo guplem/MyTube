@@ -105,9 +105,23 @@ export function getComments(videoId: string, order: CommentOrder, pageToken: str
   return youtube.getComments(videoId, order, pageToken);
 }
 
-/** Records a video as seen in the user's watch history. */
+/**
+ * Records a video as seen in the user's watch history, and drops it from Watch
+ * Later if it is saved there. Marking seen is the single "I'm done with this"
+ * action, so the removal happens from every screen and the player — not just the
+ * Watch Later list. Guarded on the cached membership set, so it costs nothing
+ * when the video isn't in Watch Later (the common case on the feed) or the user
+ * has no Watch Later playlist yet.
+ */
 export function markVideoSeen(video: Video): void {
   history.markVideoSeen(video);
+  try {
+    if (youtube.getWatchLaterVideoIds().includes(video.videoId)) {
+      youtube.removeFromWatchLater(video.videoId);
+    }
+  } catch {
+    // Watch Later removal is best-effort; never block recording the view.
+  }
 }
 
 /** Removes a video from the user's watch history (un-marks it as seen). */
