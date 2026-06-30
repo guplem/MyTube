@@ -639,6 +639,11 @@ function go(screen: Screen): void {
   // of the player's own, leaving two player entries and breaking browser Back.
   pushUrlState(screen, paramsFor(screen));
   render(screen);
+  // Start every freshly-navigated screen at the top. Swapping #app's content
+  // does not reset the document scroll, so on mobile, tapping a card near the
+  // bottom of a long list would otherwise land you scrolled past the video.
+  // Back/forward goes through render() directly, keeping native scroll restore.
+  window.scrollTo(0, 0);
 }
 
 function render(screen: Screen): void {
