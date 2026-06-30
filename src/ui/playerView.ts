@@ -101,9 +101,6 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   const root = document.createElement("div");
   root.className = "player-view";
 
-  const bar = document.createElement("div");
-  bar.className = "player-bar";
-
   const position = document.createElement("span");
   position.className = "player-position";
 
@@ -143,8 +140,6 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   });
   autoplayLabel.append(autoplayCheckbox, document.createTextNode(" Autoplay next"));
 
-  bar.append(position, seenButton, theaterButton, autoplayLabel);
-
   const frame = document.createElement("div");
   frame.className = "player-frame";
   const mount = document.createElement("div");
@@ -153,6 +148,17 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   const title = document.createElement("h2");
   title.className = "player-title";
 
+  // Title row: the video title on the left, with "Mark as seen" and the
+  // theater toggle right-aligned beside it.
+  const titleRow = document.createElement("div");
+  titleRow.className = "player-title-row";
+  const titleActions = document.createElement("div");
+  titleActions.className = "player-title-actions";
+  titleActions.append(seenButton, theaterButton);
+  titleRow.append(title, titleActions);
+
+  // Nav row: the context label / position sit next to the prev/next buttons,
+  // with "Autoplay next" pushed to the right.
   const nav = document.createElement("div");
   nav.className = "player-nav";
   const prevButton = document.createElement("button");
@@ -163,7 +169,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   nextButton.type = "button";
   nextButton.textContent = "Next →";
   nextButton.addEventListener("click", (): void => requestNavigate(currentIndex + 1));
-  nav.append(prevButton, nextButton);
+  nav.append(position, prevButton, nextButton, autoplayLabel);
 
   const description = document.createElement("p");
   description.className = "player-desc";
@@ -220,7 +226,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   endCard.className = "player-end-card";
   endCard.hidden = true;
 
-  root.append(bar, frame, title, nav, description, commentsToggle, commentsBody, endCard);
+  root.append(frame, titleRow, nav, description, commentsToggle, commentsBody, endCard);
 
   // Ask the router to navigate; it pushes history and calls goToVideo back.
   function requestNavigate(index: number): void {
@@ -254,7 +260,10 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   function updateTheater(): void {
     root.classList.toggle("player-view--theater", theaterMode);
     theaterButton.classList.toggle("active", theaterMode);
-    theaterButton.textContent = theaterMode ? "Theater ✓" : "Theater mode";
+    theaterButton.textContent = "⛶";
+    const label = theaterMode ? "Exit theater mode" : "Theater mode";
+    theaterButton.title = label;
+    theaterButton.setAttribute("aria-label", label);
     theaterButton.setAttribute("aria-pressed", String(theaterMode));
   }
 

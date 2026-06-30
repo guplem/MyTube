@@ -427,11 +427,18 @@
         flex-direction: column;
         gap: 1rem;
       }
-      .player-bar {
+      .player-title-row {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         gap: 1rem;
         flex-wrap: wrap;
+      }
+      .player-title-actions {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-shrink: 0;
       }
       .player-position {
         color: #bbb;
@@ -462,10 +469,14 @@
       .player-title {
         margin: 0;
         font-size: 1.15rem;
+        flex: 1;
+        min-width: 0;
       }
       .player-nav {
         display: flex;
-        gap: 0.5rem;
+        align-items: center;
+        gap: 0.75rem;
+        flex-wrap: wrap;
       }
       .player-desc {
         white-space: pre-wrap;
@@ -605,6 +616,12 @@
         opacity: 0.4;
         cursor: default;
       }
+      /* The theater toggle is a compact icon button. */
+      .player-view button.player-theater:not(.ts-link):not(.comments-toggle) {
+        padding: 0.4rem 0.55rem;
+        font-size: 1.1rem;
+        line-height: 1;
+      }
       /* Highlight the theater toggle while it is on. */
       .player-view button.player-theater.active,
       .player-view button.player-theater.active:hover {
@@ -614,19 +631,18 @@
       }
 
       /* Theater mode (desktop only): the player breaks out of the centered
-         900px column and fills the window — as wide and tall as the viewport,
-         like fullscreen but with the browser chrome still visible. The page
-         stays scrollable, so the title, description, and comments flow below
-         and are reached by scrolling. The full-bleed width relies on the
-         player-view being centered (margin: 0 auto). */
+         900px column and grows to 85% of the viewport — large like fullscreen
+         but leaving room for the app header above and the player controls,
+         which now sit just below the video. The page stays scrollable.
+         left: 50% + translateX keeps the frame centered regardless of the
+         column width (the player-view is centered via margin: 0 auto). */
       @media (min-width: 601px) {
         .player-view--theater .player-frame {
           position: relative;
           left: 50%;
-          width: 100vw;
-          height: 100vh;
-          margin-left: -50vw;
-          border-radius: 0;
+          transform: translateX(-50%);
+          width: 85vw;
+          height: 85vh;
           aspect-ratio: auto;
         }
       }
@@ -667,9 +683,6 @@
         }
         .list-size {
           margin-left: 0;
-        }
-        .player-bar {
-          gap: 0.6rem;
         }
         .player-autoplay {
           margin-left: 0;
