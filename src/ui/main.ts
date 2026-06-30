@@ -67,6 +67,11 @@ type Screen =
 // Which nav tab a screen belongs to (for highlighting the active button).
 type Section = "feed" | "watchlater" | "playlists" | "history";
 
+// The screen shown on a fresh launch (no view param) and as the fallback for an
+// unrecognized/incomplete URL. Watch Later is the default: it is the "watch the
+// backlog" list you came here to clear, not the never-ending uploads feed.
+const DEFAULT_SCREEN: Screen = { view: "watchlater" };
+
 function appContainer(): HTMLElement | null {
   return document.getElementById("app");
 }
@@ -630,17 +635,19 @@ function screenFromParams(params: UrlParams): Screen {
       return { view: "playlists" };
     case "history":
       return { view: "history" };
+    case "feed":
+      return { view: "feed" };
     case "playlist":
       return params.pl
         ? { view: "playlist", playlistId: params.pl, title: params.title ?? "" }
-        : { view: "feed" };
+        : DEFAULT_SCREEN;
     case "player": {
-      if (!params.v) return { view: "feed" };
+      if (!params.v) return DEFAULT_SCREEN;
       const context = playerContextFromParams(params);
       return { view: "player", videoId: params.v, label: labelForContext(context), context };
     }
     default:
-      return { view: "feed" };
+      return DEFAULT_SCREEN;
   }
 }
 
