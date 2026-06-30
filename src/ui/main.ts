@@ -186,26 +186,38 @@ function toggleSeen(video: Video, button: HTMLButtonElement): void {
   );
 }
 
+// Marking a video seen also drops it from Watch Later (server-side, from every
+// screen), so revert any "Added ✓" indicator left on this card.
+function reflectLeftWatchLater(video: Video, seenButton: HTMLButtonElement): void {
+  if (!video.inWatchLater) return;
+  video.inWatchLater = false;
+  const row = seenButton.closest(".video-actions");
+  row?.querySelectorAll<HTMLButtonElement>(".video-action").forEach((button): void => {
+    if (button.textContent === "Added ✓") {
+      button.textContent = "+ Watch Later";
+      button.disabled = false;
+    }
+  });
+}
+
 const markSeenAction: VideoAction = {
   label: (video) => (video.seen ? "Seen ✓" : "Mark seen"),
-  onClick: toggleSeen,
+  onClick: (video, button): void => {
+    const wasSeen = video.seen;
+    toggleSeen(video, button);
+    // Only the seen→unseen-free direction drops it from Watch Later; un-marking
+    // seen never re-adds it.
+    if (!wasSeen) reflectLeftWatchLater(video, button);
+  },
 };
 
-// Watch Later: marking a video seen also drops it from the playlist. Already-seen
-// videos just toggle seen in place (like the feed); unseen ones optimistically
-// leave the list.
+// Watch Later: marking a video seen drops it from the playlist server-side, so
+// the card leaves the list. Optimistically remove it and roll back on failure.
 const watchLaterSeenAction: VideoAction = {
-  label: (video) => (video.seen ? "Seen ✓" : "Mark seen"),
+  label: "Mark seen",
   onClick: (video, button): void => {
-    if (video.seen) {
-      toggleSeen(video, button);
-      return;
-    }
     video.seen = true;
-    const request = markVideoSeen(video).then(
-      (): Promise<void> => removeFromWatchLater(video.videoId),
-    );
-    optimisticRemove(button, request, "Couldn't mark as seen", (): void => {
+    optimisticRemove(button, markVideoSeen(video), "Couldn't mark as seen", (): void => {
       video.seen = false;
     });
   },

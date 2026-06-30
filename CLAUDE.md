@@ -49,6 +49,12 @@ architecture or adding a feature.** Human setup/run/deploy: [README.md](README.m
   "Hide viewed" filters on it. The feed also has a date filter (`beforeDate` in
   `getFeedPage`, a localStorage pref) that hides older videos but does not touch
   the `seen` flag, so playlists and Watch Later are unaffected.
+- **Marking seen drops the video from Watch Later** (`markVideoSeen` in
+  `src/server/main.ts` removes it if present). This is the one cross-list side
+  effect: it runs server-side so it applies from every screen and the player, not
+  just the Watch Later list, and a watched video never lingers there. It is
+  one-directional — un-marking seen does not re-add to Watch Later — and a no-op
+  when the video isn't saved (guarded on the cached membership set).
 - **Dismissed = a feed-only hidden list** (`src/server/dismissed.ts`, video ids
   in user properties, mirrors `history.ts`). `flagDismissed` sets it; the
   feed-only "Hide dismissed" toggle filters on it. The dismiss control is the
