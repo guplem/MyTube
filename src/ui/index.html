@@ -605,6 +605,31 @@
         opacity: 0.4;
         cursor: default;
       }
+      /* Highlight the theater toggle while it is on. */
+      .player-view button.player-theater.active,
+      .player-view button.player-theater.active:hover {
+        background: #3ea6ff;
+        border-color: #3ea6ff;
+        color: #0f0f0f;
+      }
+
+      /* Theater mode (desktop only): the player breaks out of the centered
+         900px column and fills the window — as wide and tall as the viewport,
+         like fullscreen but with the browser chrome still visible. The page
+         stays scrollable, so the title, description, and comments flow below
+         and are reached by scrolling. The full-bleed width relies on the
+         player-view being centered (margin: 0 auto). */
+      @media (min-width: 601px) {
+        .player-view--theater .player-frame {
+          position: relative;
+          left: 50%;
+          width: 100vw;
+          height: 100vh;
+          margin-left: -50vw;
+          border-radius: 0;
+          aspect-ratio: auto;
+        }
+      }
 
       /* Mobile: stack the header, let the search fill the row, and pack the
          grid into smaller cards so two fit side by side on a phone. */
@@ -648,6 +673,11 @@
         }
         .player-autoplay {
           margin-left: 0;
+        }
+        /* The player is already full-width on a phone, so theater mode is a
+           no-op there; hide the toggle to avoid clutter. */
+        .player-theater {
+          display: none;
         }
       }
     </style>
