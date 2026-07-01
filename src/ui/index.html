@@ -627,8 +627,9 @@
         cursor: default;
       }
       /* Box style for the player's action buttons. Excludes the link-like
-         buttons (timestamps, comments toggle) so they stay plain text. */
-      .player-view button:not(.ts-link):not(.comments-toggle) {
+         buttons (timestamps, comments toggle) and the chapter cards, which
+         carry their own styling. */
+      .player-view button:not(.ts-link):not(.comments-toggle):not(.chapter-card) {
         background: #272727;
         color: #f1f1f1;
         border: 1px solid #3a3a3a;
@@ -637,12 +638,84 @@
         font: inherit;
         cursor: pointer;
       }
-      .player-view button:not(.ts-link):not(.comments-toggle):hover:not(:disabled) {
+      .player-view button:not(.ts-link):not(.comments-toggle):not(.chapter-card):hover:not(:disabled) {
         background: #333;
       }
-      .player-view button:not(.ts-link):not(.comments-toggle):disabled {
+      .player-view button:not(.ts-link):not(.comments-toggle):not(.chapter-card):disabled {
         opacity: 0.4;
         cursor: default;
+      }
+
+      /* Chapter strip: a horizontally scrollable row of the description's
+         chapters, sitting between the video and the description. As the video
+         plays the current chapter is highlighted, passed chapters dim, and the
+         track auto-scrolls to keep the current one at the left. */
+      .player-chapters {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+      }
+      .player-chapters-heading {
+        font-size: 0.8rem;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        color: #aaa;
+      }
+      .player-chapters-track {
+        position: relative;
+        display: flex;
+        gap: 0.5rem;
+        overflow-x: auto;
+        padding-bottom: 0.35rem;
+      }
+      .player-view button.chapter-card {
+        flex: 0 0 auto;
+        max-width: 220px;
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+        text-align: left;
+        background: #1c1c1c;
+        border: 1px solid #2a2a2a;
+        border-radius: 8px;
+        padding: 0.5rem 0.7rem;
+        font: inherit;
+        cursor: pointer;
+        transition: opacity 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+      }
+      .player-view button.chapter-card:hover {
+        background: #242424;
+        border-color: #3a3a3a;
+      }
+      .chapter-time {
+        font-size: 0.8rem;
+        color: #3ea6ff;
+        font-variant-numeric: tabular-nums;
+      }
+      .chapter-label {
+        font-size: 0.85rem;
+        color: #ddd;
+        max-width: 200px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      /* Chapters already played read as muted. */
+      .player-view button.chapter-card.past {
+        opacity: 0.45;
+      }
+      /* The chapter playing now stands out from the rest. */
+      .player-view button.chapter-card.current {
+        opacity: 1;
+        background: #23334a;
+        border-color: #3ea6ff;
+      }
+      .player-view button.chapter-card.current:hover {
+        background: #284066;
+      }
+      .player-view button.chapter-card.current .chapter-label {
+        color: #fff;
       }
       /* The theater toggle is a compact icon button. */
       .player-view button.player-theater:not(.ts-link):not(.comments-toggle) {
