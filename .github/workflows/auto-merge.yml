@@ -1,0 +1,32 @@
+name: Auto-merge PRs
+
+# Vibe-coding flow: PRs are not reviewed by a human. This workflow flags every
+# PR for GitHub's native auto-merge, so it merges itself the moment the required
+# checks pass. Auto-merge only completes once branch protection on `main` is
+# satisfied, so the safety net is the required `test` check (see ci.yml and
+# CLAUDE.md), NOT this workflow. Requirements to make it work:
+#   1. Repo Settings -> General -> "Allow auto-merge" is enabled.
+#   2. Branch protection on `main` requires the `test` status check.
+#      Do NOT require a review, or auto-merge waits forever for an approval.
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+    branches: [main]
+
+# Only the auto-merge queueing needs write; nothing else here mutates the repo.
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    # Skip drafts: a draft PR is explicitly "not ready", so don't queue it.
+    if: ${{ !github.event.pull_request.draft }}
+    steps:
+      - name: Enable auto-merge (merge commit)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge --auto --merge "$PR_URL"
