@@ -780,27 +780,37 @@
       }
 
       /* Wide screens: when the video has chapters, put the description on the
-         left and the chapters as a fixed-width, vertically scrollable column on
-         the right. Chapter-less videos keep the single full-width description. */
+         left and the chapters as a fixed-width column on the right. Chapter-less
+         videos keep the single full-width description.
+
+         The whole section is capped to one height and each column scrolls its
+         own content, so a long description no longer grows the page and creates
+         a "double scroll" (page + chapters). align-items: stretch makes both
+         columns the same height; max-height on the row caps that height and the
+         inner overflow rules turn the excess into per-column scrolling. */
       @media (min-width: 800px) {
         .player-info--has-chapters {
           flex-direction: row;
-          align-items: flex-start;
+          align-items: stretch;
+          max-height: 460px;
         }
         .player-info--has-chapters .player-desc-card {
           flex: 1 1 auto;
           max-width: 560px;
+          overflow-y: auto;
         }
         .player-info--has-chapters .player-chapters {
           order: 0;
           flex: 0 0 300px;
           max-width: 300px;
+          min-height: 0;
         }
         .player-info--has-chapters .player-chapters-track {
+          flex: 1 1 auto;
           flex-direction: column;
           overflow-x: hidden;
           overflow-y: auto;
-          max-height: 460px;
+          min-height: 0;
           padding-bottom: 0;
           padding-right: 0.35rem;
         }
