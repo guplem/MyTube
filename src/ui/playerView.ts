@@ -169,7 +169,12 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   nextButton.type = "button";
   nextButton.textContent = "Next →";
   nextButton.addEventListener("click", (): void => requestNavigate(currentIndex + 1));
-  nav.append(position, prevButton, nextButton, autoplayLabel);
+  // Keep prev/next together so they wrap as a single unit — either both stay on
+  // the row or both move to the next line, never one above the other.
+  const navButtons = document.createElement("div");
+  navButtons.className = "player-nav-buttons";
+  navButtons.append(prevButton, nextButton);
+  nav.append(position, navButtons, autoplayLabel);
 
   const description = document.createElement("p");
   description.className = "player-desc";

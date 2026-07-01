@@ -28,6 +28,8 @@
       .app-nav {
         display: flex;
         gap: 0.5rem;
+        max-width: 100%;
+        overflow-x: auto;
       }
       .app-nav button {
         background: none;
@@ -37,6 +39,8 @@
         cursor: pointer;
         padding: 0.3rem 0.6rem;
         border-radius: 6px;
+        flex: 0 0 auto;
+        white-space: nowrap;
       }
       .app-nav button:hover {
         color: #fff;
@@ -478,6 +482,13 @@
         gap: 0.75rem;
         flex-wrap: wrap;
       }
+      /* Prev/next stay grouped so they wrap together: both on the row or both
+         on the next line, never one splitting off above the other. */
+      .player-nav-buttons {
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 0.75rem;
+      }
       .player-desc {
         white-space: pre-wrap;
         color: #ddd;
@@ -657,8 +668,10 @@
         .app-header h1 {
           font-size: 1.15rem;
         }
+        /* Don't wrap the tabs onto a second line on a phone; let the row
+           scroll horizontally when they don't all fit. */
         .app-nav {
-          flex-wrap: wrap;
+          flex-wrap: nowrap;
         }
         .app-search {
           margin-left: 0;
