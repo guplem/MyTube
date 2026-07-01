@@ -4,10 +4,25 @@ name: Auto-merge PRs
 # PR for GitHub's native auto-merge, so it merges itself the moment the required
 # checks pass. Auto-merge only completes once branch protection on `main` is
 # satisfied, so the safety net is the required `test` check (see ci.yml and
-# CLAUDE.md), NOT this workflow. Requirements to make it work:
+# CLAUDE.md), NOT this workflow.
+#
+# The merge MUST be authorised by a GitHub App token, not the default
+# GITHUB_TOKEN. GitHub deliberately does not trigger workflows from pushes made
+# with GITHUB_TOKEN (a recursion guard), so a merge queued with it lands on
+# `main` WITHOUT firing the `on: push` deploy (deploy.yml) -- the app silently
+# stops updating. An App token is a distinct identity, so its merge push does
+# trigger the deploy.
+#
+# Requirements to make it work:
 #   1. Repo Settings -> General -> "Allow auto-merge" is enabled.
 #   2. Branch protection on `main` requires the `test` status check.
 #      Do NOT require a review, or auto-merge waits forever for an approval.
+#   3. A GitHub App (any name) installed on this repo with Contents: read/write
+#      and Pull requests: read/write. Store its App ID as the Actions variable
+#      AUTOMERGE_APP_ID (not sensitive) and a generated private key as the secret
+#      AUTOMERGE_APP_PRIVATE_KEY. Until these exist the token step fails and the
+#      PR is left for a manual merge (which itself triggers the deploy), so the
+#      worst case is "not auto-merged", never "merged but not deployed".
 
 on:
   pull_request:
@@ -30,8 +45,18 @@ jobs:
       !github.event.pull_request.draft &&
       github.event.pull_request.head.repo.full_name == github.repository
     steps:
+      # Mint a token for the GitHub App so the eventual merge is attributed to
+      # the App, not to github-actions[bot]. This is what lets the merge push
+      # trigger deploy.yml (see the header comment).
+      - name: Generate app token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.AUTOMERGE_APP_ID }}
+          private-key: ${{ secrets.AUTOMERGE_APP_PRIVATE_KEY }}
+
       - name: Enable auto-merge (merge commit)
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PR_URL: ${{ github.event.pull_request.html_url }}
         run: gh pr merge --auto --merge "$PR_URL"

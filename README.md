@@ -131,6 +131,31 @@ and the id in the `deploy` script in `package.json`.
 Never commit the real `.clasp.json` or `.clasprc.json`; both are gitignored
 because they hold credentials.
 
+## Auto-merge PRs
+
+`.github/workflows/auto-merge.yml` flags every non-draft same-repo PR for
+GitHub's native auto-merge, so it merges once the required `test` check passes —
+no manual click. The merge is authorised by a **GitHub App token**, not the
+default `GITHUB_TOKEN`: GitHub does not trigger workflows from `GITHUB_TOKEN`
+pushes, so a merge made with it would land on `main` without firing the deploy
+(the app would silently stop updating). Setup:
+
+1. Settings → General → enable **Allow auto-merge**.
+2. Branch protection on `main` requires the `test` status check (and **no**
+   required review, or auto-merge waits forever for an approval).
+3. Create a GitHub App installed on this repo with **Contents: read/write** and
+   **Pull requests: read/write**. Store its App ID as the Actions **variable**
+   `AUTOMERGE_APP_ID` (not sensitive) and a generated private key as the
+   **secret** `AUTOMERGE_APP_PRIVATE_KEY`.
+
+If those are missing the workflow simply fails to queue the PR, leaving
+it for a manual merge — which itself triggers the deploy — so the worst case is
+"not auto-merged", never "merged but not deployed".
+
+To deploy the current `main` on demand (e.g. after a merge that didn't deploy),
+use the **Run workflow** button on *Deploy to Apps Script* in the Actions tab
+(`deploy.yml` also has a `workflow_dispatch` trigger).
+
 ## Troubleshooting
 
 - **"No valid .clasp.json"** — the file is in `dist/` instead of the root; see

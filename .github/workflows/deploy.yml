@@ -8,6 +8,11 @@ name: Deploy to Apps Script
 on:
   push:
     branches: [main]
+  # Manual escape hatch: deploy the current `main` on demand from the Actions
+  # tab. Needed because a merge performed by the auto-merge bot's default
+  # GITHUB_TOKEN does not trigger the push event above; a real token (see
+  # auto-merge.yml) restores automatic deploys, and this button covers the rest.
+  workflow_dispatch:
 
 jobs:
   deploy:
