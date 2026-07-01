@@ -489,7 +489,16 @@
         flex-wrap: nowrap;
         gap: 0.75rem;
       }
+      /* Boxed sections (description, comments) so they read as distinct
+         blocks. */
+      .player-card {
+        background: #1c1c1c;
+        border: 1px solid #2a2a2a;
+        border-radius: 8px;
+        padding: 1rem;
+      }
       .player-desc {
+        margin: 0;
         white-space: pre-wrap;
         color: #ddd;
         line-height: 1.45;
@@ -502,12 +511,18 @@
         padding: 1rem;
         border-radius: 8px;
       }
+      /* Header row: the "Comments" toggle on the left, the sort control
+         right-aligned beside it. */
+      .comments-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+      }
       .comments-toggle {
-        align-self: flex-start;
-        margin-top: 0.5rem;
         background: none;
         border: none;
-        padding: 0.25rem 0;
+        padding: 0;
         font: inherit;
         font-size: 1rem;
         font-weight: 600;
@@ -521,12 +536,14 @@
         display: flex;
         flex-direction: column;
         gap: 0.5rem;
+        margin-top: 0.75rem;
       }
       .comments-sort {
         display: flex;
         align-items: center;
         gap: 0.4rem;
         color: #aaa;
+        flex-shrink: 0;
       }
       .player-comments {
         display: flex;

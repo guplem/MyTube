@@ -176,11 +176,24 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   navButtons.append(prevButton, nextButton);
   nav.append(position, navButtons, autoplayLabel);
 
+  // The description sits in its own card so it reads as a distinct block from
+  // the comments below it.
+  const descCard = document.createElement("div");
+  descCard.className = "player-card player-desc-card";
   const description = document.createElement("p");
   description.className = "player-desc";
+  descCard.appendChild(description);
 
-  // Collapsible comments: a toggle header plus a body that is only loaded when
-  // first expanded, so playing a video does not fetch comments unless wanted.
+  // Collapsible comments, wrapped in a matching card. The header row holds the
+  // toggle on the left and the sort control right-aligned beside the title; the
+  // body is only loaded when first expanded, so playing a video does not fetch
+  // comments unless wanted.
+  const commentsCard = document.createElement("div");
+  commentsCard.className = "player-card comments-card";
+
+  const commentsHeader = document.createElement("div");
+  commentsHeader.className = "comments-header";
+
   const commentsToggle = document.createElement("button");
   commentsToggle.type = "button";
   commentsToggle.className = "comments-toggle";
@@ -198,8 +211,8 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   const orderSelect = document.createElement("select");
   orderSelect.className = "sort-select";
   for (const option of [
-    { value: "relevance", label: "Top comments" },
-    { value: "time", label: "Newest first" },
+    { value: "relevance", label: "Top" },
+    { value: "time", label: "New" },
   ]) {
     const element = document.createElement("option");
     element.value = option.value;
@@ -211,6 +224,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     if (commentsVideoId) loadComments(commentsVideoId);
   });
   commentsSort.append(document.createTextNode("Sort "), orderSelect);
+  commentsHeader.append(commentsToggle, commentsSort);
 
   const comments = document.createElement("div");
   comments.className = "player-comments";
@@ -224,14 +238,15 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     if (commentsVideoId) void fetchCommentsPage(commentsVideoId, false);
   });
 
-  commentsBody.append(commentsSort, comments, showMoreButton);
+  commentsBody.append(comments, showMoreButton);
+  commentsCard.append(commentsHeader, commentsBody);
   updateCommentsUi();
 
   const endCard = document.createElement("div");
   endCard.className = "player-end-card";
   endCard.hidden = true;
 
-  root.append(frame, titleRow, nav, description, commentsToggle, commentsBody, endCard);
+  root.append(frame, titleRow, nav, descCard, commentsCard, endCard);
 
   // Ask the router to navigate; it pushes history and calls goToVideo back.
   function requestNavigate(index: number): void {
@@ -287,6 +302,8 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   function updateCommentsUi(): void {
     commentsToggle.textContent = commentsExpanded ? "▾ Comments" : "▸ Comments";
     commentsBody.hidden = !commentsExpanded;
+    // The sort control only makes sense once the comments are showing.
+    commentsSort.hidden = !commentsExpanded;
   }
 
   // Called on each video change: resets comment state and only fetches if the
