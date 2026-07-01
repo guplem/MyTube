@@ -7,6 +7,13 @@
       :root {
         color-scheme: dark;
       }
+      /* Make the `hidden` attribute win over element rules that set `display`
+         (e.g. the flex layouts on the chapters section, comments body and end
+         card). Without this, class specificity beats the UA [hidden] rule and
+         those boxes stay visible while empty. */
+      [hidden] {
+        display: none !important;
+      }
       body {
         font-family: system-ui, -apple-system, sans-serif;
         margin: 0;
@@ -646,6 +653,24 @@
         cursor: default;
       }
 
+      /* Description + chapters layout. On narrow screens they stack (chapters
+         above the description, as a horizontal strip); on wide screens they sit
+         side by side — description on the left, chapters as a vertically
+         scrollable column on the right. See the min-width block below. */
+      .player-info {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        align-items: stretch;
+      }
+      .player-info .player-desc-card {
+        min-width: 0;
+      }
+      /* Narrow: keep the chapters strip above the description. */
+      .player-info .player-chapters {
+        order: -1;
+      }
+
       /* Chapter strip: a horizontally scrollable row of the description's
          chapters, sitting between the video and the description. As the video
          plays the current chapter is highlighted, passed chapters dim, and the
@@ -717,11 +742,17 @@
       .player-view button.chapter-card.current .chapter-label {
         color: #fff;
       }
-      /* The theater toggle is a compact icon button. */
+      /* The theater toggle is a compact icon button holding an inline SVG. */
       .player-view button.player-theater:not(.ts-link):not(.comments-toggle) {
+        display: flex;
+        align-items: center;
+        justify-content: center;
         padding: 0.4rem 0.55rem;
-        font-size: 1.1rem;
+        font-size: 1.25rem;
         line-height: 1;
+      }
+      .player-theater svg {
+        display: block;
       }
       /* Highlight the theater toggle while it is on. */
       .player-view button.player-theater.active,
@@ -745,6 +776,39 @@
           width: 85vw;
           height: 85vh;
           aspect-ratio: auto;
+        }
+      }
+
+      /* Wide screens: when the video has chapters, put the description on the
+         left and the chapters as a fixed-width, vertically scrollable column on
+         the right. Chapter-less videos keep the single full-width description. */
+      @media (min-width: 800px) {
+        .player-info--has-chapters {
+          flex-direction: row;
+          align-items: flex-start;
+        }
+        .player-info--has-chapters .player-desc-card {
+          flex: 1 1 auto;
+          max-width: 560px;
+        }
+        .player-info--has-chapters .player-chapters {
+          order: 0;
+          flex: 0 0 300px;
+          max-width: 300px;
+        }
+        .player-info--has-chapters .player-chapters-track {
+          flex-direction: column;
+          overflow-x: hidden;
+          overflow-y: auto;
+          max-height: 460px;
+          padding-bottom: 0;
+          padding-right: 0.35rem;
+        }
+        .player-view .player-info--has-chapters button.chapter-card {
+          max-width: none;
+        }
+        .player-info--has-chapters .chapter-label {
+          max-width: none;
         }
       }
 
