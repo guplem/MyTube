@@ -865,8 +865,10 @@
           margin-left: 0;
         }
         /* The player is already full-width on a phone, so theater mode is a
-           no-op there; hide the toggle to avoid clutter. */
-        .player-theater {
+           no-op there; hide the toggle to avoid clutter. The selector mirrors
+           the base .player-view button.player-theater rule so it wins on
+           specificity (a bare .player-theater would lose to it). */
+        .player-view button.player-theater:not(.ts-link):not(.comments-toggle) {
           display: none;
         }
       }
