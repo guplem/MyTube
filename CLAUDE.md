@@ -62,6 +62,18 @@ architecture or adding a feature.** Human setup/run/deploy: [README.md](README.m
   shown on the other lists; dismissed feed cards are dimmed like seen ones.
 - UI toggles persist in `localStorage` via `src/ui/preferences.ts` (works inside
   the Apps Script iframe; no server round-trip).
+- **Optimistic UI updates for every server mutation.** Any button that writes to
+  the server (mark seen, dismiss, add/remove Watch Later — on cards *and* in the
+  player) must feel instant: the Apps Script bridge round-trips to Google and can
+  take a second or more, so never leave the user waiting on the request. Route it
+  through `optimistic()` in `src/ui/optimistic.ts` — it applies the expected
+  result immediately (`apply`), fires the request (`send`), and on failure rolls
+  the change back (`revert`) and shows a `showToast` with a one-tap refresh. Pass
+  the button as `key` so a rapid re-tap lets only the latest tap own the rollback;
+  use `onSuccess` to finalize (e.g. remove a card). `optimisticToggle` and
+  `optimisticRemove` in `src/ui/main.ts` are the card-level wrappers built on it.
+  This is **not** for reads (loading comments, a feed page, refreshing) — there is
+  no result to assume, so those keep their own loading/skeleton state.
 - **All navigation goes through `go()`/`render()` in `src/ui/main.ts`.** A
   `Screen` describes the view; `go()` renders it and pushes it to the URL,
   `render()` only draws (used by back/forward and first load). State lives in the

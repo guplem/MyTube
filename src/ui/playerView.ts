@@ -16,6 +16,7 @@ import type { Chapter } from "../shared/chapters";
 import { parseChapters } from "../shared/chapters";
 import { getVideoDescription, getComments, markVideoSeen } from "./serverBridge";
 import { getBoolPreference, setBoolPreference } from "./preferences";
+import { optimistic } from "./optimistic";
 
 // Theater mode (desktop): the player breaks out of the centered column and
 // fills the window. Persisted so it stays on across videos and visits.
@@ -124,17 +125,24 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
 
   const seenButton = document.createElement("button");
   seenButton.type = "button";
+  // Optimistic, like the card buttons: flip to "Seen ✓" immediately and roll
+  // back + toast if the request fails. See src/ui/optimistic.ts.
   seenButton.addEventListener("click", (): void => {
     const video = queue[currentIndex];
     if (!video || video.seen) return;
-    void markVideoSeen(video)
-      .then((): void => {
+    optimistic({
+      key: seenButton,
+      apply: (): void => {
         video.seen = true;
         updateSeenButton();
-      })
-      .catch((): void => {
-        // Leave the button as-is so the user can retry.
-      });
+      },
+      revert: (): void => {
+        video.seen = false;
+        updateSeenButton();
+      },
+      send: (): Promise<void> => markVideoSeen(video),
+      failMessage: "Couldn't mark as seen",
+    });
   });
 
   // Theater mode toggle. Hidden on mobile (where the player is already

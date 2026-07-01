@@ -20,7 +20,7 @@ import {
 } from "./serverBridge";
 import { VideoListView, PagedVideoListView, skeletonGrid, type VideoAction } from "./videoListView";
 import { PlayerView, type PlayerController } from "./playerView";
-import { showToast } from "./toast";
+import { optimistic } from "./optimistic";
 import {
   getBoolPreference,
   setBoolPreference,
@@ -79,11 +79,12 @@ function appContainer(): HTMLElement | null {
 
 // --- Per-card actions ------------------------------------------------------
 //
-// Every action is optimistic: it updates the card the instant it is tapped, as
-// if the server call had already succeeded, and only fires the request in the
-// background. If the request fails, the change is rolled back to its previous
-// state and a toast tells the user (with a one-tap page refresh). This keeps
-// the UI snappy even when the underlying Apps Script calls are slow.
+// Every action is optimistic (see src/ui/optimistic.ts): it updates the card the
+// instant it is tapped, as if the server call had already succeeded, and only
+// fires the request in the background. If the request fails, the change is rolled
+// back to its previous state and a toast tells the user (with a one-tap page
+// refresh). This keeps the UI snappy even when the underlying Apps Script calls
+// are slow. The same `optimistic` helper drives the player's buttons too.
 
 // Optimistically removes a card from the list: hides it immediately, then drops
 // it for good once the request succeeds. On failure the card is restored to its
@@ -96,31 +97,39 @@ function optimisticRemove(
   onRollback?: () => void,
 ): void {
   const card = button.closest<HTMLElement>(".video-card");
-  if (card) card.style.display = "none";
-  request
-    .then((): void => {
-      card?.remove();
-    })
-    .catch((): void => {
+  optimistic({
+    apply: (): void => {
+      if (card) card.style.display = "none";
+    },
+    revert: (): void => {
       if (card) card.style.display = "";
       onRollback?.();
-      showToast(failMessage);
-    });
+    },
+    onSuccess: (): void => card?.remove(),
+    send: (): Promise<void> => request,
+    failMessage,
+  });
 }
 
 const addToWatchLaterAction: VideoAction = {
   label: (video) => (video.inWatchLater ? "Added ✓" : "+ Watch Later"),
   disabled: (video) => Boolean(video.inWatchLater),
   onClick: (video, button): void => {
-    // Assume success: show "Added ✓" and lock the button right away.
-    video.inWatchLater = true;
-    button.disabled = true;
-    button.textContent = "Added ✓";
-    addToWatchLater(video.videoId).catch((): void => {
-      video.inWatchLater = false;
-      button.disabled = false;
-      button.textContent = "+ Watch Later";
-      showToast("Couldn't add to Watch Later");
+    optimistic({
+      key: button,
+      // Assume success: show "Added ✓" and lock the button right away.
+      apply: (): void => {
+        video.inWatchLater = true;
+        button.disabled = true;
+        button.textContent = "Added ✓";
+      },
+      revert: (): void => {
+        video.inWatchLater = false;
+        button.disabled = false;
+        button.textContent = "+ Watch Later";
+      },
+      send: (): Promise<void> => addToWatchLater(video.videoId),
+      failMessage: "Couldn't add to Watch Later",
     });
   },
 };
@@ -136,16 +145,10 @@ const removeFromWatchLaterAction: VideoAction = {
   },
 };
 
-// Per-button tap counter, so a button tapped repeatedly before its requests
-// settle lets only the LATEST tap own the displayed state. A stale request that
-// fails later is ignored: the newer tap already decided the UI and fired its own
-// request, so reverting (or toasting) on the old one would diverge from both the
-// user's last intent and the server's last write.
-const toggleSeq = new WeakMap<HTMLButtonElement, number>();
-
-// Shared optimistic toggle for the in-place boolean flags (seen, dismissed).
-// Flips the flag, reflects it, fires the request, and rolls back + toasts only
-// if this is still the most recent tap on the button when the request fails.
+// Optimistic toggle for the in-place boolean flags (seen, dismissed). Flips the
+// flag, reflects it, fires the request, and rolls back + toasts only if this is
+// still the most recent tap on the button when the request fails (the button is
+// the dedup key). See src/ui/optimistic.ts.
 function optimisticToggle(
   button: HTMLButtonElement,
   get: () => boolean,
@@ -154,13 +157,12 @@ function optimisticToggle(
   failMessage: (next: boolean) => string,
 ): void {
   const target = !get();
-  const tap = (toggleSeq.get(button) ?? 0) + 1;
-  toggleSeq.set(button, tap);
-  set(target);
-  send(target).catch((): void => {
-    if (toggleSeq.get(button) !== tap) return; // superseded by a newer tap
-    set(!target);
-    showToast(failMessage(target));
+  optimistic({
+    key: button,
+    apply: (): void => set(target),
+    revert: (): void => set(!target),
+    send: (): Promise<void> => send(target),
+    failMessage: failMessage(target),
   });
 }
 
