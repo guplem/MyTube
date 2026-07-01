@@ -42,8 +42,13 @@ interface YouTubeNamespace {
 }
 const PLAYER_STATE_ENDED = 0;
 
-// Matches "M:SS" and "H:MM:SS" timestamps in comment/description text.
-const TIMESTAMP_PATTERN = /(\d{1,2}):([0-5]\d)(?::([0-5]\d))?/g;
+// Theater-toggle icons. Enabling theater mode shows a monitor/TV ("big screen,
+// not fullscreen"); exiting shows arrows pointing inward (shrink back to the
+// centered column). Inline SVG so they stay crisp and unambiguous.
+const ICON_ENTER_THEATER =
+  '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>';
+const ICON_EXIT_THEATER =
+  '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14h6v6"/><path d="M20 10h-6V4"/><path d="M14 10 21 3"/><path d="M3 21l7-7"/></svg>';
 
 export interface PlayerViewProps {
   queue: Video[];
@@ -272,7 +277,14 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   endCard.className = "player-end-card";
   endCard.hidden = true;
 
-  root.append(frame, titleRow, nav, chaptersSection, descCard, commentsCard, endCard);
+  // Description and chapters share a row on wide screens (description left,
+  // chapters right); they stack on narrow screens. See `.player-info` in the
+  // stylesheet.
+  const info = document.createElement("div");
+  info.className = "player-info";
+  info.append(descCard, chaptersSection);
+
+  root.append(frame, titleRow, nav, info, commentsCard, endCard);
 
   // Ask the router to navigate; it pushes history and calls goToVideo back.
   function requestNavigate(index: number): void {
@@ -296,8 +308,12 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     chaptersTrack.innerHTML = "";
     if (list.length === 0) {
       chaptersSection.hidden = true;
+      // Without chapters there is no right-hand column, so let the description
+      // reclaim the full width (see `.player-info--has-chapters`).
+      info.classList.remove("player-info--has-chapters");
       return;
     }
+    info.classList.add("player-info--has-chapters");
     for (const chapter of list) {
       const card = document.createElement("button");
       card.type = "button";
@@ -356,8 +372,14 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     }
     const card = chapterCards[index];
     if (card) {
-      // Leave the passed chapters off to the left; keep the current one at the start.
-      chaptersTrack.scrollTo({ left: Math.max(0, card.offsetLeft - 8), behavior: "smooth" });
+      // Keep the current chapter at the start of the track. The track scrolls
+      // horizontally on narrow screens and vertically on wide ones, so scroll
+      // both axes — the off-axis offset is roughly constant and is a no-op.
+      chaptersTrack.scrollTo({
+        left: Math.max(0, card.offsetLeft - 8),
+        top: Math.max(0, card.offsetTop - 8),
+        behavior: "smooth",
+      });
     }
   }
 
@@ -380,7 +402,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   function updateTheater(): void {
     root.classList.toggle("player-view--theater", theaterMode);
     theaterButton.classList.toggle("active", theaterMode);
-    theaterButton.textContent = "⛶";
+    theaterButton.innerHTML = theaterMode ? ICON_EXIT_THEATER : ICON_ENTER_THEATER;
     const label = theaterMode ? "Exit theater mode" : "Theater mode";
     theaterButton.title = label;
     theaterButton.setAttribute("aria-label", label);
@@ -493,27 +515,46 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     return item;
   }
 
-  // Fills an element with text, turning timestamps into buttons that seek.
+  // Fills an element with text, turning timestamps into buttons that seek and
+  // URLs into links (both styled the same via `.ts-link`). A single pass over a
+  // combined pattern keeps the two in document order; URLs match first so a
+  // timestamp inside a URL is not double-matched.
   function appendTextWithTimestamps(container: HTMLElement, text: string): void {
     container.textContent = "";
-    TIMESTAMP_PATTERN.lastIndex = 0;
+    // Group 1: URL. Groups 2-4: an "M:SS" / "H:MM:SS" timestamp.
+    const pattern = /(https?:\/\/\S+)|(\d{1,2}):([0-5]\d)(?::([0-5]\d))?/g;
     let lastIndex = 0;
     let match: RegExpExecArray | null;
-    while ((match = TIMESTAMP_PATTERN.exec(text)) !== null) {
-      const [whole, hoursOrMinutes, middle, maybeSeconds] = match;
+    while ((match = pattern.exec(text)) !== null) {
+      const [whole, url, hoursOrMinutes, middle, maybeSeconds] = match;
       if (match.index > lastIndex) {
         container.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
       }
-      const seconds =
-        maybeSeconds !== undefined
-          ? Number(hoursOrMinutes) * 3600 + Number(middle) * 60 + Number(maybeSeconds)
-          : Number(hoursOrMinutes) * 60 + Number(middle);
-      const link = document.createElement("button");
-      link.type = "button";
-      link.className = "ts-link";
-      link.textContent = whole;
-      link.addEventListener("click", (): void => seek(seconds));
-      container.appendChild(link);
+      if (url !== undefined) {
+        // Trailing punctuation is almost never part of the URL (e.g. a link at
+        // the end of a sentence); split it back off as plain text.
+        const trailing = url.match(/[.,;:!?)\]}'"]+$/);
+        const href = trailing ? url.slice(0, url.length - trailing[0].length) : url;
+        const link = document.createElement("a");
+        link.className = "ts-link";
+        link.href = href;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.textContent = href;
+        container.appendChild(link);
+        if (trailing) container.appendChild(document.createTextNode(trailing[0]));
+      } else {
+        const seconds =
+          maybeSeconds !== undefined
+            ? Number(hoursOrMinutes) * 3600 + Number(middle) * 60 + Number(maybeSeconds)
+            : Number(hoursOrMinutes) * 60 + Number(middle);
+        const link = document.createElement("button");
+        link.type = "button";
+        link.className = "ts-link";
+        link.textContent = whole;
+        link.addEventListener("click", (): void => seek(seconds));
+        container.appendChild(link);
+      }
       lastIndex = match.index + whole.length;
     }
     if (lastIndex < text.length) {
