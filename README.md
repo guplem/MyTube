@@ -144,10 +144,11 @@ pushes, so a merge made with it would land on `main` without firing the deploy
 2. Branch protection on `main` requires the `test` status check (and **no**
    required review, or auto-merge waits forever for an approval).
 3. Create a GitHub App installed on this repo with **Contents: read/write** and
-   **Pull requests: read/write**, then store its App ID and a generated private
-   key as the Actions secrets `AUTOMERGE_APP_ID` and `AUTOMERGE_APP_PRIVATE_KEY`.
+   **Pull requests: read/write**. Store its App ID as the Actions **variable**
+   `AUTOMERGE_APP_ID` (not sensitive) and a generated private key as the
+   **secret** `AUTOMERGE_APP_PRIVATE_KEY`.
 
-If those secrets are missing the workflow simply fails to queue the PR, leaving
+If those are missing the workflow simply fails to queue the PR, leaving
 it for a manual merge — which itself triggers the deploy — so the worst case is
 "not auto-merged", never "merged but not deployed".
 
