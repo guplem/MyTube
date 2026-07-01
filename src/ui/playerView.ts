@@ -12,6 +12,8 @@
 
 import type { Video } from "../shared/video";
 import type { VideoComment, CommentOrder } from "../shared/comment";
+import type { Chapter } from "../shared/chapters";
+import { parseChapters } from "../shared/chapters";
 import { getVideoDescription, getComments, markVideoSeen } from "./serverBridge";
 import { getBoolPreference, setBoolPreference } from "./preferences";
 
@@ -31,6 +33,8 @@ interface YouTubePlayerOptions {
 interface YouTubePlayer {
   loadVideoById(videoId: string): void;
   seekTo(seconds: number, allowSeekAhead: boolean): void;
+  /** Current playback position in seconds; polled to track the active chapter. */
+  getCurrentTime(): number;
   destroy(): void;
 }
 interface YouTubeNamespace {
@@ -87,6 +91,15 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   let currentIndex = Math.max(0, Math.min(props.startIndex, queue.length - 1));
   let autoplayNext = false;
   let player: YouTubePlayer | null = null;
+
+  // Chapters parsed from the description (see src/shared/chapters.ts). The strip
+  // between the video and description highlights the chapter playing now, dims the
+  // ones already passed, and auto-scrolls to keep the current one at the left. The
+  // YouTube API fires no time events, so we poll getCurrentTime on an interval.
+  let chapters: Chapter[] = [];
+  let chapterCards: HTMLButtonElement[] = [];
+  let currentChapterIndex = -1;
+  let chapterTimer: number | null = null;
 
   // Comment paging/sorting state. Comments are collapsed and unloaded until the
   // user expands the section; commentsExpanded persists across videos in this
@@ -176,6 +189,19 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   navButtons.append(prevButton, nextButton);
   nav.append(position, navButtons, autoplayLabel);
 
+  // Chapter strip: a horizontally scrollable row of the description's chapters,
+  // sitting between the video and the description. Hidden unless the description
+  // actually has a chapter list.
+  const chaptersSection = document.createElement("div");
+  chaptersSection.className = "player-chapters";
+  chaptersSection.hidden = true;
+  const chaptersHeading = document.createElement("div");
+  chaptersHeading.className = "player-chapters-heading";
+  chaptersHeading.textContent = "Chapters";
+  const chaptersTrack = document.createElement("div");
+  chaptersTrack.className = "player-chapters-track";
+  chaptersSection.append(chaptersHeading, chaptersTrack);
+
   // The description sits in its own card so it reads as a distinct block from
   // the comments below it.
   const descCard = document.createElement("div");
@@ -246,7 +272,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   endCard.className = "player-end-card";
   endCard.hidden = true;
 
-  root.append(frame, titleRow, nav, descCard, commentsCard, endCard);
+  root.append(frame, titleRow, nav, chaptersSection, descCard, commentsCard, endCard);
 
   // Ask the router to navigate; it pushes history and calls goToVideo back.
   function requestNavigate(index: number): void {
@@ -259,6 +285,80 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   function seek(seconds: number): void {
     if (player) player.seekTo(seconds, true);
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  // Rebuild the chapter strip for a video (or hide it when there are none).
+  function renderChapters(list: Chapter[]): void {
+    stopChapterTracking();
+    chapters = list;
+    chapterCards = [];
+    currentChapterIndex = -1;
+    chaptersTrack.innerHTML = "";
+    if (list.length === 0) {
+      chaptersSection.hidden = true;
+      return;
+    }
+    for (const chapter of list) {
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = "chapter-card";
+      const time = document.createElement("span");
+      time.className = "chapter-time";
+      time.textContent = chapter.timestampText;
+      const label = document.createElement("span");
+      label.className = "chapter-label";
+      label.textContent = chapter.label;
+      label.title = chapter.label;
+      card.append(time, label);
+      card.addEventListener("click", (): void => seek(chapter.seconds));
+      chaptersTrack.appendChild(card);
+      chapterCards.push(card);
+    }
+    chaptersSection.hidden = false;
+    startChapterTracking();
+  }
+
+  function startChapterTracking(): void {
+    stopChapterTracking();
+    if (chapters.length === 0) return;
+    chapterTimer = window.setInterval(updateCurrentChapter, 500);
+    updateCurrentChapter();
+  }
+
+  function stopChapterTracking(): void {
+    if (chapterTimer !== null) {
+      window.clearInterval(chapterTimer);
+      chapterTimer = null;
+    }
+  }
+
+  // Finds the chapter that contains the current playback time (the last one whose
+  // start is at or before now) and, when it changes, restyles and auto-scrolls.
+  function updateCurrentChapter(): void {
+    if (!player || chapters.length === 0) return;
+    let now: number;
+    try {
+      now = player.getCurrentTime();
+    } catch {
+      return; // player not ready yet
+    }
+    if (typeof now !== "number" || Number.isNaN(now)) return;
+    let index = -1;
+    for (let i = 0; i < chapters.length; i++) {
+      if (chapters[i].seconds <= now + 0.25) index = i;
+      else break;
+    }
+    if (index === currentChapterIndex) return;
+    currentChapterIndex = index;
+    for (let i = 0; i < chapterCards.length; i++) {
+      chapterCards[i].classList.toggle("current", i === index);
+      chapterCards[i].classList.toggle("past", i < index);
+    }
+    const card = chapterCards[index];
+    if (card) {
+      // Leave the passed chapters off to the left; keep the current one at the start.
+      chaptersTrack.scrollTo({ left: Math.max(0, card.offsetLeft - 8), behavior: "smooth" });
+    }
   }
 
   function updateChrome(): void {
@@ -289,11 +389,16 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
 
   async function loadDescription(videoId: string): Promise<void> {
     description.textContent = "Loading description…";
+    renderChapters([]); // clear any previous video's chapters while loading
     try {
       const text = await getVideoDescription(videoId);
       if (queue[currentIndex]?.videoId !== videoId) return; // video changed mid-load
-      if (text) appendTextWithTimestamps(description, text);
-      else description.textContent = "(no description)";
+      if (text) {
+        appendTextWithTimestamps(description, text);
+        renderChapters(parseChapters(text));
+      } else {
+        description.textContent = "(no description)";
+      }
     } catch {
       description.textContent = "(could not load description)";
     }
@@ -483,6 +588,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
       if (index >= 0) void playAt(index);
     },
     destroy: (): void => {
+      stopChapterTracking();
       if (player) {
         player.destroy();
         player = null;
