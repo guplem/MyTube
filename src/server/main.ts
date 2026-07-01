@@ -16,20 +16,17 @@ import * as youtube from "./youtube";
 import * as history from "./history";
 import * as dismissed from "./dismissed";
 
-// App icon shown in the browser tab. Apps Script serves our page inside its own
-// outer iframe, so a <link rel="icon"> in index.html would never reach the tab;
-// setFaviconUrl is the only hook that does. It needs a URL and we have nowhere to
-// host one, so the icon travels inline as a data URI. This is the URL-encoded
-// form of src/ui/icon.svg (the editable source of truth) — keep the two in sync.
-const FAVICON_DATA_URI =
-  "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%230f0f0f%22%2F%3E%3Crect%20x%3D%228%22%20y%3D%2215%22%20width%3D%2248%22%20height%3D%2234%22%20rx%3D%229%22%20fill%3D%22%23ff0033%22%2F%3E%3Cpath%20d%3D%22M27%2024%20L42%2032%20L27%2040%20Z%22%20fill%3D%22%23fff%22%2F%3E%3C%2Fsvg%3E";
+// No setFaviconUrl: it fetches and validates the image on Google's servers and
+// only accepts a publicly-hosted raster image (PNG/ICO), rejecting both data:
+// URIs and SVG with "The favicon icon image type is not supported." This repo
+// has nowhere public to host one, so the icon ships as a best-effort inline
+// <link rel="icon"> in index.html instead (see the note there).
 
 /** Serves the single web app page. Called by Apps Script for GET requests. */
 export function doGet(): GoogleAppsScript.HTML.HtmlOutput {
   return HtmlService.createTemplateFromFile("index")
     .evaluate()
     .setTitle("MyTube")
-    .setFaviconUrl(FAVICON_DATA_URI)
     .addMetaTag("viewport", "width=device-width, initial-scale=1");
 }
 
