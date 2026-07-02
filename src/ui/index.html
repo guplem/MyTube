@@ -567,10 +567,10 @@
         flex-direction: column;
         gap: 0.5rem;
       }
-      /* The sort control is the comments panel's own contents, right-aligned. */
+      /* The sort control is the comments panel's own contents, left-aligned. */
       .comments-controls {
         display: flex;
-        justify-content: flex-end;
+        justify-content: flex-start;
       }
       .comments-sort {
         display: flex;
@@ -680,28 +680,14 @@
         cursor: default;
       }
 
-      /* Description + chapters layout. On narrow screens they stack (chapters
-         above the description, as a horizontal strip); on wide screens they sit
-         side by side — description on the left, chapters as a vertically
-         scrollable column on the right. See the min-width block below. */
-      .player-info {
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
-        align-items: stretch;
-      }
-      .player-info .player-desc-card {
+      .player-desc-card {
         min-width: 0;
-      }
-      /* Narrow: keep the chapters strip above the description. */
-      .player-info .player-chapters {
-        order: -1;
       }
 
       /* Chapter strip: a horizontally scrollable row of the description's
-         chapters, sitting between the video and the description. As the video
-         plays the current chapter is highlighted, passed chapters dim, and the
-         track auto-scrolls to keep the current one at the left. */
+         chapters, sitting above the tabs. As the video plays the current
+         chapter is highlighted, passed chapters dim, and the track auto-scrolls
+         to keep the current one at the left. */
       .player-chapters {
         display: flex;
         flex-direction: column;
@@ -803,49 +789,6 @@
           width: 85vw;
           height: 85vh;
           aspect-ratio: auto;
-        }
-      }
-
-      /* Wide screens: when the video has chapters, put the description on the
-         left and the chapters as a fixed-width column on the right. Chapter-less
-         videos keep the single full-width description.
-
-         The whole section is capped to one height and each column scrolls its
-         own content, so a long description no longer grows the page and creates
-         a "double scroll" (page + chapters). align-items: stretch makes both
-         columns the same height; max-height on the row caps that height and the
-         inner overflow rules turn the excess into per-column scrolling. */
-      @media (min-width: 800px) {
-        .player-info--has-chapters {
-          flex-direction: row;
-          align-items: stretch;
-          max-height: 460px;
-        }
-        .player-info--has-chapters .player-desc-card {
-          flex: 1 1 auto;
-          max-width: 560px;
-          overflow-y: auto;
-        }
-        .player-info--has-chapters .player-chapters {
-          order: 0;
-          flex: 0 0 300px;
-          max-width: 300px;
-          min-height: 0;
-        }
-        .player-info--has-chapters .player-chapters-track {
-          flex: 1 1 auto;
-          flex-direction: column;
-          overflow-x: hidden;
-          overflow-y: auto;
-          min-height: 0;
-          padding-bottom: 0;
-          padding-right: 0.35rem;
-        }
-        .player-view .player-info--has-chapters button.chapter-card {
-          max-width: none;
-        }
-        .player-info--has-chapters .chapter-label {
-          max-width: none;
         }
       }
 
