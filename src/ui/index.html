@@ -707,6 +707,18 @@
         overflow-x: auto;
         padding-bottom: 0.35rem;
       }
+      /* On touch devices the overlay scrollbar can appear on load and linger
+         until the user scrolls, so hide it there (same pattern as .app-nav);
+         swiping still scrolls. Mouse users keep the draggable scrollbar. */
+      @media (hover: none) and (pointer: coarse) {
+        .player-chapters-track {
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+        .player-chapters-track::-webkit-scrollbar {
+          display: none;
+        }
+      }
       .player-view button.chapter-card {
         flex: 0 0 auto;
         max-width: 220px;
