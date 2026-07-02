@@ -107,14 +107,16 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   let currentChapterIndex = -1;
   let chapterTimer: number | null = null;
 
-  // Comment paging/sorting state. Comments are collapsed and unloaded until the
-  // user expands the section; commentsExpanded persists across videos in this
-  // session so, once opened, later videos load their comments automatically.
+  // Comment paging/sorting state. The description and comments live in two tabs;
+  // the comments tab is unloaded until it is selected. activeTab persists across
+  // videos in this session so, once opened, later videos load their comments
+  // automatically. commentsLoaded tracks whether the current video's first page
+  // has been fetched.
   let commentsOrder: CommentOrder = "relevance";
   let commentsToken = "";
   let commentsVideoId = "";
   let commentsLoading = false;
-  let commentsExpanded = false;
+  let activeTab: "description" | "comments" = "description";
   let commentsLoaded = false;
 
   const root = document.createElement("div");
@@ -215,35 +217,59 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   chaptersTrack.className = "player-chapters-track";
   chaptersSection.append(chaptersHeading, chaptersTrack);
 
-  // The description sits in its own card so it reads as a distinct block from
-  // the comments below it.
+  // The description sits in its own card so it reads as a distinct block.
   const descCard = document.createElement("div");
   descCard.className = "player-card player-desc-card";
   const description = document.createElement("p");
   description.className = "player-desc";
   descCard.appendChild(description);
 
-  // Collapsible comments, wrapped in a matching card. The header row holds the
-  // toggle on the left and the sort control right-aligned beside the title; the
-  // body is only loaded when first expanded, so playing a video does not fetch
-  // comments unless wanted.
-  const commentsCard = document.createElement("div");
-  commentsCard.className = "player-card comments-card";
+  // Description and chapters share a row on wide screens (description left,
+  // chapters right); they stack on narrow screens. See `.player-info` in the
+  // stylesheet.
+  const info = document.createElement("div");
+  info.className = "player-info";
+  info.append(descCard, chaptersSection);
 
-  const commentsHeader = document.createElement("div");
-  commentsHeader.className = "comments-header";
+  // The description and comments live in two tabs so only one shows at a time.
+  // The comments tab's body is loaded only when the tab is first selected, so
+  // playing a video does not fetch comments unless wanted; activeTab persists
+  // across videos in this player, so once Comments is opened later videos load
+  // their comments automatically.
+  const tabStrip = document.createElement("div");
+  tabStrip.className = "player-tab-strip";
+  tabStrip.setAttribute("role", "tablist");
 
-  const commentsToggle = document.createElement("button");
-  commentsToggle.type = "button";
-  commentsToggle.className = "comments-toggle";
-  commentsToggle.addEventListener("click", (): void => {
-    commentsExpanded = !commentsExpanded;
-    updateCommentsUi();
-    if (commentsExpanded && commentsVideoId && !commentsLoaded) loadComments(commentsVideoId);
-  });
+  const descTab = document.createElement("button");
+  descTab.type = "button";
+  descTab.className = "player-tab";
+  descTab.setAttribute("role", "tab");
+  descTab.textContent = "Description";
+  descTab.addEventListener("click", (): void => setActiveTab("description"));
 
-  const commentsBody = document.createElement("div");
-  commentsBody.className = "comments-body";
+  const commentsTab = document.createElement("button");
+  commentsTab.type = "button";
+  commentsTab.className = "player-tab";
+  commentsTab.setAttribute("role", "tab");
+  commentsTab.textContent = "Comments";
+  commentsTab.addEventListener("click", (): void => setActiveTab("comments"));
+
+  tabStrip.append(descTab, commentsTab);
+
+  // Description tab panel: holds the description + chapters layout.
+  const descPanel = document.createElement("div");
+  descPanel.className = "player-tab-panel";
+  descPanel.setAttribute("role", "tabpanel");
+  descPanel.appendChild(info);
+
+  // Comments tab panel: the sort order is part of this panel's contents (it
+  // only applies to comments), sitting above the comment list.
+  const commentsPanel = document.createElement("div");
+  commentsPanel.className = "player-tab-panel player-card comments-card";
+  commentsPanel.setAttribute("role", "tabpanel");
+
+  const commentsControls = document.createElement("div");
+  commentsControls.className = "comments-controls";
 
   const commentsSort = document.createElement("label");
   commentsSort.className = "comments-sort";
@@ -263,7 +289,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     if (commentsVideoId) loadComments(commentsVideoId);
   });
   commentsSort.append(document.createTextNode("Sort "), orderSelect);
-  commentsHeader.append(commentsToggle, commentsSort);
+  commentsControls.appendChild(commentsSort);
 
   const comments = document.createElement("div");
   comments.className = "player-comments";
@@ -277,22 +303,14 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     if (commentsVideoId) void fetchCommentsPage(commentsVideoId, false);
   });
 
-  commentsBody.append(comments, showMoreButton);
-  commentsCard.append(commentsHeader, commentsBody);
-  updateCommentsUi();
+  commentsPanel.append(commentsControls, comments, showMoreButton);
 
   const endCard = document.createElement("div");
   endCard.className = "player-end-card";
   endCard.hidden = true;
 
-  // Description and chapters share a row on wide screens (description left,
-  // chapters right); they stack on narrow screens. See `.player-info` in the
-  // stylesheet.
-  const info = document.createElement("div");
-  info.className = "player-info";
-  info.append(descCard, chaptersSection);
-
-  root.append(frame, titleRow, nav, info, commentsCard, endCard);
+  root.append(frame, titleRow, nav, tabStrip, descPanel, commentsPanel, endCard);
+  updateTabsUi();
 
   // Ask the router to navigate; it pushes history and calls goToVideo back.
   function requestNavigate(index: number): void {
@@ -434,22 +452,31 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     }
   }
 
-  function updateCommentsUi(): void {
-    commentsToggle.textContent = commentsExpanded ? "▾ Comments" : "▸ Comments";
-    commentsBody.hidden = !commentsExpanded;
-    // The sort control only makes sense once the comments are showing.
-    commentsSort.hidden = !commentsExpanded;
+  function updateTabsUi(): void {
+    const onComments = activeTab === "comments";
+    descTab.setAttribute("aria-selected", String(!onComments));
+    commentsTab.setAttribute("aria-selected", String(onComments));
+    descPanel.hidden = onComments;
+    commentsPanel.hidden = !onComments;
+  }
+
+  // Switches the visible tab. The comments body is fetched the first time the
+  // Comments tab is opened for the current video.
+  function setActiveTab(tab: "description" | "comments"): void {
+    activeTab = tab;
+    updateTabsUi();
+    if (tab === "comments" && commentsVideoId && !commentsLoaded) loadComments(commentsVideoId);
   }
 
   // Called on each video change: resets comment state and only fetches if the
-  // section is currently expanded.
+  // Comments tab is currently selected.
   function prepareComments(videoId: string): void {
     commentsVideoId = videoId;
     commentsLoaded = false;
     commentsToken = "";
     comments.innerHTML = "";
     showMoreButton.hidden = true;
-    if (commentsExpanded) loadComments(videoId);
+    if (activeTab === "comments") loadComments(videoId);
   }
 
   // Resets and loads the first page of comments for a video.
