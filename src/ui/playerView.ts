@@ -205,8 +205,9 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   nav.append(position, navButtons, autoplayLabel);
 
   // Chapter strip: a horizontally scrollable row of the description's chapters,
-  // sitting between the video and the description. Hidden unless the description
-  // actually has a chapter list.
+  // sitting above the tabs so it stays visible on both the Description and
+  // Comments tabs — the chapter list is always highly relevant to playback.
+  // Hidden unless the description actually has a chapter list.
   const chaptersSection = document.createElement("div");
   chaptersSection.className = "player-chapters";
   chaptersSection.hidden = true;
@@ -223,13 +224,6 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   const description = document.createElement("p");
   description.className = "player-desc";
   descCard.appendChild(description);
-
-  // Description and chapters share a row on wide screens (description left,
-  // chapters right); they stack on narrow screens. See `.player-info` in the
-  // stylesheet.
-  const info = document.createElement("div");
-  info.className = "player-info";
-  info.append(descCard, chaptersSection);
 
   // The description and comments live in two tabs so only one shows at a time.
   // The comments tab's body is loaded only when the tab is first selected, so
@@ -256,11 +250,11 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
 
   tabStrip.append(descTab, commentsTab);
 
-  // Description tab panel: holds the description + chapters layout.
+  // Description tab panel: holds the description card.
   const descPanel = document.createElement("div");
   descPanel.className = "player-tab-panel";
   descPanel.setAttribute("role", "tabpanel");
-  descPanel.appendChild(info);
+  descPanel.appendChild(descCard);
 
   // Comments tab panel: the sort order is part of this panel's contents (it
   // only applies to comments), sitting above the comment list.
@@ -309,7 +303,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   endCard.className = "player-end-card";
   endCard.hidden = true;
 
-  root.append(frame, titleRow, nav, tabStrip, descPanel, commentsPanel, endCard);
+  root.append(frame, titleRow, nav, chaptersSection, tabStrip, descPanel, commentsPanel, endCard);
   updateTabsUi();
 
   // Ask the router to navigate; it pushes history and calls goToVideo back.
@@ -334,12 +328,8 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     chaptersTrack.innerHTML = "";
     if (list.length === 0) {
       chaptersSection.hidden = true;
-      // Without chapters there is no right-hand column, so let the description
-      // reclaim the full width (see `.player-info--has-chapters`).
-      info.classList.remove("player-info--has-chapters");
       return;
     }
-    info.classList.add("player-info--has-chapters");
     for (const chapter of list) {
       const card = document.createElement("button");
       card.type = "button";
