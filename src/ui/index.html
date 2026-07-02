@@ -533,32 +533,44 @@
         padding: 1rem;
         border-radius: 8px;
       }
-      /* Header row: the "Comments" toggle on the left, the sort control
-         right-aligned beside it. */
-      .comments-header {
+      /* Tab strip: the "Description" / "Comments" tabs above the panel, styled
+         as an underlined segmented control. Only the selected panel shows. */
+      .player-tab-strip {
         display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 1rem;
+        gap: 0.25rem;
+        border-bottom: 1px solid #2a2a2a;
       }
-      .comments-toggle {
+      .player-view button.player-tab {
         background: none;
         border: none;
-        padding: 0;
+        border-bottom: 2px solid transparent;
+        border-radius: 0;
+        margin-bottom: -1px;
+        padding: 0.5rem 0.9rem;
         font: inherit;
         font-size: 1rem;
         font-weight: 600;
-        color: #ddd;
+        color: #aaa;
         cursor: pointer;
       }
-      .comments-toggle:hover {
-        color: #fff;
+      .player-view button.player-tab:hover {
+        background: none;
+        color: #ddd;
       }
-      .comments-body {
+      .player-view button.player-tab[aria-selected="true"] {
+        color: #fff;
+        border-bottom-color: #3ea6ff;
+      }
+      /* The comments panel lays its controls, list, and "show more" in a column. */
+      .player-tab-panel.comments-card {
         display: flex;
         flex-direction: column;
         gap: 0.5rem;
-        margin-top: 0.75rem;
+      }
+      /* The sort control is the comments panel's own contents, right-aligned. */
+      .comments-controls {
+        display: flex;
+        justify-content: flex-end;
       }
       .comments-sort {
         display: flex;
@@ -651,7 +663,7 @@
       /* Box style for the player's action buttons. Excludes the link-like
          buttons (timestamps, comments toggle) and the chapter cards, which
          carry their own styling. */
-      .player-view button:not(.ts-link):not(.comments-toggle):not(.chapter-card) {
+      .player-view button:not(.ts-link):not(.player-tab):not(.chapter-card) {
         background: #272727;
         color: #f1f1f1;
         border: 1px solid #3a3a3a;
@@ -660,10 +672,10 @@
         font: inherit;
         cursor: pointer;
       }
-      .player-view button:not(.ts-link):not(.comments-toggle):not(.chapter-card):hover:not(:disabled) {
+      .player-view button:not(.ts-link):not(.player-tab):not(.chapter-card):hover:not(:disabled) {
         background: #333;
       }
-      .player-view button:not(.ts-link):not(.comments-toggle):not(.chapter-card):disabled {
+      .player-view button:not(.ts-link):not(.player-tab):not(.chapter-card):disabled {
         opacity: 0.4;
         cursor: default;
       }
@@ -758,7 +770,7 @@
         color: #fff;
       }
       /* The theater toggle is a compact icon button holding an inline SVG. */
-      .player-view button.player-theater:not(.ts-link):not(.comments-toggle) {
+      .player-view button.player-theater:not(.ts-link):not(.player-tab) {
         display: flex;
         align-items: center;
         justify-content: center;
@@ -883,7 +895,7 @@
            no-op there; hide the toggle to avoid clutter. The selector mirrors
            the base .player-view button.player-theater rule so it wins on
            specificity (a bare .player-theater would lose to it). */
-        .player-view button.player-theater:not(.ts-link):not(.comments-toggle) {
+        .player-view button.player-theater:not(.ts-link):not(.player-tab) {
           display: none;
         }
       }
