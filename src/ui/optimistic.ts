@@ -11,6 +11,7 @@
 // their own loading/skeleton state instead. See CLAUDE.md "Optimistic UI updates".
 
 import { showToast } from "./toast";
+import { invalidateFeedPrefetch } from "./feedPrefetch";
 
 // Per-key tap counter: when a control is tapped repeatedly before its requests
 // settle, only the LATEST tap owns the rollback. A stale request that fails
@@ -43,6 +44,10 @@ export function optimistic(options: OptimisticOptions): void {
   const key = options.key ?? {};
   const op = (latestOp.get(key) ?? 0) + 1;
   latestOp.set(key, op);
+  // Every server mutation flows through here, and any of them (seen, dismissed,
+  // Watch Later) can change the flags baked into the background-prefetched feed
+  // page — so drop that stash; the next screen render warms a fresh one.
+  invalidateFeedPrefetch();
   options.apply();
   options
     .send()

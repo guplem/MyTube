@@ -60,6 +60,15 @@ architecture or adding a feature.** Human setup/run/deploy: [README.md](README.m
   feed-only "Hide dismissed" toggle filters on it. The dismiss control is the
   top-right corner cross on feed cards (`VideoListOptions.cornerAction`), never
   shown on the other lists; dismissed feed cards are dimmed like seen ones.
+- **The feed is prefetched from every other screen.** The app lands on Watch
+  Later, so any non-feed `render()` warms one background `getFeedPage` call for
+  page 1 with the current filters (`src/ui/feedPrefetch.ts`, policy in
+  `src/shared/prefetchStore.ts`: single slot, 90s fresh window, single use).
+  Opening the feed consumes the stash and renders instantly. The warm call
+  never passes `forceRefresh` — the server reuses live cache entries and
+  refetches only expired channels — and every `optimistic()` mutation
+  invalidates the stash because the snapshot carries seen/dismissed/Watch Later
+  flags. Do not add other prefetch paths that bypass this store.
 - UI toggles persist in `localStorage` via `src/ui/preferences.ts` (works inside
   the Apps Script iframe; no server round-trip).
 - **Optimistic UI updates for every server mutation.** Any button that writes to

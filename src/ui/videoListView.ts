@@ -43,7 +43,8 @@ interface VideoPage {
 type PageLoader = (page: number, pageSize: number) => Promise<VideoPage>;
 
 const PAGE_SIZE_OPTIONS = [24, 48, 96];
-const DEFAULT_PAGE_SIZE = 24;
+/** Exported so the feed warm-up (feedPrefetch) requests the same first page. */
+export const DEFAULT_PAGE_SIZE = 24;
 const SKELETON_COUNT = 12; // placeholder cards shown while a page loads
 
 function skeletonCard(): HTMLElement {

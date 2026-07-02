@@ -112,6 +112,11 @@ to learn your channel IDs and cache them. The actual "new videos" feed comes
 from each channel's RSS, which is free and needs no API quota. RSS returns only
 the latest ~15 videos per channel, which is exactly what a "what's new" feed
 wants. In GAS we fetch many RSS feeds in parallel with `UrlFetchApp.fetchAll`.
+Because each channel's parsed videos are cached for 30 minutes and a plain load
+only refetches expired channels, the UI also warms the feed in the background
+from every non-feed screen (the app lands on Watch Later): it prefetches page 1
+so opening the feed is instant. This moves the same fetches earlier rather than
+adding volume, and RSS costs no API quota either way.
 
 ---
 

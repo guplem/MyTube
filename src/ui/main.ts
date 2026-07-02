@@ -5,6 +5,7 @@
 // screen is the shared VideoListView; every video plays through PlayerView.
 
 import type { Video } from "../shared/video";
+import type { FeedPageOptions } from "../shared/feed";
 import {
   getFeedPage,
   getHistory,
@@ -18,7 +19,14 @@ import {
   markVideoDismissed,
   removeVideoDismissed,
 } from "./serverBridge";
-import { VideoListView, PagedVideoListView, skeletonGrid, type VideoAction } from "./videoListView";
+import {
+  VideoListView,
+  PagedVideoListView,
+  skeletonGrid,
+  DEFAULT_PAGE_SIZE,
+  type VideoAction,
+} from "./videoListView";
+import { warmFeedPage, takePrefetchedFeedPage } from "./feedPrefetch";
 import { PlayerView, type PlayerController } from "./playerView";
 import { optimistic } from "./optimistic";
 import {
@@ -266,6 +274,21 @@ const dismissAction: VideoAction = {
 
 // --- Screens ---------------------------------------------------------------
 
+// The feed page options for the current filter preferences. Used by the feed
+// screen's loader AND the background warm-up, so a warmed page matches the
+// exact request the feed screen would make.
+function feedPageOptions(page: number, pageSize: number, forceRefresh: boolean): FeedPageOptions {
+  return {
+    page,
+    pageSize,
+    forceRefresh,
+    hideShorts: getBoolPreference(HIDE_SHORTS_PREF, true),
+    hideViewed: getBoolPreference(HIDE_VIEWED_PREF, false),
+    hideDismissed: getBoolPreference(HIDE_DISMISSED_PREF, true),
+    beforeDate: getStringPreference(BEFORE_DATE_PREF, ""),
+  };
+}
+
 function showFeed(forceFirstLoad: boolean = false): void {
   const app = appContainer();
   if (!app) return;
@@ -310,15 +333,16 @@ function showFeed(forceFirstLoad: boolean = false): void {
       (page, pageSize) => {
         const forceRefresh = pendingForce;
         pendingForce = false;
-        return getFeedPage({
-          page,
-          pageSize,
-          forceRefresh,
-          hideShorts: getBoolPreference(HIDE_SHORTS_PREF, true),
-          hideViewed: getBoolPreference(HIDE_VIEWED_PREF, false),
-          hideDismissed: getBoolPreference(HIDE_DISMISSED_PREF, true),
-          beforeDate: getStringPreference(BEFORE_DATE_PREF, ""),
-        });
+        const options = feedPageOptions(page, pageSize, forceRefresh);
+        // First page, no forced refresh: use the page warmed in the background
+        // while the user was on another screen (see feedPrefetch.ts). A miss
+        // (different filters, gone stale, already used) falls through to a
+        // normal server call.
+        if (!forceRefresh) {
+          const prefetched = takePrefetchedFeedPage(options);
+          if (prefetched) return prefetched;
+        }
+        return getFeedPage(options);
       },
       {
         onPlay: (index, queue): void => playFromList(queue, index, { source: "feed" }),
@@ -650,6 +674,12 @@ function go(screen: Screen): void {
 
 function render(screen: Screen): void {
   setActiveNav(sectionOf(screen));
+  // Any screen but the feed warms feed page 1 in the background (the feed's own
+  // loader is the fetch there). Fire-and-forget: it runs as its own parallel
+  // server call, so it never delays the screen being rendered. A fresh warm for
+  // the same filters is a no-op, and the server only refetches the channels
+  // whose RSS cache expired — never a forced refresh.
+  if (screen.view !== "feed") warmFeedPage(feedPageOptions(0, DEFAULT_PAGE_SIZE, false));
   // Leaving the player: tear down the YouTube iframe so it stops playing.
   if (screen.view !== "player") clearActivePlayer();
   switch (screen.view) {
