@@ -17,6 +17,7 @@ import { parseChapters } from "../shared/chapters";
 import { getVideoDescription, getComments, markVideoSeen } from "./serverBridge";
 import { getBoolPreference, setBoolPreference } from "./preferences";
 import { optimistic } from "./optimistic";
+import { skeletonComments, skeletonDescription } from "./skeleton";
 
 // Theater mode (desktop): the player breaks out of the centered column and
 // fills the window. Persisted so it stays on across videos and visits.
@@ -426,7 +427,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   }
 
   async function loadDescription(videoId: string): Promise<void> {
-    description.textContent = "Loading description…";
+    description.replaceChildren(skeletonDescription());
     renderChapters([]); // clear any previous video's chapters while loading
     try {
       const text = await getVideoDescription(videoId);
@@ -469,13 +470,15 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     if (activeTab === "comments") loadComments(videoId);
   }
 
-  // Resets and loads the first page of comments for a video.
+  // Resets and loads the first page of comments for a video. Placeholder
+  // comments fill the panel meanwhile so it keeps a realistic height —
+  // switching to the Comments tab must not collapse the page to one line and
+  // jump the scroll position.
   function loadComments(videoId: string): void {
     commentsVideoId = videoId;
     commentsLoaded = true;
     commentsToken = "";
-    comments.innerHTML = "";
-    comments.textContent = "Loading comments…";
+    comments.replaceChildren(...skeletonComments(6));
     showMoreButton.hidden = true;
     void fetchCommentsPage(videoId, true);
   }
@@ -484,6 +487,10 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     if (commentsLoading) return;
     commentsLoading = true;
     showMoreButton.disabled = true;
+    // First page: loadComments already filled the panel with placeholders.
+    // Paging in more: keep the loaded comments and append placeholders below.
+    const placeholders = first ? [] : skeletonComments(3);
+    comments.append(...placeholders);
     try {
       const page = await getComments(videoId, commentsOrder, commentsToken);
       if (commentsVideoId !== videoId) return; // a different video loaded meanwhile
@@ -491,6 +498,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
       if (first && page.comments.length === 0) {
         comments.textContent = "No comments.";
       }
+      for (const placeholder of placeholders) placeholder.remove();
       for (const comment of page.comments) comments.appendChild(renderComment(comment));
       commentsToken = page.nextPageToken;
       showMoreButton.hidden = commentsToken === "";
@@ -499,6 +507,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
       comments.textContent = "Could not load comments: " + (error as Error).message;
       showMoreButton.hidden = true;
     } finally {
+      for (const placeholder of placeholders) placeholder.remove();
       commentsLoading = false;
       showMoreButton.disabled = false;
     }

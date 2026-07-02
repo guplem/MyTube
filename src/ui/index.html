@@ -150,30 +150,12 @@
         opacity: 0.4;
       }
 
-      /* Loading placeholders (skeletons) shown while a list/page loads. */
-      .video-card--skeleton {
-        pointer-events: none;
-      }
-      .skeleton-thumb {
-        width: 100%;
-        aspect-ratio: 16 / 9;
+      /* Loading placeholders (skeletons): grey pulsing blocks shaped and sized
+         like the content they replace (built in src/ui/skeleton.ts), so the
+         layout doesn't jump — or lose its scroll position — when data lands. */
+      .skeleton {
         background: #2a2a2a;
-      }
-      .video-meta .skeleton-line {
-        height: 0.8rem;
         border-radius: 4px;
-        background: #2a2a2a;
-      }
-      .skeleton-line--short {
-        width: 55%;
-      }
-      .playlist-item--skeleton {
-        height: 1.2rem;
-        pointer-events: none;
-      }
-      .video-card--skeleton .skeleton-thumb,
-      .video-card--skeleton .skeleton-line,
-      .playlist-item--skeleton {
         animation: skeleton-pulse 1.2s ease-in-out infinite;
       }
       @keyframes skeleton-pulse {
@@ -186,11 +168,39 @@
         }
       }
       @media (prefers-reduced-motion: reduce) {
-        .video-card--skeleton .skeleton-thumb,
-        .video-card--skeleton .skeleton-line,
-        .playlist-item--skeleton {
+        .skeleton {
           animation: none;
+          opacity: 0.5;
         }
+      }
+      .video-card--skeleton,
+      .playlist-item--skeleton,
+      .comment--skeleton {
+        pointer-events: none;
+      }
+      .skeleton-thumb {
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        border-radius: 0;
+      }
+      /* Button-shaped block matching .video-action's rendered height. */
+      .skeleton-action {
+        flex: 1 1 auto;
+        min-width: 3.5rem;
+        height: 1.8rem;
+        border-radius: 6px;
+      }
+      /* Text lines spaced like a paragraph (description, comment bodies). */
+      .skeleton-paragraph {
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+      }
+      /* 16:9 stand-in for the video iframe while a shared link resolves. */
+      .skeleton-player-frame {
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        border-radius: 8px;
       }
       .video-play {
         display: flex;
@@ -868,7 +878,10 @@
         <input type="search" placeholder="Search YouTube…" aria-label="Search YouTube" />
       </form>
     </header>
-    <main id="app" class="muted">Loading…</main>
+    <!-- Filled with a skeleton grid by the bundle the moment it runs (see the
+         boot block at the bottom of src/ui/main.ts), then replaced by the
+         routed screen once the google.script bridge is ready. -->
+    <main id="app" class="muted"></main>
 
     <!-- Browser TypeScript bundle (built from src/ui by esbuild). -->
     <?!= include('ui'); ?>
