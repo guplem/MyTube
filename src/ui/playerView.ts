@@ -14,7 +14,7 @@ import type { Video } from "../shared/video";
 import type { VideoComment, CommentOrder } from "../shared/comment";
 import type { Chapter } from "../shared/chapters";
 import { parseChapters } from "../shared/chapters";
-import { getVideoDescription, getComments, markVideoSeen } from "./serverBridge";
+import { getVideoDescription, getComments, markVideoSeen, removeVideoSeen } from "./serverBridge";
 import { getBoolPreference, setBoolPreference } from "./preferences";
 import { optimistic } from "./optimistic";
 import { skeletonComments, skeletonDescription } from "./skeleton";
@@ -128,23 +128,25 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
 
   const seenButton = document.createElement("button");
   seenButton.type = "button";
-  // Optimistic, like the card buttons: flip to "Seen ✓" immediately and roll
-  // back + toast if the request fails. See src/ui/optimistic.ts.
+  // Toggles seen, like the card buttons: flip immediately and roll back +
+  // toast if the request fails. See src/ui/optimistic.ts.
   seenButton.addEventListener("click", (): void => {
     const video = queue[currentIndex];
-    if (!video || video.seen) return;
+    if (!video) return;
+    const target = !video.seen;
     optimistic({
       key: seenButton,
       apply: (): void => {
-        video.seen = true;
+        video.seen = target;
         updateSeenButton();
       },
       revert: (): void => {
-        video.seen = false;
+        video.seen = !target;
         updateSeenButton();
       },
-      send: (): Promise<void> => markVideoSeen(video),
-      failMessage: "Couldn't mark as seen",
+      send: (): Promise<void> =>
+        target ? markVideoSeen(video) : removeVideoSeen(video.videoId),
+      failMessage: target ? "Couldn't mark as seen" : "Couldn't mark as unseen",
     });
   });
 
@@ -413,7 +415,9 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     const video = queue[currentIndex];
     const seen = Boolean(video && video.seen);
     seenButton.textContent = seen ? "Seen ✓" : "Mark as seen";
-    seenButton.disabled = seen;
+    seenButton.disabled = !video;
+    seenButton.title = seen ? "Un-mark as seen" : "Mark as seen";
+    seenButton.setAttribute("aria-pressed", String(seen));
   }
 
   function updateTheater(): void {
