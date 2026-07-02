@@ -2,6 +2,7 @@
   "name": "mytube",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "description": "Personal YouTube-watching web app on Google Apps Script: subscriptions, playlists, own history, no recommendations.",
   "type": "module",
   "scripts": {

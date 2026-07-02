@@ -18,6 +18,12 @@ first time you open it Google shows a "Google hasn't verified this app" screen:
 click **Advanced**, then **Go to MyTube (unsafe)** to continue. This is expected
 for a personal app (see PLAN.md section 4).
 
+Note that this shared instance has limited capacity: Google caps unverified
+apps at roughly 100 users total, and all its YouTube API traffic shares one
+daily quota. If the instance is full or slow, **deploying your own copy is the
+supported path** — it is free, takes a few minutes, and gives you your own
+quota. See [One-time Google setup](#one-time-google-setup) below.
+
 ## Features
 
 - **Subscriptions feed** — newest uploads from the channels you are subscribed
@@ -164,3 +170,7 @@ use the **Run workflow** button on *Deploy to Apps Script* in the Actions tab
   Apps Script serves the page inside an iframe that can cache aggressively.
 - **A video has no duration badge for a moment** — durations are fetched and
   cached on first view; they appear on the next load.
+
+## License
+
+[MIT](LICENSE)
