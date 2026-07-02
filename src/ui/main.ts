@@ -27,6 +27,7 @@ import {
   type VideoAction,
 } from "./videoListView";
 import { warmFeedPage, takePrefetchedFeedPage } from "./feedPrefetch";
+import { skeletonPlaylistList, skeletonPlayerView, skeletonSortToolbar } from "./skeleton";
 import { PlayerView, type PlayerController } from "./playerView";
 import { optimistic } from "./optimistic";
 import {
@@ -468,18 +469,6 @@ function showPlaylists(): void {
     });
 }
 
-// Placeholder rows shown while the playlists index loads.
-function skeletonPlaylistList(): HTMLElement {
-  const list = document.createElement("div");
-  list.className = "playlist-list";
-  for (let index = 0; index < 6; index += 1) {
-    const item = document.createElement("div");
-    item.className = "playlist-item playlist-item--skeleton";
-    list.appendChild(item);
-  }
-  return list;
-}
-
 // Loads a Video[] and renders it with VideoListView. Shows placeholder cards
 // while loading (old content is cleared first) and a failure message on error.
 function renderVideoScreen(
@@ -530,7 +519,9 @@ function renderPlaylistScreen(
   const app = appContainer();
   if (!app) return;
   app.innerHTML = "";
-  app.appendChild(skeletonGrid());
+  // The placeholder mirrors the loaded layout (sort toolbar + grid) so the
+  // cards don't shift down when the real toolbar appears.
+  app.append(skeletonSortToolbar(), skeletonGrid());
   load
     .then((videos): void => {
       app.innerHTML = "";
@@ -591,7 +582,7 @@ function renderPlayer(screen: PlayerScreen): void {
   }
   // No in-memory queue (shared link or forward navigation): rebuild it.
   const app = appContainer();
-  if (app) app.textContent = "Loading video…";
+  if (app) app.replaceChildren(skeletonPlayerView());
   rebuildQueue(screen.context, screen.videoId)
     .then((queue): void => showPlayer(screen, queue))
     .catch((): void => showPlayer(screen, [minimalVideo(screen.videoId)]));
@@ -861,9 +852,13 @@ function start(): void {
   });
 }
 
-// Run only after the page (and the google.script bridge) is fully loaded.
+// Run only after the page (and the google.script bridge) is fully loaded. The
+// bundle itself executes earlier (inline at the end of <body>), so fill the app
+// with placeholder cards right away — boot shows a skeleton, never a blank
+// screen or a bare "Loading…" line — until the first routed screen replaces it.
 if (document.readyState === "complete") {
   start();
 } else {
+  appContainer()?.appendChild(skeletonGrid());
   window.addEventListener("load", (): void => start());
 }

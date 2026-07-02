@@ -12,6 +12,7 @@
 // list); for the server-paged feed it is just the current page.
 
 import type { Video } from "../shared/video";
+import { skeletonVideoCard } from "./skeleton";
 
 export interface VideoAction {
   /** Static text, or a function of the video (e.g. "Seen ✓" vs "Mark seen"). */
@@ -47,25 +48,9 @@ const PAGE_SIZE_OPTIONS = [24, 48, 96];
 export const DEFAULT_PAGE_SIZE = 24;
 const SKELETON_COUNT = 12; // placeholder cards shown while a page loads
 
-function skeletonCard(): HTMLElement {
-  const card = document.createElement("div");
-  card.className = "video-card video-card--skeleton";
-  const thumb = document.createElement("div");
-  thumb.className = "skeleton-thumb";
-  const meta = document.createElement("div");
-  meta.className = "video-meta";
-  const line = document.createElement("div");
-  line.className = "skeleton-line";
-  const lineShort = document.createElement("div");
-  lineShort.className = "skeleton-line skeleton-line--short";
-  meta.append(line, lineShort);
-  card.append(thumb, meta);
-  return card;
-}
-
 function fillWithSkeletons(grid: HTMLElement, count: number): void {
   grid.innerHTML = "";
-  for (let index = 0; index < count; index += 1) grid.appendChild(skeletonCard());
+  for (let index = 0; index < count; index += 1) grid.appendChild(skeletonVideoCard());
 }
 
 /** A standalone placeholder grid, for a screen loading its first batch. */
