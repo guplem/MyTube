@@ -10,6 +10,17 @@
 
 import { DOMParser } from "@xmldom/xmldom";
 
+// Real Apps Script quotas the fakes enforce so an oversized write fails in
+// tests the same way it fails in production. Sizes are measured in UTF-8
+// bytes, which is what Google's limits count.
+const PROPERTIES_MAX_VALUE_BYTES = 9 * 1024;
+const PROPERTIES_MAX_TOTAL_BYTES = 500 * 1024;
+const CACHE_MAX_VALUE_BYTES = 100 * 1024;
+
+function utf8Bytes(value: string): number {
+  return new TextEncoder().encode(value).length;
+}
+
 // ---------------------------------------------------------------------------
 // PropertiesService (per-user key/value store; values are strings)
 // ---------------------------------------------------------------------------
@@ -26,6 +37,8 @@ class FakeProperties {
   }
 
   setProperty(key: string, value: string): FakeProperties {
+    this.checkValueSize(key, value);
+    this.checkTotalSize({ ...this.store, [key]: value });
     this.store[key] = value;
     return this;
   }
@@ -42,9 +55,30 @@ class FakeProperties {
   // GAS: setProperties(properties, deleteAllOthers). When deleteAllOthers is
   // true the store is replaced wholesale, otherwise merged.
   setProperties(properties: { [key: string]: string }, deleteAllOthers?: boolean): FakeProperties {
-    if (deleteAllOthers) this.store = {};
-    Object.assign(this.store, properties);
+    for (const key of Object.keys(properties)) this.checkValueSize(key, properties[key]);
+    const next = deleteAllOthers ? { ...properties } : { ...this.store, ...properties };
+    this.checkTotalSize(next);
+    this.store = deleteAllOthers ? next : Object.assign(this.store, properties);
     return this;
+  }
+
+  private checkValueSize(key: string, value: string): void {
+    const bytes = utf8Bytes(value);
+    if (bytes > PROPERTIES_MAX_VALUE_BYTES) {
+      throw new Error(
+        `FakeProperties: value for "${key}" is ${bytes} bytes; real PropertiesService caps values at ${PROPERTIES_MAX_VALUE_BYTES} bytes`,
+      );
+    }
+  }
+
+  private checkTotalSize(store: { [key: string]: string }): void {
+    let total = 0;
+    for (const key of Object.keys(store)) total += utf8Bytes(store[key]);
+    if (total > PROPERTIES_MAX_TOTAL_BYTES) {
+      throw new Error(
+        `FakeProperties: store would total ${total} bytes; real PropertiesService caps a property store at ${PROPERTIES_MAX_TOTAL_BYTES} bytes`,
+      );
+    }
   }
 }
 
@@ -66,11 +100,22 @@ class FakeCache {
   }
 
   put(key: string, value: string, _ttlSeconds?: number): void {
+    this.checkValueSize(key, value);
     this.store[key] = value;
   }
 
   putAll(values: { [key: string]: string }, _ttlSeconds?: number): void {
+    for (const key of Object.keys(values)) this.checkValueSize(key, values[key]);
     Object.assign(this.store, values);
+  }
+
+  private checkValueSize(key: string, value: string): void {
+    const bytes = utf8Bytes(value);
+    if (bytes > CACHE_MAX_VALUE_BYTES) {
+      throw new Error(
+        `FakeCache: value for "${key}" is ${bytes} bytes; real CacheService caps values at ${CACHE_MAX_VALUE_BYTES} bytes`,
+      );
+    }
   }
 
   remove(key: string): void {
