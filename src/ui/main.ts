@@ -17,6 +17,7 @@ import {
   removeFromWatchLater,
   markVideoSeen,
   removeVideoSeen,
+  undoMarkVideoSeen,
   markVideoDismissed,
   removeVideoDismissed,
 } from "./serverBridge";
@@ -98,13 +99,11 @@ function appContainer(): HTMLElement | null {
 
 // Optimistically removes a card from the list: hides it immediately, then drops
 // it for good once the request succeeds. On failure the card is restored to its
-// original place (it was only hidden, never detached), any extra state change is
-// undone via onRollback, and a toast is shown.
+// original place (it was only hidden, never detached) and a toast is shown.
 function optimisticRemove(
   button: HTMLButtonElement,
   request: Promise<void>,
   failMessage: string,
-  onRollback?: () => void,
 ): void {
   const card = button.closest<HTMLElement>(".video-card");
   optimistic({
@@ -113,7 +112,6 @@ function optimisticRemove(
     },
     revert: (): void => {
       if (card) card.style.display = "";
-      onRollback?.();
     },
     onSuccess: (): void => card?.remove(),
     send: (): Promise<void> => request,
@@ -182,10 +180,16 @@ function reflectSeen(video: Video, button: HTMLButtonElement): void {
   button.closest(".video-card")?.classList.toggle("video-card--seen", video.seen);
 }
 
-// Toggles a video in/out of the watch history. Used on the feed and playlists,
-// where the card stays in place and only its seen styling changes. Flips the
-// state immediately and rolls back if the request fails.
-function toggleSeen(video: Video, button: HTMLButtonElement): void {
+// Toggles a video in/out of the watch history. The card stays in place and only
+// its seen styling changes; flips the state immediately and rolls back if the
+// request fails. `unmark` is the un-toggle server call — the default just
+// removes the view; Watch Later passes undoMarkVideoSeen, which also restores
+// the video to the playlist.
+function toggleSeen(
+  video: Video,
+  button: HTMLButtonElement,
+  unmark: (videoId: string) => Promise<void> = removeVideoSeen,
+): void {
   optimisticToggle(
     button,
     (): boolean => video.seen,
@@ -193,7 +197,7 @@ function toggleSeen(video: Video, button: HTMLButtonElement): void {
       video.seen = value;
       reflectSeen(video, button);
     },
-    (next): Promise<void> => (next ? markVideoSeen(video) : removeVideoSeen(video.videoId)),
+    (next): Promise<void> => (next ? markVideoSeen(video) : unmark(video.videoId)),
     (next): string => (next ? "Couldn't mark as seen" : "Couldn't mark as unseen"),
   );
 }
@@ -223,16 +227,15 @@ const markSeenAction: VideoAction = {
   },
 };
 
-// Watch Later: marking a video seen drops it from the playlist server-side, so
-// the card leaves the list. Optimistically remove it and roll back on failure.
+// Watch Later: the seen button is a toggle and the card stays in place (dimmed)
+// like on the feed, so a mis-tap is undone with a second tap; the video only
+// leaves the list on the next load. Marking seen still drops it from the
+// playlist server-side, so the un-toggle goes through undoMarkVideoSeen, which
+// restores the playlist entry — otherwise the toggle would look undone here but
+// the video would be gone from Watch Later after a refresh.
 const watchLaterSeenAction: VideoAction = {
-  label: "Mark seen",
-  onClick: (video, button): void => {
-    video.seen = true;
-    optimisticRemove(button, markVideoSeen(video), "Couldn't mark as seen", (): void => {
-      video.seen = false;
-    });
-  },
+  label: (video) => (video.seen ? "Seen ✓" : "Mark seen"),
+  onClick: (video, button): void => toggleSeen(video, button, undoMarkVideoSeen),
 };
 
 // History: every video is already seen, so the button removes it from history

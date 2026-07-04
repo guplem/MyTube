@@ -225,6 +225,28 @@ export function addToWatchLater(videoId: string): void {
   updateCachedWatchLaterIds(videoId, true);
 }
 
+/**
+ * Re-adds a video to Watch Later if it is not already there. Used to undo the
+ * Watch Later drop that marking a video seen performs. Never creates the
+ * playlist: if the user has none, marking seen dropped nothing, so there is
+ * nothing to restore.
+ */
+export function restoreToWatchLater(videoId: string): void {
+  const playlistId = findWatchLaterPlaylistId();
+  if (!playlistId) return;
+  if (getWatchLaterVideoIds().includes(videoId)) return;
+  YouTube.PlaylistItems!.insert(
+    {
+      snippet: {
+        playlistId,
+        resourceId: { kind: "youtube#video", videoId },
+      },
+    },
+    "snippet",
+  );
+  updateCachedWatchLaterIds(videoId, true);
+}
+
 /** Removes the first Watch Later item matching the video id. */
 export function removeFromWatchLater(videoId: string): void {
   const playlistId = getWatchLaterPlaylistId();

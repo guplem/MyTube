@@ -54,7 +54,12 @@ architecture or adding a feature.** Human setup/run/deploy: [README.md](README.m
   effect: it runs server-side so it applies from every screen and the player, not
   just the Watch Later list, and a watched video never lingers there. It is
   one-directional — un-marking seen does not re-add to Watch Later — and a no-op
-  when the video isn't saved (guarded on the cached membership set).
+  when the video isn't saved (guarded on the cached membership set). The one
+  exception is the Watch Later screen's own seen button: it is a toggle and the
+  card stays in place (dimmed) until the next load, so a mis-tap is undone with
+  a second tap; its un-toggle goes through `undoMarkVideoSeen`, which restores
+  the playlist entry (guarded on membership, never creates the playlist) and
+  then un-marks the view.
 - **Dismissed = a feed-only hidden list** (`src/server/dismissed.ts`, video ids
   in user properties, mirrors `history.ts`). `flagDismissed` sets it; the
   feed-only "Hide dismissed" toggle filters on it. The dismiss control is the

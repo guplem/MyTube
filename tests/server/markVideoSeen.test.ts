@@ -3,6 +3,10 @@
 // markVideoSeen so all callers get it for free. It is guarded on Watch Later
 // membership so it costs nothing when the video isn't saved or there is no
 // Watch Later playlist yet.
+//
+// undoMarkVideoSeen is the inverse, used by the Watch Later screen's seen
+// toggle: it un-marks the view AND restores the video to Watch Later, so a
+// mis-tapped "Mark seen" is fully undone with a second tap.
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
@@ -11,16 +15,18 @@ import {
   type AppsScriptMocks,
 } from "../helpers/appsScriptMock";
 import { makeVideo } from "../helpers/fixtures";
-import { markVideoSeen } from "../../src/server/main";
-import { getSeenVideoIds } from "../../src/server/history";
+import { markVideoSeen, undoMarkVideoSeen } from "../../src/server/main";
+import { getSeenVideoIds, markVideoSeen as recordSeen } from "../../src/server/history";
 
 let mocks: AppsScriptMocks;
 let removed: string[];
+let inserted: string[];
 let listCalls: number;
 
 beforeEach(() => {
   mocks = installAppsScriptMocks();
   removed = [];
+  inserted = [];
   listCalls = 0;
 });
 afterEach(() => {
@@ -29,7 +35,8 @@ afterEach(() => {
 
 // Seed an existing Watch Later playlist whose items are the given video ids.
 // Wires PlaylistItems.list (paged, used by both the membership read and the
-// removal scan) and PlaylistItems.remove (records the removed item id).
+// removal scan), PlaylistItems.remove (records the removed item id), and
+// PlaylistItems.insert (records the inserted video id).
 function seedWatchLater(videoIds: string[]): void {
   mocks.userProperties.setProperty("watchLaterPlaylistId", "WL");
   const items = videoIds.map((videoId) => ({
@@ -42,7 +49,16 @@ function seedWatchLater(videoIds: string[]): void {
       listCalls += 1;
       return { items: items.filter((item) => !removed.includes(item.id)) };
     },
-    insert: () => ({}),
+    insert: (resource: { snippet: { resourceId: { videoId: string } } }) => {
+      const videoId = resource.snippet.resourceId.videoId;
+      inserted.push(videoId);
+      items.push({
+        id: `item-${videoId}`,
+        snippet: { title: videoId, resourceId: { videoId }, thumbnails: {} },
+        contentDetails: { videoId },
+      });
+      return {};
+    },
     remove: (id: string) => {
       removed.push(id);
       return {};
@@ -85,6 +101,62 @@ describe("markVideoSeen + Watch Later", () => {
     };
 
     expect(() => markVideoSeen(makeVideo({ videoId: "a" }))).not.toThrow();
+    expect(getSeenVideoIds()).toContain("a");
+  });
+});
+
+describe("undoMarkVideoSeen", () => {
+  it("un-marks the view and restores the video to Watch Later", () => {
+    seedWatchLater(["b"]);
+    recordSeen(makeVideo({ videoId: "a" })); // "a" was marked seen and dropped from Watch Later
+
+    undoMarkVideoSeen("a");
+
+    expect(inserted).toEqual(["a"]);
+    expect(getSeenVideoIds()).not.toContain("a");
+  });
+
+  it("round-trips with markVideoSeen: mark then undo leaves Watch Later as it was", () => {
+    seedWatchLater(["a", "b"]);
+
+    markVideoSeen(makeVideo({ videoId: "a" }));
+    undoMarkVideoSeen("a");
+
+    expect(removed).toEqual(["item-a"]);
+    expect(inserted).toEqual(["a"]);
+    expect(getSeenVideoIds()).not.toContain("a");
+  });
+
+  it("does not add a duplicate when the video is still in Watch Later", () => {
+    seedWatchLater(["a", "b"]);
+    recordSeen(makeVideo({ videoId: "a" }));
+
+    undoMarkVideoSeen("a");
+
+    expect(inserted).toEqual([]);
+    expect(getSeenVideoIds()).not.toContain("a");
+  });
+
+  it("un-marks without any Watch Later API call when there is no Watch Later playlist", () => {
+    // No watchLaterPlaylistId property and no PlaylistItems stub: a stray call
+    // (including a playlist creation) would throw, so this also asserts we
+    // never reach the API.
+    recordSeen(makeVideo({ videoId: "a" }));
+
+    undoMarkVideoSeen("a");
+
+    expect(listCalls).toBe(0);
+    expect(getSeenVideoIds()).not.toContain("a");
+  });
+
+  it("keeps the video marked seen when the restore fails, so the UI can roll back", () => {
+    seedWatchLater(["b"]);
+    recordSeen(makeVideo({ videoId: "a" }));
+    mocks.youtube.PlaylistItems!.insert = () => {
+      throw new Error("insert failed");
+    };
+
+    expect(() => undoMarkVideoSeen("a")).toThrow();
     expect(getSeenVideoIds()).toContain("a");
   });
 });
