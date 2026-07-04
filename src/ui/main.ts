@@ -6,6 +6,7 @@
 
 import type { Video } from "../shared/video";
 import type { FeedPageOptions } from "../shared/feed";
+import { defaultFeedBeforeDate } from "../shared/feed";
 import {
   getFeedPage,
   getHistory,
@@ -286,7 +287,7 @@ function feedPageOptions(page: number, pageSize: number, forceRefresh: boolean):
     hideShorts: getBoolPreference(HIDE_SHORTS_PREF, true),
     hideViewed: getBoolPreference(HIDE_VIEWED_PREF, false),
     hideDismissed: getBoolPreference(HIDE_DISMISSED_PREF, true),
-    beforeDate: getStringPreference(BEFORE_DATE_PREF, ""),
+    beforeDate: getStringPreference(BEFORE_DATE_PREF, defaultFeedBeforeDate(new Date())),
   };
 }
 
@@ -395,15 +396,18 @@ function feedToggle(labelText: string, prefKey: string, defaultValue: boolean): 
 }
 
 // Feed-only date filter: hide videos published before the chosen date. Auto-
-// applies on change (clearing the field shows all). Stored in localStorage; it
-// does not mark anything as seen, so playlists and Watch Later are unaffected.
+// applies on change. The feed is always bounded — with nothing stored (first
+// login, or after clearing the field) it defaults to defaultFeedBeforeDate;
+// the user can pick an older date to widen it, but there is no "show all"
+// state, which keeps the Shorts-duration lookups small. Stored in localStorage;
+// it does not mark anything as seen, so playlists and Watch Later are unaffected.
 function beforeDateControl(): HTMLElement {
   const label = document.createElement("label");
   label.className = "feed-toggle";
   const input = document.createElement("input");
   input.type = "date";
   input.className = "feed-date";
-  input.value = getStringPreference(BEFORE_DATE_PREF, "");
+  input.value = getStringPreference(BEFORE_DATE_PREF, defaultFeedBeforeDate(new Date()));
   input.addEventListener("change", (): void => {
     setStringPreference(BEFORE_DATE_PREF, input.value);
     showFeed();
