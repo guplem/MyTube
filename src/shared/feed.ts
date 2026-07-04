@@ -40,3 +40,35 @@ export interface UploadsFeed {
   /** Total subscription channels considered. */
   totalChannels: number;
 }
+
+/**
+ * How far back the feed date filter reaches by default. The feed always applies
+ * a cutoff (see defaultFeedBeforeDate); the user can pick an older date to widen
+ * it, but there is no "show everything" state, which keeps the feed bounded to
+ * recent uploads and the Shorts-duration lookups small (see CLAUDE.md).
+ */
+export const DEFAULT_FEED_BEFORE_MONTHS = 3;
+
+/** The default feed cutoff (YYYY-MM-DD): DEFAULT_FEED_BEFORE_MONTHS before now. */
+export function defaultFeedBeforeDate(now: Date): string {
+  return monthsAgoIso(now, DEFAULT_FEED_BEFORE_MONTHS);
+}
+
+/**
+ * The date `months` before `now`, as a local YYYY-MM-DD string. The day is
+ * clamped to the target month's length so e.g. 3 months before May 31 is the
+ * last day of February, not an overflow into March.
+ */
+export function monthsAgoIso(now: Date, months: number): string {
+  const target = new Date(now.getFullYear(), now.getMonth() - months, 1);
+  const lastDayOfTargetMonth = new Date(
+    target.getFullYear(),
+    target.getMonth() + 1,
+    0,
+  ).getDate();
+  target.setDate(Math.min(now.getDate(), lastDayOfTargetMonth));
+  const year = String(target.getFullYear()).padStart(4, "0");
+  const month = String(target.getMonth() + 1).padStart(2, "0");
+  const day = String(target.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
