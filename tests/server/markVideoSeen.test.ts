@@ -77,4 +77,14 @@ describe("markVideoSeen + Watch Later", () => {
     expect(listCalls).toBe(0);
     expect(getSeenVideoIds()).toContain("a");
   });
+
+  it("still records the view when the Watch Later removal throws", () => {
+    seedWatchLater(["a", "b"]);
+    mocks.youtube.PlaylistItems!.remove = () => {
+      throw new Error("removal failed");
+    };
+
+    expect(() => markVideoSeen(makeVideo({ videoId: "a" }))).not.toThrow();
+    expect(getSeenVideoIds()).toContain("a");
+  });
 });

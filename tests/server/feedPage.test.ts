@@ -149,4 +149,18 @@ describe("getFeedPage", () => {
     expect(page.videos.map((v) => v.videoId)).toEqual(["long", "short"]);
     expect(page.videos.map((v) => v.durationSeconds)).toEqual([600, 45]);
   });
+
+  it("returns the full list when the duration lookup throws (nothing filtered as a Short)", () => {
+    seedFeed([entry("a", "2026-06-20T00:00:00+00:00"), entry("b", "2026-06-19T00:00:00+00:00")]);
+    mocks.youtube.Videos = {
+      list: () => {
+        throw new Error("duration lookup failed");
+      },
+    };
+
+    const page = getFeedPage({ ...baseOptions, hideShorts: true });
+
+    expect(page.videos.map((v) => v.videoId)).toEqual(["a", "b"]);
+    expect(page.total).toBe(2);
+  });
 });
