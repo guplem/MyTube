@@ -532,6 +532,12 @@
       .player-desc {
         margin: 0;
         white-space: pre-wrap;
+        /* pre-wrap only breaks at whitespace, so long unbroken strings (URLs,
+           hashes) overflow the card. overflow-wrap breaks them at any point as
+           a last resort; min-width:0 lets the paragraph shrink inside flex/grid
+           parents instead of forcing the box wider. */
+        overflow-wrap: anywhere;
+        min-width: 0;
         color: #ddd;
         line-height: 1.45;
       }
