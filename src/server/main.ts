@@ -135,6 +135,21 @@ export function removeVideoSeen(videoId: string): void {
   history.removeVideoSeen(videoId);
 }
 
+/**
+ * The inverse of markVideoSeen, for the Watch Later screen's seen toggle:
+ * restores the video to Watch Later (guarded on membership; never creates the
+ * playlist), then un-marks it as seen. Everywhere else un-marking stays
+ * one-directional (removeVideoSeen) — only here does the user expect a mis-tap
+ * to put the saved video back. The restore runs FIRST and its failure
+ * propagates: if the video can't be put back, the view stays recorded, so the
+ * UI rolls the toggle back and the user sees the failure instead of silently
+ * losing the video from Watch Later.
+ */
+export function undoMarkVideoSeen(videoId: string): void {
+  youtube.restoreToWatchLater(videoId);
+  history.removeVideoSeen(videoId);
+}
+
 /** Marks a video dismissed from the feed. */
 export function markVideoDismissed(videoId: string): void {
   dismissed.markVideoDismissed(videoId);

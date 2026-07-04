@@ -17,6 +17,7 @@ interface ScriptRunner {
   getComments(videoId: string, order: CommentOrder, pageToken: string): void;
   markVideoSeen(video: Video): void;
   removeVideoSeen(videoId: string): void;
+  undoMarkVideoSeen(videoId: string): void;
   markVideoDismissed(videoId: string): void;
   removeVideoDismissed(videoId: string): void;
   getHistory(): void;
@@ -58,6 +59,10 @@ export function markVideoSeen(video: Video): Promise<void> {
 
 export function removeVideoSeen(videoId: string): Promise<void> {
   return call<void>((runner) => runner.removeVideoSeen(videoId));
+}
+
+export function undoMarkVideoSeen(videoId: string): Promise<void> {
+  return call<void>((runner) => runner.undoMarkVideoSeen(videoId));
 }
 
 export function markVideoDismissed(videoId: string): Promise<void> {
