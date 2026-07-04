@@ -3,7 +3,11 @@
 // value under the ~9KB-per-property limit. See ADR 0005 and history.ts.
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { installAppsScriptMocks, uninstallAppsScriptMocks } from "../helpers/appsScriptMock";
+import {
+  installAppsScriptMocks,
+  uninstallAppsScriptMocks,
+  type AppsScriptMocks,
+} from "../helpers/appsScriptMock";
 import { makeVideo } from "../helpers/fixtures";
 import {
   getHistory,
@@ -12,8 +16,10 @@ import {
   removeVideoSeen,
 } from "../../src/server/history";
 
+let mocks: AppsScriptMocks;
+
 beforeEach(() => {
-  installAppsScriptMocks();
+  mocks = installAppsScriptMocks();
 });
 afterEach(() => {
   uninstallAppsScriptMocks();
@@ -61,6 +67,36 @@ describe("watch history", () => {
     expect(ids).toHaveLength(500);
     expect(ids).not.toContain("v0"); // oldest dropped
     expect(ids).toContain("v500"); // newest kept
+  });
+
+  it("acquires and releases the user lock around a mutation", () => {
+    markVideoSeen(makeVideo({ videoId: "a" }));
+
+    expect(mocks.lockCalls).toEqual(["acquire", "release"]);
+  });
+
+  it("releases the lock even when the write throws", () => {
+    mocks.userProperties.setProperties = () => {
+      throw new Error("write failed");
+    };
+
+    expect(() => markVideoSeen(makeVideo({ videoId: "a" }))).toThrow("write failed");
+    expect(mocks.lockCalls[mocks.lockCalls.length - 1]).toBe("release");
+  });
+
+  it("does not delete unrelated properties when writing", () => {
+    mocks.userProperties.setProperty("subscriptionChannels", "keep-me");
+    let deletedAllOthers = false;
+    const realSetProperties = mocks.userProperties.setProperties.bind(mocks.userProperties);
+    mocks.userProperties.setProperties = (properties, deleteAllOthers) => {
+      if (deleteAllOthers) deletedAllOthers = true;
+      return realSetProperties(properties, deleteAllOthers);
+    };
+
+    markVideoSeen(makeVideo({ videoId: "a" }));
+
+    expect(mocks.userProperties.getProperty("subscriptionChannels")).toBe("keep-me");
+    expect(deletedAllOthers).toBe(false);
   });
 
   it("round-trips a history large enough to span multiple chunk properties", () => {

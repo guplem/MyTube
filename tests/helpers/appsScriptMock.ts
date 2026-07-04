@@ -124,6 +124,45 @@ class FakeCache {
 }
 
 // ---------------------------------------------------------------------------
+// LockService — mutual-exclusion locks. Vitest runs single-threaded so the fake
+// never actually blocks; it only records acquire/release calls (exposed on the
+// handle as `lockCalls`) so tests can assert a mutation took and released the
+// lock. `waitLock` runs an optional hook first so a test can simulate another
+// execution winning the race while this one "waited".
+// ---------------------------------------------------------------------------
+
+class FakeLock {
+  private held = false;
+
+  constructor(
+    private calls: string[],
+    private onWait: () => void,
+  ) {}
+
+  waitLock(_timeoutMs: number): void {
+    this.onWait();
+    this.held = true;
+    this.calls.push("acquire");
+  }
+
+  tryLock(_timeoutMs: number): boolean {
+    this.onWait();
+    this.held = true;
+    this.calls.push("acquire");
+    return true;
+  }
+
+  releaseLock(): void {
+    this.held = false;
+    this.calls.push("release");
+  }
+
+  hasLock(): boolean {
+    return this.held;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // XmlService — a faithful-enough wrapper over a real namespace-aware DOM parser
 // so parseChannelFeed runs against real YouTube RSS XML.
 // ---------------------------------------------------------------------------
@@ -228,6 +267,14 @@ export interface AppsScriptMocks {
   youtube: FakeYouTube;
   /** Records each Utilities.sleep(ms) call so retry/backoff can be asserted. */
   sleeps: number[];
+  /** Records "acquire"/"release" for each LockService lock call, in order. */
+  lockCalls: string[];
+  /**
+   * Runs at the start of every waitLock/tryLock. Default no-op; a test can
+   * override it to simulate a concurrent execution that mutated state while
+   * this one waited for the lock.
+   */
+  onLockWait: () => void;
 }
 
 /**
@@ -247,9 +294,20 @@ export function installAppsScriptMocks(): AppsScriptMocks {
     fetchAll: (requests: FetchRequest[]) => requests.map(() => httpResponse(404, "")),
     youtube: {},
     sleeps: [],
+    lockCalls: [],
+    onLockWait: () => {},
   };
 
   const g = globalThis as Record<string, unknown>;
+
+  // One lock shared by all getUserLock/getScriptLock/getDocumentLock calls: this
+  // deploy is per-user, so those scopes collapse to the same mutex in tests.
+  const lock = new FakeLock(mocks.lockCalls, () => mocks.onLockWait());
+  g.LockService = {
+    getUserLock: () => lock,
+    getScriptLock: () => lock,
+    getDocumentLock: () => lock,
+  };
 
   g.PropertiesService = {
     getUserProperties: () => userProperties,
@@ -301,6 +359,7 @@ export function uninstallAppsScriptMocks(): void {
     "Utilities",
     "XmlService",
     "YouTube",
+    "LockService",
   ]) {
     delete g[key];
   }
