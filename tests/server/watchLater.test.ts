@@ -70,6 +70,36 @@ describe("getWatchLaterPlaylistId", () => {
     expect(insertedResource.status?.privacyStatus).toBe("private");
     expect(mocks.userProperties.getProperty("watchLaterPlaylistId")).toBe("WL-created");
   });
+
+  it("creates the playlist under the user lock", () => {
+    mocks.youtube.Playlists = {
+      list: () => ({ items: [] }),
+      insert: () => ({ id: "WL-created" }),
+    };
+
+    getWatchLaterPlaylistId();
+
+    expect(mocks.lockCalls).toEqual(["acquire", "release"]);
+  });
+
+  it("re-checks the stored id inside the lock and skips creating a duplicate", () => {
+    let inserts = 0;
+    mocks.youtube.Playlists = {
+      list: () => ({ items: [] }),
+      insert: () => {
+        inserts += 1;
+        return { id: "WL-loser" };
+      },
+    };
+    // Simulate a concurrent execution that created the playlist while we waited
+    // for the lock: the id appears in storage between the first check and ours.
+    mocks.onLockWait = () => {
+      mocks.userProperties.setProperty("watchLaterPlaylistId", "WL-winner");
+    };
+
+    expect(getWatchLaterPlaylistId()).toBe("WL-winner");
+    expect(inserts).toBe(0);
+  });
 });
 
 describe("getWatchLaterVideoIds", () => {

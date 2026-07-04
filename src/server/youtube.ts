@@ -133,16 +133,28 @@ export function getWatchLaterPlaylistId(): string {
   const properties = PropertiesService.getUserProperties();
   const existing = properties.getProperty(WATCH_LATER_ID_KEY);
   if (existing) return existing;
-  const created: GoogleAppsScript.YouTube.Schema.Playlist = YouTube.Playlists!.insert(
-    {
-      snippet: { title: WATCH_LATER_TITLE, description: "Managed by MyTube." },
-      status: { privacyStatus: "private" },
-    },
-    "snippet,status",
-  );
-  const id = created.id ?? "";
-  if (id) properties.setProperty(WATCH_LATER_ID_KEY, id);
-  return id;
+  // First-ever use. Serialize creation per user: two concurrent "Add to Watch
+  // Later" taps would otherwise both see "absent" and each create a real
+  // playlist on the account, orphaning one. Re-read inside the lock in case a
+  // concurrent execution created it while we waited.
+  const lock = LockService.getUserLock();
+  lock.waitLock(10000);
+  try {
+    const winner = properties.getProperty(WATCH_LATER_ID_KEY);
+    if (winner) return winner;
+    const created: GoogleAppsScript.YouTube.Schema.Playlist = YouTube.Playlists!.insert(
+      {
+        snippet: { title: WATCH_LATER_TITLE, description: "Managed by MyTube." },
+        status: { privacyStatus: "private" },
+      },
+      "snippet,status",
+    );
+    const id = created.id ?? "";
+    if (id) properties.setProperty(WATCH_LATER_ID_KEY, id);
+    return id;
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 /** The Watch Later playlist id if it already exists, or "" without creating one. */

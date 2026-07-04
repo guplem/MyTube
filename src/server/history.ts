@@ -28,25 +28,41 @@ interface HistoryEntry {
 
 /** Records a video as seen (the manual "mark as seen" action). No-op if already recorded. */
 export function markVideoSeen(video: Video): void {
-  const entries = readEntries();
-  if (entries.some((entry) => entry.videoId === video.videoId)) return;
-  entries.push({
-    videoId: video.videoId,
-    title: video.title,
-    channelId: video.channelId,
-    channelTitle: video.channelTitle,
-    thumbnailUrl: video.thumbnailUrl,
-    publishedAt: video.publishedAt,
-    seenAt: new Date().toISOString(),
+  withUserLock(() => {
+    const entries = readEntries();
+    if (entries.some((entry) => entry.videoId === video.videoId)) return;
+    entries.push({
+      videoId: video.videoId,
+      title: video.title,
+      channelId: video.channelId,
+      channelTitle: video.channelTitle,
+      thumbnailUrl: video.thumbnailUrl,
+      publishedAt: video.publishedAt,
+      seenAt: new Date().toISOString(),
+    });
+    writeEntries(entries.slice(-MAX_ENTRIES));
   });
-  writeEntries(entries.slice(-MAX_ENTRIES));
 }
 
 /** Removes a video from the watch history. No-op if it was not recorded. */
 export function removeVideoSeen(videoId: string): void {
-  const entries = readEntries();
-  const remaining = entries.filter((entry) => entry.videoId !== videoId);
-  if (remaining.length !== entries.length) writeEntries(remaining);
+  withUserLock(() => {
+    const entries = readEntries();
+    const remaining = entries.filter((entry) => entry.videoId !== videoId);
+    if (remaining.length !== entries.length) writeEntries(remaining);
+  });
+}
+
+// Serializes the read-modify-write against concurrent executions of this user
+// (optimistic UI taps fire server calls in parallel). Reads stay lock-free.
+function withUserLock<T>(action: () => T): T {
+  const lock = LockService.getUserLock();
+  lock.waitLock(10000);
+  try {
+    return action();
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 /** All seen video ids, used to flag videos in other lists. */
@@ -84,19 +100,22 @@ function readEntries(): HistoryEntry[] {
 
 function writeEntries(entries: HistoryEntry[]): void {
   const properties = PropertiesService.getUserProperties();
-  // Start from the current store so non-history properties survive, drop old
-  // history chunks, then add the new ones and write everything in one call.
-  const next = properties.getProperties();
-  for (const key of Object.keys(next)) {
-    if (key.startsWith(CHUNK_PREFIX)) delete next[key];
-  }
+  // Merge only our own chunk keys so a concurrent execution's writes (the
+  // subscriptions cache, the other module's chunks) are never clobbered. Write
+  // the new chunks, then delete any leftover higher-index chunks from a
+  // previously longer history.
+  const chunks: { [key: string]: string } = {};
   const json = JSON.stringify(entries);
   let index = 0;
   for (let offset = 0; offset < json.length; offset += CHUNK_SIZE) {
-    next[CHUNK_PREFIX + index] = json.slice(offset, offset + CHUNK_SIZE);
+    chunks[CHUNK_PREFIX + index] = json.slice(offset, offset + CHUNK_SIZE);
     index += 1;
   }
-  properties.setProperties(next, true);
+  properties.setProperties(chunks, false);
+  const stale = Object.keys(properties.getProperties()).filter(
+    (key) => key.startsWith(CHUNK_PREFIX) && chunkIndex(key) >= index,
+  );
+  for (const key of stale) properties.deleteProperty(key);
 }
 
 function chunkIndex(key: string): number {
