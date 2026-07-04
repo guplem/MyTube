@@ -32,8 +32,12 @@ export function getSubscriptionChannels(forceRefresh: boolean): SubscriptionChan
   if (!forceRefresh) {
     const cached = properties.getProperty(CACHE_KEY);
     if (cached) {
-      const parsed = JSON.parse(cached) as CachedChannels;
-      if (Date.now() - parsed.fetchedAt < CACHE_TTL_MS) return parsed.channels;
+      try {
+        const parsed = JSON.parse(cached) as CachedChannels;
+        if (Date.now() - parsed.fetchedAt < CACHE_TTL_MS) return parsed.channels;
+      } catch {
+        // Corrupt cache entry; fall through and refetch (which overwrites it).
+      }
     }
   }
   const channels = fetchAllSubscriptionChannels();
