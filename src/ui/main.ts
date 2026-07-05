@@ -96,62 +96,12 @@ function appContainer(): HTMLElement | null {
 // back to its previous state and a toast tells the user (with a one-tap page
 // refresh). This keeps the UI snappy even when the underlying Apps Script calls
 // are slow. The same `optimistic` helper drives the player's buttons too.
-
-// Optimistically removes a card from the list: hides it immediately, then drops
-// it for good once the request succeeds. On failure the card is restored to its
-// original place (it was only hidden, never detached) and a toast is shown.
-function optimisticRemove(
-  button: HTMLButtonElement,
-  request: Promise<void>,
-  failMessage: string,
-): void {
-  const card = button.closest<HTMLElement>(".video-card");
-  optimistic({
-    apply: (): void => {
-      if (card) card.style.display = "none";
-    },
-    revert: (): void => {
-      if (card) card.style.display = "";
-    },
-    onSuccess: (): void => card?.remove(),
-    send: (): Promise<void> => request,
-    failMessage,
-  });
-}
-
-const addToWatchLaterAction: VideoAction = {
-  label: (video) => (video.inWatchLater ? "Added ✓" : "+ Watch Later"),
-  disabled: (video) => Boolean(video.inWatchLater),
-  onClick: (video, button): void => {
-    optimistic({
-      key: button,
-      // Assume success: show "Added ✓" and lock the button right away.
-      apply: (): void => {
-        video.inWatchLater = true;
-        button.disabled = true;
-        button.textContent = "Added ✓";
-      },
-      revert: (): void => {
-        video.inWatchLater = false;
-        button.disabled = false;
-        button.textContent = "+ Watch Later";
-      },
-      send: (): Promise<void> => addToWatchLater(video.videoId),
-      failMessage: "Couldn't add to Watch Later",
-    });
-  },
-};
-
-const removeFromWatchLaterAction: VideoAction = {
-  label: "Remove",
-  onClick: (video, button): void => {
-    optimisticRemove(
-      button,
-      removeFromWatchLater(video.videoId),
-      "Couldn't remove from Watch Later",
-    );
-  },
-};
+//
+// Every action is also a TOGGLE: cards never leave the list (or lock a button)
+// mid-session, they only flip state in place — dimmed when they will disappear
+// on the next load — so any mis-tap is undone with a second tap. All list
+// screens share the same two buttons per card (Watch Later + seen), so cards
+// look identical everywhere; only the corner dismiss stays feed-only.
 
 // Optimistic toggle for the in-place boolean flags (seen, dismissed). Flips the
 // flag, reflects it, fires the request, and rolls back + toasts only if this is
@@ -173,6 +123,44 @@ function optimisticToggle(
     failMessage: failMessage(target),
   });
 }
+
+// Reflects Watch Later membership on the toggle button. On the Watch Later
+// screen (dimRemoved) a toggled-off video's card also dims, marking that it
+// will disappear on the next load.
+function reflectWatchLater(video: Video, button: HTMLButtonElement, dimRemoved: boolean): void {
+  button.textContent = video.inWatchLater ? "Added ✓" : "+ Watch Later";
+  if (dimRemoved) {
+    button.closest(".video-card")?.classList.toggle("video-card--removed", !video.inWatchLater);
+  }
+}
+
+// Toggles a video in/out of Watch Later — the same button on every list. On
+// the Watch Later screen (dimRemoved) this toggle IS the remove button: the
+// card stays in place, dimmed, until the next load. Flips immediately and
+// rolls back on failure.
+function makeWatchLaterToggle(dimRemoved: boolean): VideoAction {
+  return {
+    label: (video) => (video.inWatchLater ? "Added ✓" : "+ Watch Later"),
+    onClick: (video, button): void => {
+      optimisticToggle(
+        button,
+        (): boolean => Boolean(video.inWatchLater),
+        (value): void => {
+          video.inWatchLater = value;
+          reflectWatchLater(video, button, dimRemoved);
+        },
+        (next): Promise<void> =>
+          next ? addToWatchLater(video.videoId) : removeFromWatchLater(video.videoId),
+        (next): string =>
+          next ? "Couldn't add to Watch Later" : "Couldn't remove from Watch Later",
+      );
+    },
+  };
+}
+
+const watchLaterToggleAction = makeWatchLaterToggle(false);
+// The Watch Later screen's copy of the toggle: toggling off dims the card.
+const watchLaterRemoveAction = makeWatchLaterToggle(true);
 
 // Reflects the current seen state on the card and its toggle button.
 function reflectSeen(video: Video, button: HTMLButtonElement): void {
@@ -202,16 +190,15 @@ function toggleSeen(
   );
 }
 
-// Marking a video seen also drops it from Watch Later (server-side, from every
-// screen), so revert any "Added ✓" indicator left on this card.
-function reflectLeftWatchLater(video: Video, seenButton: HTMLButtonElement): void {
-  if (!video.inWatchLater) return;
-  video.inWatchLater = false;
+// Marking seen also drops the video from Watch Later server-side (and the Watch
+// Later screen's seen undo restores it), so mirror a membership change on the
+// Watch Later toggle sitting in the same action row.
+function syncWatchLaterButtons(video: Video, seenButton: HTMLButtonElement): void {
   const row = seenButton.closest(".video-actions");
   row?.querySelectorAll<HTMLButtonElement>(".video-action").forEach((button): void => {
-    if (button.textContent === "Added ✓") {
-      button.textContent = "+ Watch Later";
-      button.disabled = false;
+    if (button === seenButton) return;
+    if (button.textContent === "Added ✓" || button.textContent === "+ Watch Later") {
+      button.textContent = video.inWatchLater ? "Added ✓" : "+ Watch Later";
     }
   });
 }
@@ -221,29 +208,30 @@ const markSeenAction: VideoAction = {
   onClick: (video, button): void => {
     const wasSeen = video.seen;
     toggleSeen(video, button);
-    // Only the seen→unseen-free direction drops it from Watch Later; un-marking
+    // Only the unseen→seen direction drops it from Watch Later; un-marking
     // seen never re-adds it.
-    if (!wasSeen) reflectLeftWatchLater(video, button);
+    if (!wasSeen && video.inWatchLater) {
+      video.inWatchLater = false;
+      syncWatchLaterButtons(video, button);
+    }
   },
 };
 
-// Watch Later: the seen button is a toggle and the card stays in place (dimmed)
-// like on the feed, so a mis-tap is undone with a second tap; the video only
-// leaves the list on the next load. Marking seen still drops it from the
-// playlist server-side, so the un-toggle goes through undoMarkVideoSeen, which
-// restores the playlist entry — otherwise the toggle would look undone here but
-// the video would be gone from Watch Later after a refresh.
+// Watch Later: same seen toggle, but its un-toggle goes through
+// undoMarkVideoSeen, which restores the playlist entry that marking seen
+// dropped server-side — otherwise the toggle would look undone here but the
+// video would be gone from Watch Later after a refresh. The membership toggle
+// next to it mirrors both directions.
 const watchLaterSeenAction: VideoAction = {
   label: (video) => (video.seen ? "Seen ✓" : "Mark seen"),
-  onClick: (video, button): void => toggleSeen(video, button, undoMarkVideoSeen),
-};
-
-// History: every video is already seen, so the button removes it from history
-// and drops the card.
-const historySeenAction: VideoAction = {
-  label: "Seen ✓",
   onClick: (video, button): void => {
-    optimisticRemove(button, removeVideoSeen(video.videoId), "Couldn't remove from history");
+    toggleSeen(video, button, undoMarkVideoSeen);
+    // toggleSeen applied optimistically, so video.seen is already the new state.
+    video.inWatchLater = !video.seen;
+    syncWatchLaterButtons(video, button);
+    // This action only runs on the Watch Later screen, so the membership dim
+    // (video-card--removed) follows too.
+    button.closest(".video-card")?.classList.toggle("video-card--removed", !video.inWatchLater);
   },
 };
 
@@ -351,7 +339,7 @@ function showFeed(forceFirstLoad: boolean = false): void {
       },
       {
         onPlay: (index, queue): void => playFromList(queue, index, { source: "feed" }),
-        actions: [addToWatchLaterAction, markSeenAction],
+        actions: [watchLaterToggleAction, markSeenAction],
         cornerAction: dismissAction,
         onPageLoaded: (result): void => updateFeedNotice(notice, result),
       },
@@ -420,11 +408,12 @@ function beforeDateControl(): HTMLElement {
 }
 
 // "Hide viewed" is intentionally absent here: the history list is entirely seen
-// videos, so hiding them would empty it.
+// videos, so hiding them would empty it. The seen toggle un-marks the view (the
+// card stays, un-dimmed, until the next load) and a second tap re-marks it.
 function showHistory(): void {
   renderVideoScreen(getHistory(), () => ({
     onPlay: (index, queue): void => playFromList(queue, index, { source: "history" }),
-    actions: [addToWatchLaterAction, historySeenAction],
+    actions: [watchLaterToggleAction, markSeenAction],
   }));
 }
 
@@ -433,7 +422,7 @@ function showHistory(): void {
 function showWatchLater(): void {
   renderPlaylistScreen(getWatchLaterVideos(), "oldest", () => ({
     onPlay: (index, queue): void => playFromList(queue, index, { source: "watchlater" }),
-    actions: [watchLaterSeenAction, removeFromWatchLaterAction],
+    actions: [watchLaterRemoveAction, watchLaterSeenAction],
   }));
 }
 
@@ -441,7 +430,7 @@ function showPlaylist(playlistId: string, title: string): void {
   renderPlaylistScreen(getPlaylistVideos(playlistId), "playlist", () => ({
     onPlay: (index, queue): void =>
       playFromList(queue, index, { source: "playlist", playlistId, title }),
-    actions: [addToWatchLaterAction, markSeenAction],
+    actions: [watchLaterToggleAction, markSeenAction],
   }));
 }
 

@@ -187,6 +187,9 @@ export function getWatchLaterVideos(): Video[] {
   const videos = youtube.getWatchLaterVideos();
   flagSeen(videos);
   enrichDurations(videos);
+  // Every video here is in Watch Later by definition; set the flag directly
+  // (no membership lookup) so the card's Watch Later toggle starts on.
+  for (const video of videos) video.inWatchLater = true;
   return videos;
 }
 

@@ -49,17 +49,23 @@ architecture or adding a feature.** Human setup/run/deploy: [README.md](README.m
   "Hide viewed" filters on it. The feed also has a date filter (`beforeDate` in
   `getFeedPage`, a localStorage pref) that hides older videos but does not touch
   the `seen` flag, so playlists and Watch Later are unaffected.
+- **Every card action is a state toggle, and cards share one layout.** Each
+  card on every list shows the same two stacked buttons — the Watch Later
+  toggle ("+ Watch Later"/"Added ✓") and the seen toggle ("Mark seen"/
+  "Seen ✓") — so cards look identical across the feed, playlists, Watch Later,
+  and history; only the corner dismiss stays feed-only. Nothing removes a card
+  from the DOM mid-session: a toggled-off video stays in place (dimmed where it
+  will disappear on the next load), so a mis-tap is undone with a second tap.
+  On the Watch Later screen the membership toggle IS the remove button.
 - **Marking seen drops the video from Watch Later** (`markVideoSeen` in
   `src/server/main.ts` removes it if present). This is the one cross-list side
   effect: it runs server-side so it applies from every screen and the player, not
   just the Watch Later list, and a watched video never lingers there. It is
   one-directional — un-marking seen does not re-add to Watch Later — and a no-op
   when the video isn't saved (guarded on the cached membership set). The one
-  exception is the Watch Later screen's own seen button: it is a toggle and the
-  card stays in place (dimmed) until the next load, so a mis-tap is undone with
-  a second tap; its un-toggle goes through `undoMarkVideoSeen`, which restores
-  the playlist entry (guarded on membership, never creates the playlist) and
-  then un-marks the view.
+  exception is the Watch Later screen's own seen toggle: its un-toggle goes
+  through `undoMarkVideoSeen`, which restores the playlist entry (guarded on
+  membership, never creates the playlist) and then un-marks the view.
 - **Dismissed = a feed-only hidden list** (`src/server/dismissed.ts`, video ids
   in user properties, mirrors `history.ts`). `flagDismissed` sets it; the
   feed-only "Hide dismissed" toggle filters on it. The dismiss control is the
@@ -83,9 +89,8 @@ architecture or adding a feature.** Human setup/run/deploy: [README.md](README.m
   through `optimistic()` in `src/ui/optimistic.ts` — it applies the expected
   result immediately (`apply`), fires the request (`send`), and on failure rolls
   the change back (`revert`) and shows a `showToast` with a one-tap refresh. Pass
-  the button as `key` so a rapid re-tap lets only the latest tap own the rollback;
-  use `onSuccess` to finalize (e.g. remove a card). `optimisticToggle` and
-  `optimisticRemove` in `src/ui/main.ts` are the card-level wrappers built on it.
+  the button as `key` so a rapid re-tap lets only the latest tap own the rollback.
+  `optimisticToggle` in `src/ui/main.ts` is the card-level wrapper built on it.
   This is **not** for reads (loading comments, a feed page, refreshing) — there is
   no result to assume, so those keep their own loading/skeleton state.
 - **All navigation goes through `go()`/`render()` in `src/ui/main.ts`.** A

@@ -16,6 +16,7 @@ import {
   addToWatchLater,
   removeFromWatchLater,
 } from "../../src/server/youtube";
+import { getWatchLaterVideos } from "../../src/server/main";
 
 let mocks: AppsScriptMocks;
 
@@ -176,6 +177,22 @@ describe("addToWatchLater", () => {
     expect(inserted.snippet?.resourceId?.videoId).toBe("b");
     expect(getWatchLaterVideoIds()).toEqual(["a", "b"]);
     expect(listCalls).toBe(0); // served from the updated cache
+  });
+});
+
+describe("getWatchLaterVideos", () => {
+  it("flags every returned video as in Watch Later, so the card toggle starts on", () => {
+    mocks.userProperties.setProperty("watchLaterPlaylistId", "WL");
+    mocks.youtube.PlaylistItems = {
+      list: () => pageOf(["a", "b"]),
+      insert: () => ({}),
+      remove: () => ({}),
+    };
+
+    const videos = getWatchLaterVideos();
+
+    expect(videos.map((video) => video.videoId)).toEqual(["a", "b"]);
+    expect(videos.map((video) => video.inWatchLater)).toEqual([true, true]);
   });
 });
 
