@@ -149,6 +149,11 @@
       .video-card--dismissed {
         opacity: 0.4;
       }
+      /* Watch Later: a card whose membership toggle is off (it will disappear
+         on the next load). */
+      .video-card--removed {
+        opacity: 0.4;
+      }
 
       /* Loading placeholders (skeletons): grey pulsing blocks shaped and sized
          like the content they replace (built in src/ui/skeleton.ts), so the
@@ -183,10 +188,9 @@
         aspect-ratio: 16 / 9;
         border-radius: 0;
       }
-      /* Button-shaped block matching .video-action's rendered height. */
+      /* Button-shaped block matching .video-action's rendered height (the
+         column layout of .video-actions stretches it full-width). */
       .skeleton-action {
-        flex: 1 1 auto;
-        min-width: 3.5rem;
         height: 1.8rem;
         border-radius: 6px;
       }
@@ -218,8 +222,12 @@
         background: #272727;
       }
       .video-actions {
+        /* Always one full-width button per row: with a wrapping row, whether
+           two buttons shared a line depended on their label widths, so cards
+           on the same page laid out differently ("Seen ✓" fit, "Mark seen"
+           didn't). A column keeps every card identical. */
         display: flex;
-        flex-wrap: wrap;
+        flex-direction: column;
         gap: 0.5rem;
         padding: 0 0.7rem 0.7rem;
         /* Stick the buttons to the bottom of the card, even when titles differ
@@ -227,8 +235,6 @@
         margin-top: auto;
       }
       .video-action {
-        flex: 1 1 auto;
-        min-width: 3.5rem;
         text-align: center;
         white-space: nowrap;
         background: #272727;
@@ -240,12 +246,8 @@
         font-size: 0.8rem;
         cursor: pointer;
       }
-      .video-action:hover:not(:disabled) {
+      .video-action:hover {
         background: #333;
-      }
-      .video-action:disabled {
-        opacity: 0.6;
-        cursor: default;
       }
 
       /* Playlists list */
