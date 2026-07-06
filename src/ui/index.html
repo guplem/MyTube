@@ -137,11 +137,8 @@
         line-height: 1;
         cursor: pointer;
       }
-      .video-card-corner:hover:not(:disabled) {
+      .video-card-corner:hover {
         background: rgba(0, 0, 0, 0.9);
-      }
-      .video-card-corner:disabled {
-        cursor: default;
       }
       .video-card--seen {
         opacity: 0.55;
@@ -224,8 +221,8 @@
       .video-actions {
         /* Always one full-width button per row: with a wrapping row, whether
            two buttons shared a line depended on their label widths, so cards
-           on the same page laid out differently ("Seen ✓" fit, "Mark seen"
-           didn't). A column keeps every card identical. */
+           on the same page laid out differently ("✓ Watched" fit,
+           "Mark watched" didn't). A column keeps every card identical. */
         display: flex;
         flex-direction: column;
         gap: 0.5rem;
@@ -248,6 +245,18 @@
       }
       .video-action:hover {
         background: #333;
+      }
+      /* A toggled-ON card button reads as pressed: filled with the same colors
+         as the chapter strip's current chapter, so state scans at a glance.
+         The label's leading ✓ carries the same state without color. Placed
+         after .video-action:hover so the ON hover wins the tie. */
+      .video-action--on {
+        background: #23334a;
+        border-color: #3ea6ff;
+        color: #fff;
+      }
+      .video-action--on:hover {
+        background: #284066;
       }
 
       /* Playlists list */
@@ -711,6 +720,18 @@
         opacity: 0.4;
         cursor: default;
       }
+      /* Pressed state for the player's toggle buttons — the player twin of
+         .video-action--on. The :not() chain mirrors the box-style rule above
+         so this wins on specificity (a bare class selector would lose to it). */
+      .player-view button.player-toggle--on:not(.ts-link):not(.player-tab):not(.chapter-card) {
+        background: #23334a;
+        border-color: #3ea6ff;
+        color: #fff;
+      }
+      .player-view
+        button.player-toggle--on:not(.ts-link):not(.player-tab):not(.chapter-card):hover:not(:disabled) {
+        background: #284066;
+      }
 
       .player-desc-card {
         min-width: 0;
@@ -811,9 +832,13 @@
       .player-theater svg {
         display: block;
       }
-      /* Highlight the theater toggle while it is on. */
-      .player-view button.player-theater.active,
-      .player-view button.player-theater.active:hover {
+      /* Highlight the theater toggle while it is on. The :not() chain mirrors
+         the box-style rule so this wins on specificity — without it the base
+         rule's background silently beats .active and the highlight never
+         renders. */
+      .player-view button.player-theater.active:not(.ts-link):not(.player-tab):not(.chapter-card),
+      .player-view
+        button.player-theater.active:not(.ts-link):not(.player-tab):not(.chapter-card):hover {
         background: #3ea6ff;
         border-color: #3ea6ff;
         color: #0f0f0f;
@@ -898,6 +923,7 @@
       </nav>
       <form class="app-search">
         <input type="search" placeholder="Search YouTube…" aria-label="Search YouTube" />
+        <button type="submit">Search</button>
       </form>
     </header>
     <!-- Filled with a skeleton grid by the bundle the moment it runs (see the

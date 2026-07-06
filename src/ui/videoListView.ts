@@ -16,8 +16,13 @@ import { progressFraction } from "../shared/videoProgress";
 import { skeletonVideoCard } from "./skeleton";
 
 export interface VideoAction {
-  /** Static text, or a function of the video (e.g. "Seen ✓" vs "Mark seen"). */
-  label: string | ((video: Video) => string);
+  /** Optional machine-readable tag, set as data-action on the button, so a
+   *  sibling button can be found in the DOM without matching label text. */
+  name?: string;
+  /** Applies the video's current state to the button — label, pressed styling,
+   *  tooltip. Called once when the card renders and again after every toggle,
+   *  so the two can never drift apart. */
+  reflect: (video: Video, button: HTMLButtonElement) => void;
   onClick: (video: Video, button: HTMLButtonElement) => void;
 }
 
@@ -257,29 +262,32 @@ function videoCard(
   play.append(thumbWrap, meta);
   card.appendChild(play);
 
+  // Buttons are appended to the card BEFORE their reflect() runs, so a reflect
+  // can reach the card (closest(".video-card")) to set state classes like the
+  // seen/dismissed dim — at first render exactly as it does after a toggle.
   if (cornerAction) {
     const corner = document.createElement("button");
     corner.type = "button";
     corner.className = "video-card-corner";
-    corner.setAttribute("aria-label", "Dismiss video from feed");
-    corner.textContent =
-      typeof cornerAction.label === "function" ? cornerAction.label(video) : cornerAction.label;
+    if (cornerAction.name) corner.dataset.action = cornerAction.name;
     corner.addEventListener("click", (): void => cornerAction.onClick(video, corner));
     card.appendChild(corner);
+    cornerAction.reflect(video, corner);
   }
 
   if (actions.length > 0) {
     const actionRow = document.createElement("div");
     actionRow.className = "video-actions";
+    card.appendChild(actionRow);
     for (const action of actions) {
       const button = document.createElement("button");
       button.type = "button";
       button.className = "video-action";
-      button.textContent = typeof action.label === "function" ? action.label(video) : action.label;
+      if (action.name) button.dataset.action = action.name;
       button.addEventListener("click", (): void => action.onClick(video, button));
       actionRow.appendChild(button);
+      action.reflect(video, button);
     }
-    card.appendChild(actionRow);
   }
 
   return card;
