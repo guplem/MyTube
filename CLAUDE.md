@@ -46,14 +46,21 @@ architecture or adding a feature.** Human setup/run/deploy: [README.md](README.m
   `<= 180s`. A toggle re-shows them because the length heuristic has false
   positives.
 - **Seen = watch history only.** `flagSeen` sets it from the history ids;
-  "Hide viewed" filters on it. The feed also has a date filter (`beforeDate` in
+  "Hide watched" filters on it. In UI copy the flag is always called
+  **watched** (matching the History tab); `seen` stays the name in code and
+  storage. The feed also has a date filter (`beforeDate` in
   `getFeedPage`, a localStorage pref) that hides older videos but does not touch
   the `seen` flag, so playlists and Watch Later are unaffected.
 - **Every card action is a state toggle, and cards share one layout.** Each
   card on every list shows the same two stacked buttons — the Watch Later
-  toggle ("+ Watch Later"/"Added ✓") and the seen toggle ("Mark seen"/
-  "Seen ✓") — so cards look identical across the feed, playlists, Watch Later,
-  and history; only the corner dismiss stays feed-only. Nothing removes a card
+  toggle ("+ Watch Later"/"✓ Watch Later") and the watched toggle
+  ("Mark watched"/"✓ Watched") — so cards look identical across the feed,
+  playlists, Watch Later, and history; only the corner dismiss stays feed-only.
+  A toggle's ON state is a pressed look (`video-action--on`, the chapter-strip
+  blue) plus a `✓` label that keeps the noun, and every toggle carries a
+  `title` naming what a click does now plus `aria-pressed`; state changes go
+  through the action's `reflect`, which runs at first render and after every
+  toggle. Nothing removes a card
   from the DOM mid-session: a toggled-off video stays in place (dimmed where it
   will disappear on the next load), so a mis-tap is undone with a second tap.
   On the Watch Later screen the membership toggle IS the remove button.

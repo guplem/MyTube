@@ -173,7 +173,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
       },
       send: (): Promise<void> =>
         target ? markVideoSeen(video) : removeVideoSeen(video.videoId),
-      failMessage: target ? "Couldn't mark as seen" : "Couldn't mark as unseen",
+      failMessage: target ? "Couldn't mark as watched" : "Couldn't mark as not watched",
     });
   });
 
@@ -206,7 +206,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   const title = document.createElement("h2");
   title.className = "player-title";
 
-  // Title row: the video title on the left, with "Mark as seen" and the
+  // Title row: the video title on the left, with the watched toggle and the
   // theater toggle right-aligned beside it.
   const titleRow = document.createElement("div");
   titleRow.className = "player-title-row";
@@ -438,12 +438,15 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     updateSeenButton();
   }
 
+  // Same copy and pressed-toggle treatment as the card buttons (reflectSeen in
+  // src/ui/main.ts), so the one control looks identical everywhere.
   function updateSeenButton(): void {
     const video = queue[currentIndex];
     const seen = Boolean(video && video.seen);
-    seenButton.textContent = seen ? "Seen ✓" : "Mark as seen";
+    seenButton.textContent = seen ? "✓ Watched" : "Mark watched";
+    seenButton.classList.toggle("player-toggle--on", seen);
     seenButton.disabled = !video;
-    seenButton.title = seen ? "Un-mark as seen" : "Mark as seen";
+    seenButton.title = seen ? "Mark as not watched" : "Mark as watched";
     seenButton.setAttribute("aria-pressed", String(seen));
   }
 

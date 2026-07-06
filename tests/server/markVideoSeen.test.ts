@@ -6,7 +6,7 @@
 //
 // undoMarkVideoSeen is the inverse, used by the Watch Later screen's seen
 // toggle: it un-marks the view AND restores the video to Watch Later, so a
-// mis-tapped "Mark seen" is fully undone with a second tap.
+// mis-tapped "Mark watched" is fully undone with a second tap.
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
