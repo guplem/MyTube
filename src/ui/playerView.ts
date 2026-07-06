@@ -14,7 +14,15 @@ import type { Video } from "../shared/video";
 import type { VideoComment, CommentOrder } from "../shared/comment";
 import type { Chapter } from "../shared/chapters";
 import { parseChapters } from "../shared/chapters";
-import { getVideoDescription, getComments, markVideoSeen, removeVideoSeen } from "./serverBridge";
+import {
+  getVideoDescription,
+  getComments,
+  markVideoSeen,
+  removeVideoSeen,
+  saveVideoProgress,
+} from "./serverBridge";
+import { progressToStore } from "../shared/videoProgress";
+import { invalidateFeedPrefetch } from "./feedPrefetch";
 import { getBoolPreference, setBoolPreference } from "./preferences";
 import { optimistic } from "./optimistic";
 import { skeletonComments, skeletonDescription } from "./skeleton";
@@ -33,16 +41,26 @@ interface YouTubePlayerOptions {
   events?: { onStateChange?: (event: YouTubePlayerEvent) => void };
 }
 interface YouTubePlayer {
-  loadVideoById(videoId: string): void;
+  loadVideoById(videoId: string, startSeconds?: number): void;
   seekTo(seconds: number, allowSeekAhead: boolean): void;
   /** Current playback position in seconds; polled to track the active chapter. */
   getCurrentTime(): number;
+  /** Video length in seconds; 0 until the video's metadata loads. */
+  getDuration(): number;
   destroy(): void;
 }
 interface YouTubeNamespace {
   Player: new (element: HTMLElement, options: YouTubePlayerOptions) => YouTubePlayer;
 }
 const PLAYER_STATE_ENDED = 0;
+const PLAYER_STATE_PAUSED = 2;
+
+// How often the playing position is persisted for resume. Each save is an Apps
+// Script round-trip against a daily PropertiesService quota, so it must not be
+// too eager; but closing the tab can never be caught reliably from inside the
+// Apps Script iframe, so the periodic save is what bounds how much progress a
+// hard close loses.
+const PROGRESS_SAVE_INTERVAL_MS = 20000;
 
 // Theater-toggle icons. Enabling theater mode shows a monitor/TV ("big screen,
 // not fullscreen"); exiting shows arrows pointing inward (shrink back to the
@@ -107,6 +125,15 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   let chapterCards: HTMLButtonElement[] = [];
   let currentChapterIndex = -1;
   let chapterTimer: number | null = null;
+
+  // Resume progress: the playing position is persisted server-side (per user,
+  // so it syncs across devices) on an interval, on pause, on prev/next, and
+  // when the player unmounts; a finished video clears its position. What
+  // qualifies as a resumable position is decided by progressToStore
+  // (src/shared/videoProgress.ts). lastSavedProgress dedupes the periodic
+  // saves so a paused player stops writing.
+  let progressTimer: number | null = null;
+  let lastSavedProgress = 0;
 
   // Comment paging/sorting state. The description and comments live in two tabs;
   // the comments tab is unloaded until it is selected. activeTab persists across
@@ -625,7 +652,51 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     endCard.hidden = false;
   }
 
+  // Persists the current video's playback position if it changed since the
+  // last save. Fire-and-forget on purpose: this is background bookkeeping with
+  // no UI state to flip, so a failed save is dropped silently (the position
+  // simply stays where the last successful save left it) rather than routed
+  // through optimistic() — there is nothing to apply or roll back.
+  function saveProgress(): void {
+    const video = queue[currentIndex];
+    if (!video || !player) return;
+    let seconds: number;
+    try {
+      seconds = progressToStore(player.getCurrentTime(), player.getDuration());
+    } catch {
+      return; // player not ready yet
+    }
+    if (seconds === lastSavedProgress) return;
+    lastSavedProgress = seconds;
+    // Keep the in-memory queue in sync so revisiting this video in-session
+    // (back/forward, prev) resumes at the newest position, not the flagged one.
+    video.progressSeconds = seconds > 0 ? seconds : undefined;
+    // The stashed feed page snapshots progressSeconds like the other flags, so
+    // saving progress invalidates it — same invariant as optimistic() writes.
+    invalidateFeedPrefetch();
+    saveVideoProgress(video.videoId, seconds).catch((): void => {});
+  }
+
+  function startProgressSaving(): void {
+    if (progressTimer !== null) return;
+    progressTimer = window.setInterval(saveProgress, PROGRESS_SAVE_INTERVAL_MS);
+  }
+
+  function stopProgressSaving(): void {
+    if (progressTimer !== null) {
+      window.clearInterval(progressTimer);
+      progressTimer = null;
+    }
+  }
+
   function handleStateChange(event: YouTubePlayerEvent): void {
+    // Pausing is the best "the user may be leaving" signal available inside
+    // the Apps Script iframe, so capture the position right away. Ending
+    // saves too: progressToStore maps the final position to 0, clearing the
+    // stored progress so a finished video restarts from the top.
+    if (event.data === PLAYER_STATE_PAUSED || event.data === PLAYER_STATE_ENDED) {
+      saveProgress();
+    }
     if (event.data !== PLAYER_STATE_ENDED) return;
     if (autoplayNext && currentIndex < queue.length - 1) {
       requestNavigate(currentIndex + 1);
@@ -637,8 +708,12 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   // Pure playback: load and show the video at index. Does not touch history.
   async function playAt(index: number): Promise<void> {
     if (index < 0 || index >= queue.length) return;
+    saveProgress(); // capture the outgoing video's position before switching
     currentIndex = index;
     const video = queue[currentIndex];
+    // Resume where a previous session (any device) left off; 0 = from the top.
+    const resumeAt = video.progressSeconds ?? 0;
+    lastSavedProgress = resumeAt;
     endCard.hidden = true;
     updateChrome();
     void loadDescription(video.videoId);
@@ -648,12 +723,13 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     if (!player) {
       player = new api.Player(mount, {
         videoId: video.videoId,
-        playerVars: { rel: 0, controls: 1, autoplay: 1 },
+        playerVars: { rel: 0, controls: 1, autoplay: 1, start: resumeAt },
         events: { onStateChange: handleStateChange },
       });
     } else {
-      player.loadVideoById(video.videoId);
+      player.loadVideoById(video.videoId, resumeAt);
     }
+    startProgressSaving();
   }
 
   updateTheater();
@@ -668,6 +744,8 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     },
     destroy: (): void => {
       stopChapterTracking();
+      stopProgressSaving();
+      saveProgress(); // leaving the player is the last chance to capture it
       if (player) {
         player.destroy();
         player = null;

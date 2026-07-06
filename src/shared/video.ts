@@ -20,4 +20,8 @@ export interface Video {
    *  (feed, playlists, Watch Later, history) so the card's Watch Later toggle
    *  can render its state. */
   inWatchLater?: boolean;
+  /** Stored playback position in seconds, so the player resumes where the user
+   *  left off (on any device — the store is server-side per user). Absent when
+   *  the video has no saved position. */
+  progressSeconds?: number;
 }

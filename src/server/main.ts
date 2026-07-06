@@ -15,6 +15,7 @@ import * as feed from "./feed";
 import * as youtube from "./youtube";
 import * as history from "./history";
 import * as dismissed from "./dismissed";
+import * as progress from "./progress";
 
 // No setFaviconUrl: it fetches and validates the image on Google's servers and
 // only accepts a publicly-hosted raster image (PNG/ICO), rejecting both data:
@@ -70,6 +71,7 @@ export function getFeedPage(options: FeedPageOptions): FeedPage {
   // looked up for the whole list above; otherwise fetch them just for this page.
   if (!options.hideShorts) enrichDurations(pageVideos);
   flagInWatchLater(pageVideos);
+  flagProgress(pageVideos);
   return {
     videos: pageVideos,
     total: visible.length,
@@ -160,11 +162,22 @@ export function removeVideoDismissed(videoId: string): void {
   dismissed.removeVideoDismissed(videoId);
 }
 
+/**
+ * Saves a video's playback position so the player can resume it later, from
+ * any device. A position <= 0 clears the entry (the video restarts). Called
+ * periodically by the player, so it must stay cheap: the store skips the
+ * write when the position hasn't changed.
+ */
+export function saveVideoProgress(videoId: string, seconds: number): void {
+  progress.saveVideoProgress(videoId, seconds);
+}
+
 /** The user's watch history as a video list, newest first. */
 export function getHistory(): Video[] {
   const videos = history.getHistory();
   enrichDurations(videos);
   flagInWatchLater(videos);
+  flagProgress(videos);
   return videos;
 }
 
@@ -179,6 +192,7 @@ export function getPlaylistVideos(playlistId: string): Video[] {
   flagSeen(videos);
   enrichDurations(videos);
   flagInWatchLater(videos);
+  flagProgress(videos);
   return videos;
 }
 
@@ -190,6 +204,7 @@ export function getWatchLaterVideos(): Video[] {
   // Every video here is in Watch Later by definition; set the flag directly
   // (no membership lookup) so the card's Watch Later toggle starts on.
   for (const video of videos) video.inWatchLater = true;
+  flagProgress(videos);
   return videos;
 }
 
@@ -220,6 +235,20 @@ function flagDismissed(videos: Video[]): void {
     for (const video of videos) video.dismissed = ids.has(video.videoId);
   } catch {
     // Dismissed list is best-effort.
+  }
+}
+
+/** Flags each video with its stored resume position, so the player starts
+ *  where the user left off. Best-effort: without it videos start at 0. */
+function flagProgress(videos: Video[]): void {
+  try {
+    const positions = progress.getProgressSeconds();
+    for (const video of videos) {
+      const seconds = positions[video.videoId];
+      if (seconds !== undefined) video.progressSeconds = seconds;
+    }
+  } catch {
+    // Resume positions are best-effort.
   }
 }
 
