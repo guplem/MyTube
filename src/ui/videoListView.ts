@@ -12,6 +12,7 @@
 // list); for the server-paged feed it is just the current page.
 
 import type { Video } from "../shared/video";
+import { progressFraction } from "../shared/videoProgress";
 import { skeletonVideoCard } from "./skeleton";
 
 export interface VideoAction {
@@ -220,6 +221,21 @@ function videoCard(
     duration.className = "video-duration";
     duration.textContent = formatDuration(video.durationSeconds);
     thumbWrap.appendChild(duration);
+  }
+
+  // Watched-progress bar along the bottom of the thumbnail, like YouTube's.
+  // Both numbers are already on the video (progressSeconds from the resume
+  // store, durationSeconds from the badge lookup), so this costs no requests;
+  // it simply isn't shown when either is missing.
+  const watched = progressFraction(video.progressSeconds, video.durationSeconds);
+  if (watched !== null) {
+    const track = document.createElement("div");
+    track.className = "video-progress";
+    const fill = document.createElement("div");
+    fill.className = "video-progress-fill";
+    fill.style.width = `${watched * 100}%`;
+    track.appendChild(fill);
+    thumbWrap.appendChild(track);
   }
 
   const meta = document.createElement("div");

@@ -79,7 +79,9 @@ architecture or adding a feature.** Human setup/run/deploy: [README.md](README.m
   state to roll back) but still invalidate the feed prefetch stash, whose
   snapshot carries `progressSeconds` like the other flags. Lists get the flag
   via `flagProgress` in `src/server/main.ts`; the player resumes from
-  `video.progressSeconds`.
+  `video.progressSeconds`, and cards show it as a red bar on the thumbnail
+  (`progressFraction` picks the width; no bar when the position or the
+  best-effort duration is missing).
 - **Dismissed = a feed-only hidden list** (`src/server/dismissed.ts`, video ids
   in user properties, mirrors `history.ts`). `flagDismissed` sets it; the
   feed-only "Hide dismissed" toggle filters on it. The dismiss control is the

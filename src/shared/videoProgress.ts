@@ -16,6 +16,21 @@ const FINISHED_FRACTION = 0.95;
  * A duration of 0 means "unknown" (the IFrame API reports 0 until the video's
  * metadata loads) and skips the finished check.
  */
+/**
+ * The watched fraction of a video (0..1] for the card's progress bar, or null
+ * when there is nothing to show: no stored position, or no known duration to
+ * divide by (the duration lookup is best-effort). Clamped to 1 so a stale or
+ * rounded position never overflows the thumbnail.
+ */
+export function progressFraction(
+  progressSeconds: number | undefined,
+  durationSeconds: number | undefined,
+): number | null {
+  if (!progressSeconds || progressSeconds <= 0) return null;
+  if (!durationSeconds || durationSeconds <= 0) return null;
+  return Math.min(1, progressSeconds / durationSeconds);
+}
+
 export function progressToStore(positionSeconds: number, durationSeconds: number): number {
   if (!Number.isFinite(positionSeconds) || positionSeconds < MIN_RESUME_SECONDS) return 0;
   if (
