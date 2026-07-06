@@ -669,8 +669,9 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     if (seconds === lastSavedProgress) return;
     lastSavedProgress = seconds;
     // Keep the in-memory queue in sync so revisiting this video in-session
-    // (back/forward, prev) resumes at the newest position, not the flagged one.
-    video.progressSeconds = seconds > 0 ? seconds : undefined;
+    // (back/forward, prev) resumes at the newest position, not the flagged
+    // one. The finished marker is kept — it drives the card's full bar.
+    video.progressSeconds = seconds !== 0 ? seconds : undefined;
     // The stashed feed page snapshots progressSeconds like the other flags, so
     // saving progress invalidates it — same invariant as optimistic() writes.
     invalidateFeedPrefetch();
@@ -711,9 +712,12 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     saveProgress(); // capture the outgoing video's position before switching
     currentIndex = index;
     const video = queue[currentIndex];
-    // Resume where a previous session (any device) left off; 0 = from the top.
-    const resumeAt = video.progressSeconds ?? 0;
-    lastSavedProgress = resumeAt;
+    // Resume where a previous session (any device) left off. Only a real
+    // position resumes: nothing stored or the finished marker (a full bar on
+    // the card, but not a place to pick up from) start from the top.
+    const stored = video.progressSeconds ?? 0;
+    const resumeAt = stored > 0 ? stored : 0;
+    lastSavedProgress = stored;
     endCard.hidden = true;
     updateChrome();
     void loadDescription(video.videoId);

@@ -7,10 +7,14 @@
 // videos the user touched longest ago. The JSON is split across numbered chunk
 // properties like the history, because one property value is capped at ~9KB.
 //
-// The store is deliberately dumb: it persists whatever position it is given
-// and treats <= 0 as "clear". The policy for which positions are worth keeping
-// (skip the first seconds, treat near-the-end as finished) lives in
-// src/shared/videoProgress.ts, where the player applies it before calling here.
+// The store is deliberately dumb: it persists whatever position it is given,
+// keeps the PROGRESS_FINISHED marker (-1, "watched to the end" — the card
+// shows a full bar and the player restarts from the top), and treats every
+// other non-positive value as "clear". The policy for which positions are
+// worth keeping lives in src/shared/videoProgress.ts, where the player
+// applies it before calling here.
+
+import { PROGRESS_FINISHED } from "../shared/videoProgress";
 
 const CHUNK_PREFIX = "progress_";
 const CHUNK_SIZE = 3000; // chars; stays under the 9KB-per-value limit
@@ -22,17 +26,20 @@ interface ProgressEntry {
 }
 
 /**
- * Saves a video's playback position in whole seconds. A position <= 0 clears
- * the stored entry (the video restarts from the beginning next time). Skips
- * the write when nothing would change, so the player's periodic saves cost no
- * quota while paused.
+ * Saves a video's playback position in whole seconds. PROGRESS_FINISHED is
+ * stored as-is (a full-bar "watched to the end" marker); any other position
+ * <= 0 clears the stored entry (the video restarts from the beginning next
+ * time). Skips the write when nothing would change, so the player's periodic
+ * saves cost no quota while paused.
  */
 export function saveVideoProgress(videoId: string, seconds: number): void {
-  const position = Math.floor(seconds);
+  // Floor only real positions: rounding must never turn a small negative
+  // value into the finished marker.
+  const position = seconds > 0 ? Math.floor(seconds) : seconds;
   withUserLock(() => {
     const entries = readEntries();
     const existing = entries.find((entry) => entry.videoId === videoId);
-    if (position <= 0) {
+    if (position <= 0 && position !== PROGRESS_FINISHED) {
       if (!existing) return;
       writeEntries(entries.filter((entry) => entry.videoId !== videoId));
       return;

@@ -21,7 +21,9 @@ export interface Video {
    *  can render its state. */
   inWatchLater?: boolean;
   /** Stored playback position in seconds, so the player resumes where the user
-   *  left off (on any device — the store is server-side per user). Absent when
-   *  the video has no saved position. */
+   *  left off (on any device — the store is server-side per user), and cards
+   *  show a progress bar. PROGRESS_FINISHED (-1, see shared/videoProgress.ts)
+   *  means watched to the end: a full bar, but playback restarts from the top.
+   *  Absent when the video has no saved position. */
   progressSeconds?: number;
 }

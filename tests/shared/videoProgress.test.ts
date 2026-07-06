@@ -2,7 +2,7 @@
 // which mean "start over next time". See src/shared/videoProgress.ts.
 
 import { describe, expect, it } from "vitest";
-import { progressFraction, progressToStore } from "../../src/shared/videoProgress";
+import { PROGRESS_FINISHED, progressFraction, progressToStore } from "../../src/shared/videoProgress";
 
 describe("progressToStore", () => {
   it("stores a mid-video position, rounded down to whole seconds", () => {
@@ -13,8 +13,8 @@ describe("progressToStore", () => {
     expect(progressToStore(8, 600)).toBe(0);
   });
 
-  it("returns 0 (clear) when the video is effectively finished", () => {
-    expect(progressToStore(590, 600)).toBe(0);
+  it("returns the finished marker when the video is effectively finished", () => {
+    expect(progressToStore(590, 600)).toBe(PROGRESS_FINISHED);
   });
 
   it("stores a position just before the effectively-finished window", () => {
@@ -32,8 +32,18 @@ describe("progressToStore", () => {
   });
 
   it("treats a short video's end as finished, not resumable", () => {
-    // 95% of a 60s video is 57s; anything at or past it clears.
-    expect(progressToStore(58, 60)).toBe(0);
+    // 95% of a 60s video is 57s; anything at or past it is finished.
+    expect(progressToStore(58, 60)).toBe(PROGRESS_FINISHED);
+  });
+
+  it("marks a fully-watched tiny video finished despite the minimum-resume rule", () => {
+    // The end of a 10s video is inside the first-15s window; finishing must
+    // win over "too early to resume" or such videos could never show a full bar.
+    expect(progressToStore(10, 10)).toBe(PROGRESS_FINISHED);
+  });
+
+  it("never marks finished when the duration is unknown", () => {
+    expect(progressToStore(590, 0)).toBe(590);
   });
 });
 
@@ -56,5 +66,14 @@ describe("progressFraction", () => {
   it("clamps a position past the duration to a full bar", () => {
     // A stale or rounded position must never overflow the thumbnail.
     expect(progressFraction(700, 600)).toBe(1);
+  });
+
+  it("shows a full bar for a finished video", () => {
+    expect(progressFraction(PROGRESS_FINISHED, 600)).toBe(1);
+  });
+
+  it("shows a full bar for a finished video even without a duration", () => {
+    // Unlike a partial bar, "finished" needs nothing to divide by.
+    expect(progressFraction(PROGRESS_FINISHED, undefined)).toBe(1);
   });
 });
