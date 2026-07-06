@@ -9,6 +9,7 @@ import {
   type AppsScriptMocks,
 } from "../helpers/appsScriptMock";
 import { saveVideoProgress, getProgressSeconds } from "../../src/server/progress";
+import { PROGRESS_FINISHED } from "../../src/shared/videoProgress";
 import { getHistory, markVideoSeen } from "../../src/server/main";
 import { makeVideo } from "../helpers/fixtures";
 
@@ -60,6 +61,44 @@ describe("video progress store", () => {
     saveVideoProgress("a", 120);
     saveVideoProgress("missing", 0);
     expect(getProgressSeconds()).toEqual({ a: 120 });
+  });
+
+  it("stores the finished marker", () => {
+    saveVideoProgress("a", PROGRESS_FINISHED);
+    expect(getProgressSeconds()).toEqual({ a: PROGRESS_FINISHED });
+  });
+
+  it("overwrites a mid-video position with the finished marker", () => {
+    saveVideoProgress("a", 120);
+    saveVideoProgress("a", PROGRESS_FINISHED);
+    expect(getProgressSeconds()).toEqual({ a: PROGRESS_FINISHED });
+  });
+
+  it("overwrites the finished marker with a rewatch position", () => {
+    saveVideoProgress("a", PROGRESS_FINISHED);
+    saveVideoProgress("a", 120);
+    expect(getProgressSeconds()).toEqual({ a: 120 });
+  });
+
+  it("clears a finished entry when saving zero", () => {
+    saveVideoProgress("a", PROGRESS_FINISHED);
+    saveVideoProgress("a", 0);
+    expect(getProgressSeconds()).toEqual({});
+  });
+
+  it("skips the write when the video is already marked finished", () => {
+    saveVideoProgress("a", PROGRESS_FINISHED);
+    let writes = 0;
+    const realSetProperties = mocks.userProperties.setProperties.bind(mocks.userProperties);
+    mocks.userProperties.setProperties = (properties, deleteAllOthers) => {
+      writes += 1;
+      return realSetProperties(properties, deleteAllOthers);
+    };
+
+    saveVideoProgress("a", PROGRESS_FINISHED);
+
+    expect(writes).toBe(0);
+    expect(getProgressSeconds()).toEqual({ a: PROGRESS_FINISHED });
   });
 
   it("skips the write when the position has not changed", () => {

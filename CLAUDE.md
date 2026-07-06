@@ -71,9 +71,11 @@ architecture or adding a feature.** Human setup/run/deploy: [README.md](README.m
   properties mirroring `history.ts`, capped at the 500 most recently saved), so
   the store is per Google account and cross-device sync is automatic. The
   policy for what is resumable lives in `src/shared/videoProgress.ts`
-  (`progressToStore`): positions in the first ~15s or past 95% of the video
-  map to 0, which clears the entry, so restarts and finished videos start from
-  the top. The player saves on a 20s interval, on pause, on prev/next, and on
+  (`progressToStore`): positions in the first ~15s map to 0, which clears the
+  entry (a restart, not a session), and positions past 95% map to
+  `PROGRESS_FINISHED` (-1), a kept marker meaning watched-to-the-end — the
+  card shows a full bar (even with no duration) but the player still starts
+  finished videos from the top. The player saves on a 20s interval, on pause, on prev/next, and on
   unmount — never on tab close, which the Apps Script iframe can't observe
   reliably; saves are fire-and-forget (not `optimistic()` — there is no UI
   state to roll back) but still invalidate the feed prefetch stash, whose
