@@ -7,6 +7,7 @@
 import type { Video } from "../shared/video";
 import type { FeedPageOptions } from "../shared/feed";
 import { defaultFeedBeforeDate } from "../shared/feed";
+import { shouldSuggestWatched } from "../shared/videoProgress";
 import {
   getFeedPage,
   getHistory,
@@ -172,11 +173,21 @@ const watchLaterRemoveAction = makeWatchLaterToggle(true);
 
 // Reflects the current seen state on the card and its toggle button. Same
 // pressed-toggle treatment as the Watch Later button; the UI copy says
-// "watched" (matching the History tab) while the code keeps "seen".
+// "watched" (matching the History tab) while the code keeps "seen". When the
+// progress store says the video is effectively finished but it is not in the
+// history yet, the button carries a notification dot (toggle-nudge): "you
+// should probably tap this".
 function reflectSeen(video: Video, button: HTMLButtonElement): void {
+  const nudge =
+    !video.seen && shouldSuggestWatched(video.progressSeconds, video.durationSeconds);
   button.textContent = video.seen ? "✓ Watched" : "Mark watched";
   button.classList.toggle("video-action--on", video.seen);
-  button.title = video.seen ? "Mark as not watched" : "Mark as watched";
+  button.classList.toggle("toggle-nudge", nudge);
+  button.title = video.seen
+    ? "Mark as not watched"
+    : nudge
+      ? "Mark as watched — you finished this video"
+      : "Mark as watched";
   button.setAttribute("aria-pressed", String(video.seen));
   button.closest(".video-card")?.classList.toggle("video-card--seen", video.seen);
 }

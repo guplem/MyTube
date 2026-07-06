@@ -60,7 +60,12 @@ architecture or adding a feature.** Human setup/run/deploy: [README.md](README.m
   blue) plus a `✓` label that keeps the noun, and every toggle carries a
   `title` naming what a click does now plus `aria-pressed`; state changes go
   through the action's `reflect`, which runs at first render and after every
-  toggle. Nothing removes a card
+  toggle. When a video is effectively finished but not in the history, the
+  watched toggle adds a red notification dot (`toggle-nudge`) nudging the tap:
+  the policy is `shouldSuggestWatched` in `src/shared/videoProgress.ts` (the
+  same 95% line as `PROGRESS_FINISHED`, so the nudge and the store agree),
+  fed the stored flag on cards and, in the player, also the live position
+  (polled every second). Nothing removes a card
   from the DOM mid-session: a toggled-off video stays in place (dimmed where it
   will disappear on the next load), so a mis-tap is undone with a second tap.
   On the Watch Later screen the membership toggle IS the remove button.

@@ -21,7 +21,7 @@ import {
   removeVideoSeen,
   saveVideoProgress,
 } from "./serverBridge";
-import { progressToStore } from "../shared/videoProgress";
+import { progressToStore, shouldSuggestWatched } from "../shared/videoProgress";
 import { invalidateFeedPrefetch } from "./feedPrefetch";
 import { getBoolPreference, setBoolPreference } from "./preferences";
 import { optimistic } from "./optimistic";
@@ -61,6 +61,12 @@ const PLAYER_STATE_PAUSED = 2;
 // Apps Script iframe, so the periodic save is what bounds how much progress a
 // hard close loses.
 const PROGRESS_SAVE_INTERVAL_MS = 20000;
+
+// How often the live position is checked for the mark-watched nudge (the dot
+// on the watched toggle once the video is effectively finished). Purely local
+// getCurrentTime polling — no request — so it can be much brisker than the
+// progress save; same pattern as the chapter tracking.
+const NUDGE_POLL_MS = 1000;
 
 // Theater-toggle icons. Enabling theater mode shows a monitor/TV ("big screen,
 // not fullscreen"); exiting shows arrows pointing inward (shrink back to the
@@ -128,12 +134,15 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
 
   // Resume progress: the playing position is persisted server-side (per user,
   // so it syncs across devices) on an interval, on pause, on prev/next, and
-  // when the player unmounts; a finished video clears its position. What
-  // qualifies as a resumable position is decided by progressToStore
+  // when the player unmounts; a finished video stores the PROGRESS_FINISHED
+  // marker (full bar on cards, restart on replay). What qualifies as a
+  // resumable position is decided by progressToStore
   // (src/shared/videoProgress.ts). lastSavedProgress dedupes the periodic
-  // saves so a paused player stops writing.
+  // saves so a paused player stops writing. nudgeTimer drives the
+  // mark-watched dot from the live position (see watchedNudge).
   let progressTimer: number | null = null;
   let lastSavedProgress = 0;
+  let nudgeTimer: number | null = null;
 
   // Comment paging/sorting state. The description and comments live in two tabs;
   // the comments tab is unloaded until it is selected. activeTab persists across
@@ -175,6 +184,10 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
         target ? markVideoSeen(video) : removeVideoSeen(video.videoId),
       failMessage: target ? "Couldn't mark as watched" : "Couldn't mark as not watched",
     });
+    // Marking watched drops the video from Watch Later server-side; mirror it
+    // on the in-memory queue like the card toggle does. One-directional —
+    // un-marking never re-adds (see markSeenAction in src/ui/main.ts).
+    if (target && video.inWatchLater) video.inWatchLater = false;
   });
 
   // Theater mode toggle. Hidden on mobile (where the player is already
@@ -438,15 +451,41 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     updateSeenButton();
   }
 
+  // "You should probably mark this watched": the stored position says the
+  // video is effectively finished (the marker, kept when a finished video is
+  // reopened — playback restarts at 0:00 but the store still says finished),
+  // or the live playback position has crossed the same finished fraction.
+  // The live check is what makes the nudge appear the moment the threshold
+  // is crossed mid-watch, including on the end card.
+  function watchedNudge(): boolean {
+    const video = queue[currentIndex];
+    if (!video || video.seen) return false;
+    if (shouldSuggestWatched(video.progressSeconds, video.durationSeconds)) return true;
+    if (!player) return false;
+    try {
+      return shouldSuggestWatched(player.getCurrentTime(), player.getDuration());
+    } catch {
+      return false; // player not ready yet
+    }
+  }
+
   // Same copy and pressed-toggle treatment as the card buttons (reflectSeen in
-  // src/ui/main.ts), so the one control looks identical everywhere.
+  // src/ui/main.ts), so the one control looks identical everywhere — including
+  // the mark-watched nudge dot. Re-run by nudgeTimer so the dot tracks live
+  // playback; every write below is idempotent.
   function updateSeenButton(): void {
     const video = queue[currentIndex];
     const seen = Boolean(video && video.seen);
+    const nudge = watchedNudge();
     seenButton.textContent = seen ? "✓ Watched" : "Mark watched";
     seenButton.classList.toggle("player-toggle--on", seen);
+    seenButton.classList.toggle("toggle-nudge", nudge);
     seenButton.disabled = !video;
-    seenButton.title = seen ? "Mark as not watched" : "Mark as watched";
+    seenButton.title = seen
+      ? "Mark as not watched"
+      : nudge
+        ? "Mark as watched — you finished this video"
+        : "Mark as watched";
     seenButton.setAttribute("aria-pressed", String(seen));
   }
 
@@ -693,6 +732,18 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     }
   }
 
+  function startNudgeTracking(): void {
+    if (nudgeTimer !== null) return;
+    nudgeTimer = window.setInterval(updateSeenButton, NUDGE_POLL_MS);
+  }
+
+  function stopNudgeTracking(): void {
+    if (nudgeTimer !== null) {
+      window.clearInterval(nudgeTimer);
+      nudgeTimer = null;
+    }
+  }
+
   function handleStateChange(event: YouTubePlayerEvent): void {
     // Pausing is the best "the user may be leaving" signal available inside
     // the Apps Script iframe, so capture the position right away. Ending
@@ -737,6 +788,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
       player.loadVideoById(video.videoId, resumeAt);
     }
     startProgressSaving();
+    startNudgeTracking();
   }
 
   updateTheater();
@@ -752,6 +804,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     destroy: (): void => {
       stopChapterTracking();
       stopProgressSaving();
+      stopNudgeTracking();
       saveProgress(); // leaving the player is the last chance to capture it
       if (player) {
         player.destroy();

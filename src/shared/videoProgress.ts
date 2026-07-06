@@ -36,6 +36,27 @@ export function progressFraction(
 }
 
 /**
+ * Whether the UI should nudge "mark this watched": true when the position
+ * says the video is effectively finished — the stored PROGRESS_FINISHED
+ * marker, or a (live playback) position past the same FINISHED_FRACTION the
+ * store uses — so the nudge and the store can never disagree about what
+ * "finished" means. The caller decides what position to pass: cards use the
+ * stored progressSeconds (only the marker can reach the fraction there,
+ * since progressToStore converts anything past it), the player also polls
+ * the live playback position so the nudge appears the moment the threshold
+ * is crossed. False when there is nothing to judge (no position, or a real
+ * position with no known duration). Whether the video is already in the
+ * history is the caller's concern, not this policy's.
+ */
+export function shouldSuggestWatched(
+  progressSeconds: number | undefined,
+  durationSeconds: number | undefined,
+): boolean {
+  const fraction = progressFraction(progressSeconds, durationSeconds);
+  return fraction !== null && fraction >= FINISHED_FRACTION;
+}
+
+/**
  * The playback position to persist, in whole seconds; PROGRESS_FINISHED when
  * the user is effectively done with the video (kept, so the card shows a full
  * bar); or 0 when the stored position should be cleared (the very start — a
