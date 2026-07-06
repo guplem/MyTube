@@ -2,7 +2,12 @@
 // which mean "start over next time". See src/shared/videoProgress.ts.
 
 import { describe, expect, it } from "vitest";
-import { PROGRESS_FINISHED, progressFraction, progressToStore } from "../../src/shared/videoProgress";
+import {
+  PROGRESS_FINISHED,
+  progressFraction,
+  progressToStore,
+  shouldSuggestWatched,
+} from "../../src/shared/videoProgress";
 
 describe("progressToStore", () => {
   it("stores a mid-video position, rounded down to whole seconds", () => {
@@ -75,5 +80,37 @@ describe("progressFraction", () => {
   it("shows a full bar for a finished video even without a duration", () => {
     // Unlike a partial bar, "finished" needs nothing to divide by.
     expect(progressFraction(PROGRESS_FINISHED, undefined)).toBe(1);
+  });
+});
+
+describe("shouldSuggestWatched", () => {
+  it("suggests for a stored finished marker", () => {
+    expect(shouldSuggestWatched(PROGRESS_FINISHED, 600)).toBe(true);
+  });
+
+  it("suggests for a finished marker even without a duration", () => {
+    // Mirrors progressFraction: "finished" needs nothing to divide by.
+    expect(shouldSuggestWatched(PROGRESS_FINISHED, undefined)).toBe(true);
+  });
+
+  it("suggests for a live position past the finished fraction", () => {
+    // The player checks the live playback position, which (unlike a stored
+    // one) can sit past 95% before progressToStore turns it into the marker.
+    expect(shouldSuggestWatched(580, 600)).toBe(true);
+    expect(shouldSuggestWatched(600, 600)).toBe(true);
+  });
+
+  it("does not suggest below the finished fraction", () => {
+    // 560/600 is 93%: nearly done, but not what the store calls finished —
+    // the nudge uses the same 95% line so the two never disagree.
+    expect(shouldSuggestWatched(560, 600)).toBe(false);
+    expect(shouldSuggestWatched(300, 600)).toBe(false);
+  });
+
+  it("does not suggest without a position or without a duration", () => {
+    expect(shouldSuggestWatched(undefined, 600)).toBe(false);
+    expect(shouldSuggestWatched(0, 600)).toBe(false);
+    expect(shouldSuggestWatched(590, 0)).toBe(false);
+    expect(shouldSuggestWatched(590, undefined)).toBe(false);
   });
 });

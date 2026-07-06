@@ -35,6 +35,8 @@ quota. See [One-time Google setup](#one-time-google-setup) below.
   not want to see again in the feed.
 - **Watch history** — mark a video as watched (a button on the card or in the
   player). History is private and never sent to YouTube. "Hide watched" uses it.
+  When you have watched a video to (effectively) the end but not marked it, the
+  button shows a red dot suggesting the tap — on cards and in the player.
 - **Playlists** — open any of your playlists, with a sort selector (playlist
   order, upload date newest/oldest first, or title).
 - **Watch Later** — a real YouTube playlist the app creates and manages. Add or

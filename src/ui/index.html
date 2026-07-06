@@ -258,6 +258,26 @@
       .video-action--on:hover {
         background: #284066;
       }
+      /* Notification dot on the watched toggle when the progress store (or,
+         in the player, live playback) says the video is effectively finished
+         but it is not in the history yet — "you should probably tap this".
+         Shared by the card buttons and the player's watched toggle. Red ties
+         it to the thumbnail progress bar that prompted it; the dark ring
+         lifts it off both the card and player backgrounds. */
+      .toggle-nudge {
+        position: relative;
+      }
+      .toggle-nudge::after {
+        content: "";
+        position: absolute;
+        top: -0.22rem;
+        right: -0.22rem;
+        width: 0.55rem;
+        height: 0.55rem;
+        border-radius: 50%;
+        background: #f03;
+        box-shadow: 0 0 0 2px rgba(15, 15, 15, 0.85);
+      }
 
       /* Playlists list */
       .playlist-list {
