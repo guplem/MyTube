@@ -280,6 +280,20 @@
         display: block;
         background: #000;
       }
+      /* Watched-progress bar pinned to the bottom edge of the thumbnail, like
+         YouTube's: a faint full-width track so the red fill reads as a fraction. */
+      .video-progress {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 4px;
+        background: rgba(255, 255, 255, 0.35);
+      }
+      .video-progress-fill {
+        height: 100%;
+        background: #f03;
+      }
       .video-duration {
         position: absolute;
         right: 0.4rem;
