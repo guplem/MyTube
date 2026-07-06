@@ -20,6 +20,7 @@ interface ScriptRunner {
   undoMarkVideoSeen(videoId: string): void;
   markVideoDismissed(videoId: string): void;
   removeVideoDismissed(videoId: string): void;
+  saveVideoProgress(videoId: string, seconds: number): void;
   getHistory(): void;
   getPlaylists(): void;
   getPlaylistVideos(playlistId: string): void;
@@ -71,6 +72,10 @@ export function markVideoDismissed(videoId: string): Promise<void> {
 
 export function removeVideoDismissed(videoId: string): Promise<void> {
   return call<void>((runner) => runner.removeVideoDismissed(videoId));
+}
+
+export function saveVideoProgress(videoId: string, seconds: number): Promise<void> {
+  return call<void>((runner) => runner.saveVideoProgress(videoId, seconds));
 }
 
 export function getHistory(): Promise<Video[]> {

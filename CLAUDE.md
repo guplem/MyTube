@@ -66,6 +66,20 @@ architecture or adding a feature.** Human setup/run/deploy: [README.md](README.m
   exception is the Watch Later screen's own seen toggle: its un-toggle goes
   through `undoMarkVideoSeen`, which restores the playlist entry (guarded on
   membership, never creates the playlist) and then un-marks the view.
+- **Videos resume where you left off, on any device.** The player saves the
+  playback position server-side (`src/server/progress.ts`, chunked user
+  properties mirroring `history.ts`, capped at the 500 most recently saved), so
+  the store is per Google account and cross-device sync is automatic. The
+  policy for what is resumable lives in `src/shared/videoProgress.ts`
+  (`progressToStore`): positions in the first ~15s or past 95% of the video
+  map to 0, which clears the entry, so restarts and finished videos start from
+  the top. The player saves on a 20s interval, on pause, on prev/next, and on
+  unmount — never on tab close, which the Apps Script iframe can't observe
+  reliably; saves are fire-and-forget (not `optimistic()` — there is no UI
+  state to roll back) but still invalidate the feed prefetch stash, whose
+  snapshot carries `progressSeconds` like the other flags. Lists get the flag
+  via `flagProgress` in `src/server/main.ts`; the player resumes from
+  `video.progressSeconds`.
 - **Dismissed = a feed-only hidden list** (`src/server/dismissed.ts`, video ids
   in user properties, mirrors `history.ts`). `flagDismissed` sets it; the
   feed-only "Hide dismissed" toggle filters on it. The dismiss control is the

@@ -105,6 +105,7 @@ before deciding to log in. Marked optional below.
 | Video description | `videos.list` (part=snippet) | 1 unit |
 | Comments | `commentThreads.list` | 1 unit |
 | Playlist position | We track the index in our own list | 0 |
+| Resume playback position | Stored by us (see section 6); saved by the player, synced across devices | 0 |
 | Search | Redirect to `youtube.com/results?search_query=...` | 0 |
 
 **Uploads strategy (important):** we call `subscriptions.list` only occasionally
@@ -133,6 +134,10 @@ Two kinds of data, stored in two places:
     user properties, chunked across keys and capped at ~500 recent entries.
     (Originally a Google Sheet; moved to properties to drop the `spreadsheets`
     scope. See ADR 0005.)
+  - **Resume positions** (where playback stopped in each video, so the player
+    picks up where you left off — on any device, since the store is server-side
+    per user): `PropertiesService` user properties, chunked like the history
+    and capped at ~500 most-recently-saved entries.
   - **Small settings** (the Watch Later playlist ID, autoplay toggle, cached
     channel IDs, last-refresh time): `PropertiesService` user properties.
     Reason: tiny key/value data, fastest to read, no Sheet needed.
