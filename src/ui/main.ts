@@ -30,6 +30,7 @@ import {
   type VideoAction,
 } from "./videoListView";
 import { warmFeedPage, takePrefetchedFeedPage } from "./feedPrefetch";
+import { renderBuildStamp } from "./buildStamp";
 import { skeletonPlaylistList, skeletonPlayerView, skeletonSortToolbar } from "./skeleton";
 import { PlayerView, type PlayerController } from "./playerView";
 import { optimistic } from "./optimistic";
@@ -889,6 +890,10 @@ function start(): void {
 // bundle itself executes earlier (inline at the end of <body>), so fill the app
 // with placeholder cards right away — boot shows a skeleton, never a blank
 // screen or a bare "Loading…" line — until the first routed screen replaces it.
+// The footer's deploy stamp is static chrome — no bridge needed, and render()
+// never touches it — so fill it once, the moment the bundle runs.
+renderBuildStamp();
+
 if (document.readyState === "complete") {
   start();
 } else {

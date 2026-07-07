@@ -51,6 +51,11 @@ await build({
 });
 
 // 2. Browser bundle -> dist/ui.html (wrapped in a <script> tag)
+// The build moment is stamped into the bundle: the page footer shows it as a
+// deploy indicator (src/ui/buildStamp.ts). Both deploy paths (npm run deploy,
+// .github/workflows/deploy.yml) rebuild right before `clasp deploy`, so a new
+// timestamp at the bottom of the page means the deploy went live.
+const buildTimestamp = new Date().toISOString();
 const ui = await build({
   entryPoints: ["src/ui/main.ts"],
   bundle: true,
@@ -58,6 +63,7 @@ const ui = await build({
   target: "es2020",
   minify: false,
   write: false,
+  define: { __BUILD_TIMESTAMP__: JSON.stringify(buildTimestamp) },
 });
 const browserJs = ui.outputFiles[0].text;
 await writeFile(`${DIST}/ui.html`, `<script>\n${browserJs}\n</script>\n`);

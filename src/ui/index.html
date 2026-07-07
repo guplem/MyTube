@@ -103,6 +103,14 @@
       .muted {
         color: #aaa;
       }
+      /* Deploy indicator at the very bottom of every screen: dimmer than
+         .muted because it is chrome, not content. */
+      .app-footer {
+        padding: 1rem 1.5rem 1.25rem;
+        text-align: center;
+        font-size: 0.75rem;
+        color: #666;
+      }
 
       /* Feed */
       .video-list {
@@ -950,6 +958,11 @@
          boot block at the bottom of src/ui/main.ts), then replaced by the
          routed screen once the google.script bridge is ready. -->
     <main id="app" class="muted"></main>
+
+    <!-- Deploy indicator: the bundle fills this with the build timestamp
+         (renderBuildStamp in src/ui/buildStamp.ts), so the bottom of every
+         screen shows which build is live. -->
+    <footer class="app-footer"><span id="build-stamp"></span></footer>
 
     <!-- Browser TypeScript bundle (built from src/ui by esbuild). -->
     <?!= include('ui'); ?>
