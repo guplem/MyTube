@@ -260,9 +260,10 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     }
   }
 
-  // Exit overlay inside the rotor, so it rotates with the video; the only
-  // always-visible way out on touch devices without a hardware Esc key.
-  // Shown only while fullscreen (CSS).
+  // Exit overlay inside the rotor, so it rotates with the video and sits at
+  // the bottom-right of the landscape view (away from the embedded player's
+  // top controls); the only always-visible way out on touch devices without a
+  // hardware Esc key. Shown only while fullscreen (CSS).
   const fsExitButton = document.createElement("button");
   fsExitButton.type = "button";
   fsExitButton.className = "player-fs-exit";
