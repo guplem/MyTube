@@ -548,12 +548,73 @@
         border-radius: 8px;
         overflow: hidden;
       }
+      /* The rotor sits between the frame (the element the custom button
+         fullscreens) and the YouTube iframe. Normally it just fills the
+         frame; in portrait fullscreen on a touch screen it is rotated 90deg
+         (below) to fake the landscape rotation the Apps Script sandbox
+         blocks (no allow-orientation-lock token, so
+         screen.orientation.lock() throws). It must be a child of the
+         fullscreen element because the UA stylesheet forces
+         "transform: none !important" on the fullscreen element itself. */
+      .player-rotor {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+      }
       .player-frame iframe {
         position: absolute;
         inset: 0;
         width: 100%;
         height: 100%;
         border: 0;
+      }
+      .player-frame:fullscreen {
+        border-radius: 0;
+      }
+      /* Fake landscape: lay the rotor out as a screen-sized landscape canvas
+         (viewport units are the screen while fullscreen) rotated a quarter
+         turn about the screen center. Scoped to portrait so that if the
+         screen ever REALLY rotates (auto-rotate on, or Google adding the
+         sandbox token making the lock work) this no longer matches and the
+         real orientation takes over — never both. */
+      @media (orientation: portrait) and (pointer: coarse) {
+        .player-frame:fullscreen .player-rotor {
+          top: 50%;
+          left: 50%;
+          width: 100vh;
+          height: 100vw;
+          transform: translate(-50%, -50%) rotate(90deg);
+        }
+      }
+      /* Exit-fullscreen overlay: only exists while fullscreen. Lives inside
+         the rotor so it rotates with the video. The :not() chain mirrors the
+         box-style button rule below so these win on specificity (see the
+         theater toggle's rules for the same trick). */
+      .player-view button.player-fs-exit {
+        display: none;
+      }
+      .player-view
+        .player-frame:fullscreen
+        button.player-fs-exit:not(.ts-link):not(.player-tab):not(.chapter-card) {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: absolute;
+        top: 0.75rem;
+        right: 0.75rem;
+        z-index: 2;
+        padding: 0.5rem;
+        font-size: 1.4rem;
+        line-height: 1;
+        color: #fff;
+        background: rgba(0, 0, 0, 0.55);
+        border: 0;
+        border-radius: 50%;
+      }
+      .player-fs-exit svg {
+        display: block;
       }
       .player-title {
         margin: 0;
@@ -848,8 +909,10 @@
       .player-view button.chapter-card.current .chapter-label {
         color: #fff;
       }
-      /* The theater toggle is a compact icon button holding an inline SVG. */
-      .player-view button.player-theater:not(.ts-link):not(.player-tab) {
+      /* The theater and fullscreen toggles are compact icon buttons holding
+         an inline SVG. */
+      .player-view button.player-theater:not(.ts-link):not(.player-tab),
+      .player-view button.player-fullscreen:not(.ts-link):not(.player-tab) {
         display: flex;
         align-items: center;
         justify-content: center;
@@ -857,7 +920,13 @@
         font-size: 1.25rem;
         line-height: 1;
       }
-      .player-theater svg {
+      /* [hidden] (no element fullscreen, i.e. iPhone) must beat the flex rule
+         above, so it repeats the :not() chain. */
+      .player-view button.player-fullscreen[hidden]:not(.ts-link):not(.player-tab) {
+        display: none;
+      }
+      .player-theater svg,
+      .player-fullscreen svg {
         display: block;
       }
       /* Highlight the theater toggle while it is on. The :not() chain mirrors
