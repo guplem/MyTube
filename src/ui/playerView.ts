@@ -55,6 +55,14 @@ interface YouTubeNamespace {
 const PLAYER_STATE_ENDED = 0;
 const PLAYER_STATE_PAUSED = 2;
 
+// Minimal typing for screen.orientation lock/unlock: lock() is implemented
+// only by Chromium (and TypeScript's DOM lib no longer declares it), so type
+// just the two members used and treat both as optional.
+interface OrientationLocker {
+  lock?: (mode: string) => Promise<void>;
+  unlock?: () => void;
+}
+
 // How often the playing position is persisted for resume. Each save is an Apps
 // Script round-trip against a daily PropertiesService quota, so it must not be
 // too eager; but closing the tab can never be caught reliably from inside the
@@ -215,6 +223,36 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   frame.className = "player-frame";
   const mount = document.createElement("div");
   frame.appendChild(mount);
+
+  // Fullscreen auto-rotate (mobile): the fullscreen button inside the YouTube
+  // player fullscreens its iframe, which is the fullscreen element of THIS
+  // document, so fullscreenchange fires here too. Entering fullscreen asks the
+  // browser to lock the screen to landscape — like the native YouTube app,
+  // this overrides the device's rotation-lock setting — and exiting unlocks,
+  // handing control back to the device. Only Chromium on Android implements
+  // screen.orientation.lock (iOS Safari plays fullscreen video in its native
+  // presentation and has no lock API; desktop browsers reject the call), so
+  // both paths swallow failures and the feature degrades to a no-op.
+  const onFullscreenChange = (): void => {
+    const orientation = window.screen.orientation as unknown as OrientationLocker | undefined;
+    if (!orientation) return;
+    const fullscreenElement =
+      document.fullscreenElement ??
+      (document as unknown as { webkitFullscreenElement?: Element }).webkitFullscreenElement;
+    if (fullscreenElement) {
+      if (typeof orientation.lock === "function") {
+        orientation.lock("landscape").catch((): void => {});
+      }
+    } else if (typeof orientation.unlock === "function") {
+      try {
+        orientation.unlock();
+      } catch {
+        // never locked (or unsupported) — nothing to restore
+      }
+    }
+  };
+  document.addEventListener("fullscreenchange", onFullscreenChange);
+  document.addEventListener("webkitfullscreenchange", onFullscreenChange);
 
   const title = document.createElement("h2");
   title.className = "player-title";
@@ -802,6 +840,8 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
       if (index >= 0) void playAt(index);
     },
     destroy: (): void => {
+      document.removeEventListener("fullscreenchange", onFullscreenChange);
+      document.removeEventListener("webkitfullscreenchange", onFullscreenChange);
       stopChapterTracking();
       stopProgressSaving();
       stopNudgeTracking();
