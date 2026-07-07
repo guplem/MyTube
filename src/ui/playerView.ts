@@ -84,6 +84,13 @@ const ICON_ENTER_THEATER =
 const ICON_EXIT_THEATER =
   '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14h6v6"/><path d="M20 10h-6V4"/><path d="M14 10 21 3"/><path d="M3 21l7-7"/></svg>';
 
+// Fullscreen icons: classic expand corners to enter; inward corners on the
+// in-video exit overlay.
+const ICON_ENTER_FULLSCREEN =
+  '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
+const ICON_EXIT_FULLSCREEN =
+  '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M16 3v3a2 2 0 0 0 2 2h3"/><path d="M8 21v-3a2 2 0 0 0-2-2H3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>';
+
 export interface PlayerViewProps {
   queue: Video[];
   startIndex: number;
@@ -219,27 +226,72 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   });
   autoplayLabel.append(autoplayCheckbox, document.createTextNode(" Autoplay next"));
 
+  // Fullscreen on mobile must rotate the video to landscape like the native
+  // YouTube app, and the real API for that is unavailable here: the Apps
+  // Script wrapper serves this page in a sandboxed iframe without the
+  // allow-orientation-lock token, so screen.orientation.lock() rejects with
+  // SecurityError for us AND for YouTube's own player code nested inside.
+  // The workaround is a fake rotation in CSS: fullscreen a wrapper WE own
+  // (frame) and rotate the inner container (rotor) 90deg while the screen is
+  // portrait — see ".player-frame:fullscreen .player-rotor" in index.html.
+  // The browser's UA stylesheet forces "transform: none !important" on the
+  // fullscreen element itself, which is why the rotated element must be a
+  // child and why YouTube's own fullscreen button (which fullscreens the
+  // iframe directly) can never rotate: where our button is available the
+  // YouTube one is hidden via the fs=0 playerVar.
   const frame = document.createElement("div");
   frame.className = "player-frame";
+  const rotor = document.createElement("div");
+  rotor.className = "player-rotor";
   const mount = document.createElement("div");
-  frame.appendChild(mount);
+  rotor.appendChild(mount);
+  frame.appendChild(rotor);
 
-  // Fullscreen auto-rotate (mobile): the fullscreen button inside the YouTube
-  // player fullscreens its iframe, which is the fullscreen element of THIS
-  // document, so fullscreenchange fires here too. Entering fullscreen asks the
-  // browser to lock the screen to landscape — like the native YouTube app,
-  // this overrides the device's rotation-lock setting — and exiting unlocks,
-  // handing control back to the device. Only Chromium on Android implements
-  // screen.orientation.lock (iOS Safari plays fullscreen video in its native
-  // presentation and has no lock API; desktop browsers reject the call), so
-  // both paths swallow failures and the feature degrades to a no-op.
+  // iPhone Safari has no element fullscreen at all; there the YouTube button
+  // stays (fs=1) and plays fullscreen in the native iOS presentation, and the
+  // custom controls are hidden — the same behavior as before this feature.
+  const supportsElementFullscreen = typeof frame.requestFullscreen === "function";
+
+  function toggleFullscreen(): void {
+    if (document.fullscreenElement) {
+      void document.exitFullscreen();
+    } else {
+      frame.requestFullscreen().catch((): void => {});
+    }
+  }
+
+  // Exit overlay inside the rotor, so it rotates with the video; the only
+  // always-visible way out on touch devices without a hardware Esc key.
+  // Shown only while fullscreen (CSS).
+  const fsExitButton = document.createElement("button");
+  fsExitButton.type = "button";
+  fsExitButton.className = "player-fs-exit";
+  fsExitButton.innerHTML = ICON_EXIT_FULLSCREEN;
+  fsExitButton.title = "Exit fullscreen";
+  fsExitButton.setAttribute("aria-label", "Exit fullscreen");
+  fsExitButton.addEventListener("click", toggleFullscreen);
+  rotor.appendChild(fsExitButton);
+
+  const fullscreenButton = document.createElement("button");
+  fullscreenButton.type = "button";
+  fullscreenButton.className = "player-fullscreen";
+  fullscreenButton.innerHTML = ICON_ENTER_FULLSCREEN;
+  fullscreenButton.title = "Fullscreen";
+  fullscreenButton.setAttribute("aria-label", "Fullscreen");
+  fullscreenButton.hidden = !supportsElementFullscreen;
+  fullscreenButton.addEventListener("click", toggleFullscreen);
+
+  // Also try the real thing on every fullscreen change: if Google ever adds
+  // allow-orientation-lock to the wrapper's sandbox, the screen physically
+  // rotates, the (orientation: portrait) media query stops matching, and the
+  // CSS fake rotation steps aside on its own. Until then the lock call
+  // rejects (SecurityError here; NotSupportedError on desktop; missing on
+  // iOS) and is swallowed. Unlocking on exit hands rotation back to the
+  // device setting.
   const onFullscreenChange = (): void => {
     const orientation = window.screen.orientation as unknown as OrientationLocker | undefined;
     if (!orientation) return;
-    const fullscreenElement =
-      document.fullscreenElement ??
-      (document as unknown as { webkitFullscreenElement?: Element }).webkitFullscreenElement;
-    if (fullscreenElement) {
+    if (document.fullscreenElement) {
       if (typeof orientation.lock === "function") {
         orientation.lock("landscape").catch((): void => {});
       }
@@ -252,7 +304,6 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     }
   };
   document.addEventListener("fullscreenchange", onFullscreenChange);
-  document.addEventListener("webkitfullscreenchange", onFullscreenChange);
 
   const title = document.createElement("h2");
   title.className = "player-title";
@@ -263,7 +314,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   titleRow.className = "player-title-row";
   const titleActions = document.createElement("div");
   titleActions.className = "player-title-actions";
-  titleActions.append(seenButton, theaterButton);
+  titleActions.append(seenButton, fullscreenButton, theaterButton);
   titleRow.append(title, titleActions);
 
   // Nav row: the context label / position sit next to the prev/next buttons,
@@ -819,7 +870,17 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     if (!player) {
       player = new api.Player(mount, {
         videoId: video.videoId,
-        playerVars: { rel: 0, controls: 1, autoplay: 1, start: resumeAt },
+        // fs: hide YouTube's fullscreen button when the custom one is shown —
+        // it fullscreens the iframe directly, which can never fake-rotate
+        // (see the frame/rotor comment above); keep it where element
+        // fullscreen is unavailable (iPhone) so fullscreen stays possible.
+        playerVars: {
+          rel: 0,
+          controls: 1,
+          autoplay: 1,
+          start: resumeAt,
+          fs: supportsElementFullscreen ? 0 : 1,
+        },
         events: { onStateChange: handleStateChange },
       });
     } else {
@@ -841,7 +902,6 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     },
     destroy: (): void => {
       document.removeEventListener("fullscreenchange", onFullscreenChange);
-      document.removeEventListener("webkitfullscreenchange", onFullscreenChange);
       stopChapterTracking();
       stopProgressSaving();
       stopNudgeTracking();
