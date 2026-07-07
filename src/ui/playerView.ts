@@ -23,7 +23,12 @@ import {
 } from "./serverBridge";
 import { progressToStore, shouldSuggestWatched } from "../shared/videoProgress";
 import { invalidateFeedPrefetch } from "./feedPrefetch";
-import { getBoolPreference, setBoolPreference } from "./preferences";
+import {
+  getBoolPreference,
+  setBoolPreference,
+  getStringPreference,
+  setStringPreference,
+} from "./preferences";
 import { optimistic } from "./optimistic";
 import { skeletonComments, skeletonDescription } from "./skeleton";
 
@@ -31,14 +36,35 @@ import { skeletonComments, skeletonDescription } from "./skeleton";
 // fills the window. Persisted so it stays on across videos and visits.
 const THEATER_PREF = "mytube.player.theater";
 
+// Playback speed: the rate the viewer last chose from YouTube's own speed menu,
+// remembered per device (localStorage, like theater mode) and reapplied to every
+// video. It is a viewing preference, not a per-video fact, so it lives here rather
+// than in the server-side progress store.
+const SPEED_PREF = "mytube.player.speed";
+
+// Reads the saved playback speed, guarding against a missing or malformed value.
+// Anything unparseable (or non-positive) falls back to 1 (normal speed).
+function readStoredPlaybackRate(): number {
+  const stored = Number.parseFloat(getStringPreference(SPEED_PREF, ""));
+  return Number.isFinite(stored) && stored > 0 ? stored : 1;
+}
+
 // Minimal typing for the YouTube IFrame Player API (loaded from youtube.com).
 interface YouTubePlayerEvent {
   data: number;
 }
+interface YouTubePlayerReadyEvent {
+  target: YouTubePlayer;
+}
 interface YouTubePlayerOptions {
   videoId: string;
   playerVars?: Record<string, number | string>;
-  events?: { onStateChange?: (event: YouTubePlayerEvent) => void };
+  events?: {
+    onReady?: (event: YouTubePlayerReadyEvent) => void;
+    onStateChange?: (event: YouTubePlayerEvent) => void;
+    /** Fires when the viewer picks a speed from YouTube's own controls; data is the new rate. */
+    onPlaybackRateChange?: (event: YouTubePlayerEvent) => void;
+  };
 }
 interface YouTubePlayer {
   loadVideoById(videoId: string, startSeconds?: number): void;
@@ -47,6 +73,8 @@ interface YouTubePlayer {
   getCurrentTime(): number;
   /** Video length in seconds; 0 until the video's metadata loads. */
   getDuration(): number;
+  /** Suggests a playback speed (1 = normal); clamped to the video's allowed rates. */
+  setPlaybackRate(suggestedRate: number): void;
   destroy(): void;
 }
 interface YouTubeNamespace {
@@ -137,6 +165,10 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   let currentIndex = Math.max(0, Math.min(props.startIndex, queue.length - 1));
   let autoplayNext = false;
   let player: YouTubePlayer | null = null;
+
+  // The remembered playback speed (see SPEED_PREF), applied to every video when
+  // it loads and updated whenever the viewer changes it from YouTube's controls.
+  let playbackRate = readStoredPlaybackRate();
 
   // Chapters parsed from the description (see src/shared/chapters.ts). The strip
   // between the video and description highlights the chapter playing now, dims the
@@ -834,6 +866,28 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     }
   }
 
+  // Applies the remembered speed to the current video. Guarded because the
+  // player throws if it is not ready yet; the rate persists across
+  // loadVideoById on the same player, so this is belt-and-suspenders there.
+  function applyPlaybackRate(): void {
+    if (!player) return;
+    try {
+      player.setPlaybackRate(playbackRate);
+    } catch {
+      // player not ready yet
+    }
+  }
+
+  // The viewer changed speed from YouTube's own controls: remember it (per
+  // device) so the next video — and the next visit — starts at this rate.
+  // event.data is the new rate; ignore anything nonsensical.
+  function handlePlaybackRateChange(event: YouTubePlayerEvent): void {
+    const rate = event.data;
+    if (!Number.isFinite(rate) || rate <= 0) return;
+    playbackRate = rate;
+    setStringPreference(SPEED_PREF, String(rate));
+  }
+
   function handleStateChange(event: YouTubePlayerEvent): void {
     // Pausing is the best "the user may be leaving" signal available inside
     // the Apps Script iframe, so capture the position right away. Ending
@@ -882,10 +936,16 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
           start: resumeAt,
           fs: supportsElementFullscreen ? 0 : 1,
         },
-        events: { onStateChange: handleStateChange },
+        events: {
+          // Apply the remembered speed once the fresh player is ready.
+          onReady: applyPlaybackRate,
+          onStateChange: handleStateChange,
+          onPlaybackRateChange: handlePlaybackRateChange,
+        },
       });
     } else {
       player.loadVideoById(video.videoId, resumeAt);
+      applyPlaybackRate();
     }
     startProgressSaving();
     startNudgeTracking();
