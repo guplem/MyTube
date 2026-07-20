@@ -41,7 +41,11 @@ describe("watch history", () => {
     markVideoSeen(makeVideo({ videoId: "second" }));
     markVideoSeen(makeVideo({ videoId: "third" }));
 
-    expect(getHistory().map((v) => v.videoId)).toEqual(["third", "second", "first"]);
+    expect(getHistory().map((v) => v.videoId)).toEqual([
+      "third",
+      "second",
+      "first",
+    ]);
   });
 
   it("does not record the same video twice", () => {
@@ -61,7 +65,8 @@ describe("watch history", () => {
   });
 
   it("keeps only the most recent MAX_ENTRIES (500) videos", () => {
-    for (let i = 0; i < 501; i += 1) markVideoSeen(makeVideo({ videoId: `v${i}` }));
+    for (let i = 0; i < 501; i += 1)
+      markVideoSeen(makeVideo({ videoId: `v${i}` }));
 
     const ids = getSeenVideoIds();
     expect(ids).toHaveLength(500);
@@ -80,14 +85,18 @@ describe("watch history", () => {
       throw new Error("write failed");
     };
 
-    expect(() => markVideoSeen(makeVideo({ videoId: "a" }))).toThrow("write failed");
+    expect(() => markVideoSeen(makeVideo({ videoId: "a" }))).toThrow(
+      "write failed",
+    );
     expect(mocks.lockCalls[mocks.lockCalls.length - 1]).toBe("release");
   });
 
   it("does not delete unrelated properties when writing", () => {
     mocks.userProperties.setProperty("subscriptionChannels", "keep-me");
     let deletedAllOthers = false;
-    const realSetProperties = mocks.userProperties.setProperties.bind(mocks.userProperties);
+    const realSetProperties = mocks.userProperties.setProperties.bind(
+      mocks.userProperties,
+    );
     mocks.userProperties.setProperties = (properties, deleteAllOthers) => {
       if (deleteAllOthers) deletedAllOthers = true;
       return realSetProperties(properties, deleteAllOthers);
@@ -95,7 +104,9 @@ describe("watch history", () => {
 
     markVideoSeen(makeVideo({ videoId: "a" }));
 
-    expect(mocks.userProperties.getProperty("subscriptionChannels")).toBe("keep-me");
+    expect(mocks.userProperties.getProperty("subscriptionChannels")).toBe(
+      "keep-me",
+    );
     expect(deletedAllOthers).toBe(false);
   });
 
@@ -103,7 +114,12 @@ describe("watch history", () => {
     // Each entry serializes to a few hundred chars; 100 entries comfortably
     // exceeds the 3000-char CHUNK_SIZE, forcing a multi-property split.
     for (let i = 0; i < 100; i += 1) {
-      markVideoSeen(makeVideo({ videoId: `v${i}`, title: `Title number ${i} with some length` }));
+      markVideoSeen(
+        makeVideo({
+          videoId: `v${i}`,
+          title: `Title number ${i} with some length`,
+        }),
+      );
     }
 
     expect(getHistory()).toHaveLength(100);

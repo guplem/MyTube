@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
   <head>
     <base target="_top" />
@@ -25,7 +25,10 @@
         display: none !important;
       }
       body {
-        font-family: system-ui, -apple-system, sans-serif;
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
         margin: 0;
         background: #0f0f0f;
         color: #f1f1f1;
@@ -599,7 +602,9 @@
       }
       .player-view
         .player-frame:fullscreen
-        button.player-fs-exit:not(.ts-link):not(.player-tab):not(.chapter-card) {
+        button.player-fs-exit:not(.ts-link):not(.player-tab):not(
+          .chapter-card
+        ) {
         display: flex;
         align-items: center;
         justify-content: center;
@@ -804,23 +809,32 @@
         font: inherit;
         cursor: pointer;
       }
-      .player-view button:not(.ts-link):not(.player-tab):not(.chapter-card):hover:not(:disabled) {
+      .player-view
+        button:not(.ts-link):not(.player-tab):not(.chapter-card):hover:not(
+          :disabled
+        ) {
         background: #333;
       }
-      .player-view button:not(.ts-link):not(.player-tab):not(.chapter-card):disabled {
+      .player-view
+        button:not(.ts-link):not(.player-tab):not(.chapter-card):disabled {
         opacity: 0.4;
         cursor: default;
       }
       /* Pressed state for the player's toggle buttons — the player twin of
          .video-action--on. The :not() chain mirrors the box-style rule above
          so this wins on specificity (a bare class selector would lose to it). */
-      .player-view button.player-toggle--on:not(.ts-link):not(.player-tab):not(.chapter-card) {
+      .player-view
+        button.player-toggle--on:not(.ts-link):not(.player-tab):not(
+          .chapter-card
+        ) {
         background: #23334a;
         border-color: #3ea6ff;
         color: #fff;
       }
       .player-view
-        button.player-toggle--on:not(.ts-link):not(.player-tab):not(.chapter-card):hover:not(:disabled) {
+        button.player-toggle--on:not(.ts-link):not(.player-tab):not(
+          .chapter-card
+        ):hover:not(:disabled) {
         background: #284066;
       }
 
@@ -876,7 +890,10 @@
         padding: 0.5rem 0.7rem;
         font: inherit;
         cursor: pointer;
-        transition: opacity 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+        transition:
+          opacity 0.2s ease,
+          background 0.2s ease,
+          border-color 0.2s ease;
       }
       .player-view button.chapter-card:hover {
         background: #242424;
@@ -924,7 +941,8 @@
       }
       /* [hidden] (no element fullscreen, i.e. iPhone) must beat the flex rule
          above, so it repeats the :not() chain. */
-      .player-view button.player-fullscreen[hidden]:not(.ts-link):not(.player-tab) {
+      .player-view
+        button.player-fullscreen[hidden]:not(.ts-link):not(.player-tab) {
         display: none;
       }
       .player-theater svg,
@@ -935,9 +953,14 @@
          the box-style rule so this wins on specificity — without it the base
          rule's background silently beats .active and the highlight never
          renders. */
-      .player-view button.player-theater.active:not(.ts-link):not(.player-tab):not(.chapter-card),
       .player-view
-        button.player-theater.active:not(.ts-link):not(.player-tab):not(.chapter-card):hover {
+        button.player-theater.active:not(.ts-link):not(.player-tab):not(
+          .chapter-card
+        ),
+      .player-view
+        button.player-theater.active:not(.ts-link):not(.player-tab):not(
+          .chapter-card
+        ):hover {
         background: #3ea6ff;
         border-color: #3ea6ff;
         color: #0f0f0f;
@@ -1021,7 +1044,11 @@
         <button type="button" data-view="history">History</button>
       </nav>
       <form class="app-search">
-        <input type="search" placeholder="Search YouTube…" aria-label="Search YouTube" />
+        <input
+          type="search"
+          placeholder="Search YouTube…"
+          aria-label="Search YouTube"
+        />
         <button type="submit">Search</button>
       </form>
     </header>

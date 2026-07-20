@@ -30,7 +30,10 @@ afterEach(() => {
 function seedFeed(entries: RssEntry[]): void {
   mocks.userProperties.setProperty(
     "subscriptionChannels",
-    JSON.stringify({ fetchedAt: Date.now(), channels: [{ channelId: "C1", title: "One" }] }),
+    JSON.stringify({
+      fetchedAt: Date.now(),
+      channels: [{ channelId: "C1", title: "One" }],
+    }),
   );
   mocks.fetchAll = () => [httpResponse(200, channelRss(entries))];
 }
@@ -48,7 +51,13 @@ function seedDurations(durations: { [videoId: string]: string }): void {
 }
 
 function entry(videoId: string, publishedAt: string): RssEntry {
-  return { videoId, title: videoId, channelId: "C1", channelTitle: "One", publishedAt };
+  return {
+    videoId,
+    title: videoId,
+    channelId: "C1",
+    channelTitle: "One",
+    publishedAt,
+  };
 }
 
 const baseOptions: FeedPageOptions = {
@@ -63,7 +72,14 @@ const baseOptions: FeedPageOptions = {
 
 describe("getFeedPage", () => {
   it("returns one page and the full total", () => {
-    seedFeed(Array.from({ length: 25 }, (_, i) => entry(`v${String(i).padStart(2, "0")}`, `2026-06-${String(25 - i).padStart(2, "0")}T00:00:00+00:00`)));
+    seedFeed(
+      Array.from({ length: 25 }, (_, i) =>
+        entry(
+          `v${String(i).padStart(2, "0")}`,
+          `2026-06-${String(25 - i).padStart(2, "0")}T00:00:00+00:00`,
+        ),
+      ),
+    );
 
     const page = getFeedPage({ ...baseOptions, page: 1, pageSize: 10 });
 
@@ -75,7 +91,10 @@ describe("getFeedPage", () => {
   });
 
   it("hides viewed videos when hideViewed is on", () => {
-    seedFeed([entry("a", "2026-06-20T00:00:00+00:00"), entry("b", "2026-06-19T00:00:00+00:00")]);
+    seedFeed([
+      entry("a", "2026-06-20T00:00:00+00:00"),
+      entry("b", "2026-06-19T00:00:00+00:00"),
+    ]);
     markVideoSeen({
       videoId: "a",
       title: "a",
@@ -111,7 +130,10 @@ describe("getFeedPage", () => {
   });
 
   it("hides dismissed videos when hideDismissed is on", () => {
-    seedFeed([entry("a", "2026-06-20T00:00:00+00:00"), entry("b", "2026-06-19T00:00:00+00:00")]);
+    seedFeed([
+      entry("a", "2026-06-20T00:00:00+00:00"),
+      entry("b", "2026-06-19T00:00:00+00:00"),
+    ]);
     markVideoDismissed("b");
 
     const page = getFeedPage({ ...baseOptions, hideDismissed: true });
@@ -131,7 +153,10 @@ describe("getFeedPage", () => {
   });
 
   it("hides Shorts (<= 180s) by duration when hideShorts is on", () => {
-    seedFeed([entry("long", "2026-06-20T00:00:00+00:00"), entry("short", "2026-06-19T00:00:00+00:00")]);
+    seedFeed([
+      entry("long", "2026-06-20T00:00:00+00:00"),
+      entry("short", "2026-06-19T00:00:00+00:00"),
+    ]);
     seedDurations({ long: "PT10M", short: "PT45S" });
 
     const page = getFeedPage({ ...baseOptions, hideShorts: true });
@@ -141,7 +166,10 @@ describe("getFeedPage", () => {
   });
 
   it("keeps Shorts and still fills the duration badge when hideShorts is off", () => {
-    seedFeed([entry("long", "2026-06-20T00:00:00+00:00"), entry("short", "2026-06-19T00:00:00+00:00")]);
+    seedFeed([
+      entry("long", "2026-06-20T00:00:00+00:00"),
+      entry("short", "2026-06-19T00:00:00+00:00"),
+    ]);
     seedDurations({ long: "PT10M", short: "PT45S" });
 
     const page = getFeedPage({ ...baseOptions, hideShorts: false });
@@ -151,7 +179,10 @@ describe("getFeedPage", () => {
   });
 
   it("returns the full list when the duration lookup throws (nothing filtered as a Short)", () => {
-    seedFeed([entry("a", "2026-06-20T00:00:00+00:00"), entry("b", "2026-06-19T00:00:00+00:00")]);
+    seedFeed([
+      entry("a", "2026-06-20T00:00:00+00:00"),
+      entry("b", "2026-06-19T00:00:00+00:00"),
+    ]);
     mocks.youtube.Videos = {
       list: () => {
         throw new Error("duration lookup failed");

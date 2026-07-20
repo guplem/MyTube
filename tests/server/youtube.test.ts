@@ -66,7 +66,10 @@ describe("getVideoDurationsSeconds", () => {
 
   it("caches a sentinel (-1) for ids the API never returns", () => {
     seedApi({ a: "PT60S" }); // "ghost" is deleted/private -> not in the response
-    expect(getVideoDurationsSeconds(["a", "ghost"])).toEqual({ a: 60, ghost: -1 });
+    expect(getVideoDurationsSeconds(["a", "ghost"])).toEqual({
+      a: 60,
+      ghost: -1,
+    });
 
     // The sentinel is cached, so a second lookup of the ghost id is free.
     getVideoDurationsSeconds(["ghost"]);

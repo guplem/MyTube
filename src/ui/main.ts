@@ -31,7 +31,11 @@ import {
 } from "./videoListView";
 import { warmFeedPage, takePrefetchedFeedPage } from "./feedPrefetch";
 import { renderBuildStamp } from "./buildStamp";
-import { skeletonPlaylistList, skeletonPlayerView, skeletonSortToolbar } from "./skeleton";
+import {
+  skeletonPlaylistList,
+  skeletonPlayerView,
+  skeletonSortToolbar,
+} from "./skeleton";
 import { PlayerView, type PlayerController } from "./playerView";
 import { optimistic } from "./optimistic";
 import {
@@ -132,14 +136,20 @@ function optimisticToggle(
 // names what a click would do NOW. On the Watch Later screen (dimRemoved) a
 // toggled-off video's card also dims, marking that it will disappear on the
 // next load.
-function reflectWatchLater(video: Video, button: HTMLButtonElement, dimRemoved: boolean): void {
+function reflectWatchLater(
+  video: Video,
+  button: HTMLButtonElement,
+  dimRemoved: boolean,
+): void {
   const saved = Boolean(video.inWatchLater);
   button.textContent = saved ? "✓ Watch Later" : "+ Watch Later";
   button.classList.toggle("video-action--on", saved);
   button.title = saved ? "Remove from Watch Later" : "Save to Watch Later";
   button.setAttribute("aria-pressed", String(saved));
   if (dimRemoved) {
-    button.closest(".video-card")?.classList.toggle("video-card--removed", !saved);
+    button
+      .closest(".video-card")
+      ?.classList.toggle("video-card--removed", !saved);
   }
 }
 
@@ -150,7 +160,8 @@ function reflectWatchLater(video: Video, button: HTMLButtonElement, dimRemoved: 
 function makeWatchLaterToggle(dimRemoved: boolean): VideoAction {
   return {
     name: "watchlater",
-    reflect: (video, button): void => reflectWatchLater(video, button, dimRemoved),
+    reflect: (video, button): void =>
+      reflectWatchLater(video, button, dimRemoved),
     onClick: (video, button): void => {
       optimisticToggle(
         button,
@@ -160,9 +171,13 @@ function makeWatchLaterToggle(dimRemoved: boolean): VideoAction {
           reflectWatchLater(video, button, dimRemoved);
         },
         (next): Promise<void> =>
-          next ? addToWatchLater(video.videoId) : removeFromWatchLater(video.videoId),
+          next
+            ? addToWatchLater(video.videoId)
+            : removeFromWatchLater(video.videoId),
         (next): string =>
-          next ? "Couldn't add to Watch Later" : "Couldn't remove from Watch Later",
+          next
+            ? "Couldn't add to Watch Later"
+            : "Couldn't remove from Watch Later",
       );
     },
   };
@@ -180,7 +195,8 @@ const watchLaterRemoveAction = makeWatchLaterToggle(true);
 // should probably tap this".
 function reflectSeen(video: Video, button: HTMLButtonElement): void {
   const nudge =
-    !video.seen && shouldSuggestWatched(video.progressSeconds, video.durationSeconds);
+    !video.seen &&
+    shouldSuggestWatched(video.progressSeconds, video.durationSeconds);
   button.textContent = video.seen ? "✓ Watched" : "Mark watched";
   button.classList.toggle("video-action--on", video.seen);
   button.classList.toggle("toggle-nudge", nudge);
@@ -190,7 +206,9 @@ function reflectSeen(video: Video, button: HTMLButtonElement): void {
       ? "Mark as watched — you finished this video"
       : "Mark as watched";
   button.setAttribute("aria-pressed", String(video.seen));
-  button.closest(".video-card")?.classList.toggle("video-card--seen", video.seen);
+  button
+    .closest(".video-card")
+    ?.classList.toggle("video-card--seen", video.seen);
 }
 
 // Toggles a video in/out of the watch history. The card stays in place and only
@@ -210,8 +228,10 @@ function toggleSeen(
       video.seen = value;
       reflectSeen(video, button);
     },
-    (next): Promise<void> => (next ? markVideoSeen(video) : unmark(video.videoId)),
-    (next): string => (next ? "Couldn't mark as watched" : "Couldn't mark as not watched"),
+    (next): Promise<void> =>
+      next ? markVideoSeen(video) : unmark(video.videoId),
+    (next): string =>
+      next ? "Couldn't mark as watched" : "Couldn't mark as not watched",
   );
 }
 
@@ -227,7 +247,9 @@ function syncWatchLaterButtons(
 ): void {
   const row = seenButton.closest(".video-actions");
   row
-    ?.querySelectorAll<HTMLButtonElement>('.video-action[data-action="watchlater"]')
+    ?.querySelectorAll<HTMLButtonElement>(
+      '.video-action[data-action="watchlater"]',
+    )
     .forEach((button): void => reflectWatchLater(video, button, dimRemoved));
 }
 
@@ -271,9 +293,14 @@ function reflectDismissed(video: Video, button: HTMLButtonElement): void {
   const dismissed = Boolean(video.dismissed);
   button.textContent = dismissed ? "↩" : "✕";
   button.title = dismissed ? "Undo dismiss" : "Dismiss from feed";
-  button.setAttribute("aria-label", dismissed ? "Undo dismiss" : "Dismiss from feed");
+  button.setAttribute(
+    "aria-label",
+    dismissed ? "Undo dismiss" : "Dismiss from feed",
+  );
   button.setAttribute("aria-pressed", String(dismissed));
-  button.closest(".video-card")?.classList.toggle("video-card--dismissed", dismissed);
+  button
+    .closest(".video-card")
+    ?.classList.toggle("video-card--dismissed", dismissed);
 }
 
 // Feed-only: toggles a video in/out of the dismissed list. Mirrors the seen
@@ -288,8 +315,11 @@ function toggleDismiss(video: Video, button: HTMLButtonElement): void {
       reflectDismissed(video, button);
     },
     (next): Promise<void> =>
-      next ? markVideoDismissed(video.videoId) : removeVideoDismissed(video.videoId),
-    (next): string => (next ? "Couldn't dismiss video" : "Couldn't undo dismiss"),
+      next
+        ? markVideoDismissed(video.videoId)
+        : removeVideoDismissed(video.videoId),
+    (next): string =>
+      next ? "Couldn't dismiss video" : "Couldn't undo dismiss",
   );
 }
 
@@ -303,7 +333,11 @@ const dismissAction: VideoAction = {
 // The feed page options for the current filter preferences. Used by the feed
 // screen's loader AND the background warm-up, so a warmed page matches the
 // exact request the feed screen would make.
-function feedPageOptions(page: number, pageSize: number, forceRefresh: boolean): FeedPageOptions {
+function feedPageOptions(
+  page: number,
+  pageSize: number,
+  forceRefresh: boolean,
+): FeedPageOptions {
   return {
     page,
     pageSize,
@@ -311,7 +345,10 @@ function feedPageOptions(page: number, pageSize: number, forceRefresh: boolean):
     hideShorts: getBoolPreference(HIDE_SHORTS_PREF, true),
     hideViewed: getBoolPreference(HIDE_VIEWED_PREF, false),
     hideDismissed: getBoolPreference(HIDE_DISMISSED_PREF, true),
-    beforeDate: getStringPreference(BEFORE_DATE_PREF, defaultFeedBeforeDate(new Date())),
+    beforeDate: getStringPreference(
+      BEFORE_DATE_PREF,
+      defaultFeedBeforeDate(new Date()),
+    ),
   };
 }
 
@@ -344,7 +381,8 @@ function showFeed(forceFirstLoad: boolean = false): void {
   refresh.type = "button";
   refresh.className = "refresh-button refresh-button--right";
   refresh.textContent = "↻ Force refresh";
-  refresh.title = "Re-fetch every channel now instead of waiting out the 30-minute cache";
+  refresh.title =
+    "Re-fetch every channel now instead of waiting out the 30-minute cache";
   refresh.addEventListener("click", (): void => showFeed(true));
 
   toolbar.append(filters, refresh);
@@ -375,7 +413,8 @@ function showFeed(forceFirstLoad: boolean = false): void {
         return getFeedPage(options);
       },
       {
-        onPlay: (index, queue): void => playFromList(queue, index, { source: "feed" }),
+        onPlay: (index, queue): void =>
+          playFromList(queue, index, { source: "feed" }),
         actions: [watchLaterToggleAction, markSeenAction],
         cornerAction: dismissAction,
         onPageLoaded: (result): void => updateFeedNotice(notice, result),
@@ -409,7 +448,11 @@ function updateFeedNotice(
 
 // A persisted checkbox toggle for the feed toolbar. Saves to localStorage and
 // re-renders the feed so the change takes effect immediately.
-function feedToggle(labelText: string, prefKey: string, defaultValue: boolean): HTMLElement {
+function feedToggle(
+  labelText: string,
+  prefKey: string,
+  defaultValue: boolean,
+): HTMLElement {
   const label = document.createElement("label");
   label.className = "feed-toggle";
   const checkbox = document.createElement("input");
@@ -435,7 +478,10 @@ function beforeDateControl(): HTMLElement {
   const input = document.createElement("input");
   input.type = "date";
   input.className = "feed-date";
-  input.value = getStringPreference(BEFORE_DATE_PREF, defaultFeedBeforeDate(new Date()));
+  input.value = getStringPreference(
+    BEFORE_DATE_PREF,
+    defaultFeedBeforeDate(new Date()),
+  );
   input.addEventListener("change", (): void => {
     setStringPreference(BEFORE_DATE_PREF, input.value);
     showFeed();
@@ -450,7 +496,8 @@ function beforeDateControl(): HTMLElement {
 // re-marks it.
 function showHistory(): void {
   renderVideoScreen(getHistory(), () => ({
-    onPlay: (index, queue): void => playFromList(queue, index, { source: "history" }),
+    onPlay: (index, queue): void =>
+      playFromList(queue, index, { source: "history" }),
     actions: [watchLaterToggleAction, markSeenAction],
   }));
 }
@@ -459,7 +506,8 @@ function showHistory(): void {
 // order); other playlists default to their YouTube order.
 function showWatchLater(): void {
   renderPlaylistScreen(getWatchLaterVideos(), "oldest", () => ({
-    onPlay: (index, queue): void => playFromList(queue, index, { source: "watchlater" }),
+    onPlay: (index, queue): void =>
+      playFromList(queue, index, { source: "watchlater" }),
     actions: [watchLaterRemoveAction, watchLaterSeenAction],
   }));
 }
@@ -492,7 +540,11 @@ function showPlaylists(): void {
         button.className = "playlist-item";
         button.textContent = `${playlist.title} (${playlist.itemCount})`;
         button.addEventListener("click", (): void =>
-          go({ view: "playlist", playlistId: playlist.playlistId, title: playlist.title }),
+          go({
+            view: "playlist",
+            playlistId: playlist.playlistId,
+            title: playlist.title,
+          }),
         );
         list.appendChild(button);
       }
@@ -507,7 +559,10 @@ function showPlaylists(): void {
 // while loading (old content is cleared first) and a failure message on error.
 function renderVideoScreen(
   load: Promise<Video[]>,
-  optionsFor: () => { onPlay: (index: number, queue: Video[]) => void; actions: VideoAction[] },
+  optionsFor: () => {
+    onPlay: (index: number, queue: Video[]) => void;
+    actions: VideoAction[];
+  },
 ): void {
   const app = appContainer();
   if (!app) return;
@@ -537,8 +592,10 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
 function sortVideos(videos: Video[], key: SortKey): Video[] {
   if (key === "playlist") return videos;
   const sorted = videos.slice();
-  if (key === "newest") sorted.sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
-  else if (key === "oldest") sorted.sort((a, b) => a.publishedAt.localeCompare(b.publishedAt));
+  if (key === "newest")
+    sorted.sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
+  else if (key === "oldest")
+    sorted.sort((a, b) => a.publishedAt.localeCompare(b.publishedAt));
   else sorted.sort((a, b) => a.title.localeCompare(b.title));
   return sorted;
 }
@@ -548,7 +605,10 @@ function sortVideos(videos: Video[], key: SortKey): Video[] {
 function renderPlaylistScreen(
   load: Promise<Video[]>,
   defaultSort: SortKey,
-  optionsFor: () => { onPlay: (index: number, queue: Video[]) => void; actions: VideoAction[] },
+  optionsFor: () => {
+    onPlay: (index: number, queue: Video[]) => void;
+    actions: VideoAction[];
+  },
 ): void {
   const app = appContainer();
   if (!app) return;
@@ -581,7 +641,9 @@ function renderPlaylistScreen(
 
       function renderList(): void {
         listHost.innerHTML = "";
-        listHost.appendChild(VideoListView(sortVideos(videos, currentSort), optionsFor()));
+        listHost.appendChild(
+          VideoListView(sortVideos(videos, currentSort), optionsFor()),
+        );
       }
 
       select.addEventListener("change", (): void => {
@@ -603,10 +665,21 @@ function renderPlaylistScreen(
 // video in place (loadVideoById) instead of reloading the iframe.
 let activePlayer: { controller: PlayerController; key: string } | null = null;
 
-function playFromList(queue: Video[], index: number, context: PlayerContext): void {
+function playFromList(
+  queue: Video[],
+  index: number,
+  context: PlayerContext,
+): void {
   const video = queue[index];
   if (!video) return;
-  go({ view: "player", videoId: video.videoId, label: labelForContext(context), context, queue, index });
+  go({
+    view: "player",
+    videoId: video.videoId,
+    label: labelForContext(context),
+    context,
+    queue,
+    index,
+  });
 }
 
 function renderPlayer(screen: PlayerScreen): void {
@@ -627,7 +700,11 @@ function renderPlayer(screen: PlayerScreen): void {
 // the video in place; otherwise it mounts a fresh player.
 function showPlayer(screen: PlayerScreen, queue: Video[]): void {
   const key = playerQueueKey(screen.context, queue);
-  if (activePlayer && activePlayer.key === key && activePlayer.controller.hasVideo(screen.videoId)) {
+  if (
+    activePlayer &&
+    activePlayer.key === key &&
+    activePlayer.controller.hasVideo(screen.videoId)
+  ) {
     activePlayer.controller.goToVideo(screen.videoId);
     return;
   }
@@ -637,12 +714,16 @@ function showPlayer(screen: PlayerScreen, queue: Video[]): void {
   app.innerHTML = "";
   const controller = PlayerView({
     queue,
-    startIndex: Math.max(0, queue.findIndex((video) => video.videoId === screen.videoId)),
+    startIndex: Math.max(
+      0,
+      queue.findIndex((video) => video.videoId === screen.videoId),
+    ),
     contextLabel: screen.label,
     onBack: (): void => go(screenForContext(screen.context)),
     // prev/next/autoplay request navigation; go() pushes one history entry per
     // video, then drives this same player via goToVideo above.
-    onNavigate: (videoId, navIndex): void => go({ ...screen, videoId, index: navIndex, queue }),
+    onNavigate: (videoId, navIndex): void =>
+      go({ ...screen, videoId, index: navIndex, queue }),
   });
   activePlayer = { controller, key };
   app.appendChild(controller.element);
@@ -651,7 +732,10 @@ function showPlayer(screen: PlayerScreen, queue: Video[]): void {
 // Identifies a player session: same source and same ordered queue. Back/forward
 // to a video in this same queue updates the live player rather than remounting.
 function playerQueueKey(context: PlayerContext, queue: Video[]): string {
-  const base = context.source === "playlist" ? "playlist:" + context.playlistId : context.source;
+  const base =
+    context.source === "playlist"
+      ? "playlist:" + context.playlistId
+      : context.source;
   return base + "|" + queue.map((video) => video.videoId).join(",");
 }
 
@@ -662,7 +746,10 @@ function clearActivePlayer(): void {
   }
 }
 
-function rebuildQueue(context: PlayerContext, videoId: string): Promise<Video[]> {
+function rebuildQueue(
+  context: PlayerContext,
+  videoId: string,
+): Promise<Video[]> {
   switch (context.source) {
     case "watchlater":
       return getWatchLaterVideos();
@@ -678,7 +765,15 @@ function rebuildQueue(context: PlayerContext, videoId: string): Promise<Video[]>
 }
 
 function minimalVideo(videoId: string): Video {
-  return { videoId, title: "", channelId: "", channelTitle: "", thumbnailUrl: "", publishedAt: "", seen: false };
+  return {
+    videoId,
+    title: "",
+    channelId: "",
+    channelTitle: "",
+    thumbnailUrl: "",
+    publishedAt: "",
+    seen: false,
+  };
 }
 
 // --- Routing ---------------------------------------------------------------
@@ -704,7 +799,8 @@ function render(screen: Screen): void {
   // server call, so it never delays the screen being rendered. A fresh warm for
   // the same filters is a no-op, and the server only refetches the channels
   // whose RSS cache expired — never a forced refresh.
-  if (screen.view !== "feed") warmFeedPage(feedPageOptions(0, DEFAULT_PAGE_SIZE, false));
+  if (screen.view !== "feed")
+    warmFeedPage(feedPageOptions(0, DEFAULT_PAGE_SIZE, false));
   // Leaving the player: tear down the YouTube iframe so it stops playing.
   if (screen.view !== "player") clearActivePlayer();
   switch (screen.view) {
@@ -733,7 +829,11 @@ function paramsFor(screen: Screen): UrlParams {
     case "playlist":
       return { view: "playlist", pl: screen.playlistId, title: screen.title };
     case "player": {
-      const params: UrlParams = { view: "player", v: screen.videoId, src: screen.context.source };
+      const params: UrlParams = {
+        view: "player",
+        v: screen.videoId,
+        src: screen.context.source,
+      };
       if (screen.context.source === "playlist") {
         params.pl = screen.context.playlistId;
         params.title = screen.context.title;
@@ -762,7 +862,12 @@ function screenFromParams(params: UrlParams): Screen {
     case "player": {
       if (!params.v) return DEFAULT_SCREEN;
       const context = playerContextFromParams(params);
-      return { view: "player", videoId: params.v, label: labelForContext(context), context };
+      return {
+        view: "player",
+        videoId: params.v,
+        label: labelForContext(context),
+        context,
+      };
     }
     default:
       return DEFAULT_SCREEN;
@@ -777,7 +882,11 @@ function playerContextFromParams(params: UrlParams): PlayerContext {
       return { source: "history" };
     case "playlist":
       return params.pl
-        ? { source: "playlist", playlistId: params.pl, title: params.title ?? "" }
+        ? {
+            source: "playlist",
+            playlistId: params.pl,
+            title: params.title ?? "",
+          }
         : { source: "feed" };
     default:
       return { source: "feed" };
@@ -804,7 +913,11 @@ function screenForContext(context: PlayerContext): Screen {
     case "history":
       return { view: "history" };
     case "playlist":
-      return { view: "playlist", playlistId: context.playlistId, title: context.title };
+      return {
+        view: "playlist",
+        playlistId: context.playlistId,
+        title: context.title,
+      };
     default:
       return { view: "feed" };
   }
@@ -827,29 +940,33 @@ function sectionOf(screen: Screen): Section {
 }
 
 function setActiveNav(section: Section): void {
-  document.querySelectorAll<HTMLButtonElement>(".app-nav button").forEach((button): void => {
-    button.classList.toggle("active", button.dataset.view === section);
-  });
+  document
+    .querySelectorAll<HTMLButtonElement>(".app-nav button")
+    .forEach((button): void => {
+      button.classList.toggle("active", button.dataset.view === section);
+    });
 }
 
 function setupNav(): void {
-  document.querySelectorAll<HTMLButtonElement>(".app-nav button").forEach((button): void => {
-    button.addEventListener("click", (): void => {
-      switch (button.dataset.view) {
-        case "watchlater":
-          go({ view: "watchlater" });
-          break;
-        case "playlists":
-          go({ view: "playlists" });
-          break;
-        case "history":
-          go({ view: "history" });
-          break;
-        default:
-          go({ view: "feed" });
-      }
+  document
+    .querySelectorAll<HTMLButtonElement>(".app-nav button")
+    .forEach((button): void => {
+      button.addEventListener("click", (): void => {
+        switch (button.dataset.view) {
+          case "watchlater":
+            go({ view: "watchlater" });
+            break;
+          case "playlists":
+            go({ view: "playlists" });
+            break;
+          case "history":
+            go({ view: "history" });
+            break;
+          default:
+            go({ view: "feed" });
+        }
+      });
     });
-  });
 }
 
 // The search box redirects to YouTube's results page (PLAN.md section 4); we do
@@ -865,7 +982,9 @@ function setupSearch(): void {
     // serializer mishandles "//" inside a backtick template literal (treats it
     // as a line comment), which broke the whole bundle. Double-quoted strings
     // with "//" are fine (see the IFrame API URL in playerView.ts).
-    const searchUrl = "https://www.youtube.com/results?search_query=" + encodeURIComponent(term);
+    const searchUrl =
+      "https://www.youtube.com/results?search_query=" +
+      encodeURIComponent(term);
     window.open(searchUrl, "_blank");
   });
 }

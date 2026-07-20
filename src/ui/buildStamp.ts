@@ -13,7 +13,8 @@ declare const __BUILD_TIMESTAMP__: string;
 export function renderBuildStamp(): void {
   const stamp = document.getElementById("build-stamp");
   if (!stamp) return;
-  const iso = typeof __BUILD_TIMESTAMP__ === "string" ? __BUILD_TIMESTAMP__ : "";
+  const iso =
+    typeof __BUILD_TIMESTAMP__ === "string" ? __BUILD_TIMESTAMP__ : "";
   const formatted = formatBuildTimestamp(iso);
   if (!formatted) return;
   stamp.textContent = "Deployed " + formatted;

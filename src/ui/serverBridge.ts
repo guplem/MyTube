@@ -51,7 +51,9 @@ export function getComments(
   order: CommentOrder,
   pageToken: string,
 ): Promise<CommentPage> {
-  return call<CommentPage>((runner) => runner.getComments(videoId, order, pageToken));
+  return call<CommentPage>((runner) =>
+    runner.getComments(videoId, order, pageToken),
+  );
 }
 
 export function markVideoSeen(video: Video): Promise<void> {
@@ -74,7 +76,10 @@ export function removeVideoDismissed(videoId: string): Promise<void> {
   return call<void>((runner) => runner.removeVideoDismissed(videoId));
 }
 
-export function saveVideoProgress(videoId: string, seconds: number): Promise<void> {
+export function saveVideoProgress(
+  videoId: string,
+  seconds: number,
+): Promise<void> {
   return call<void>((runner) => runner.saveVideoProgress(videoId, seconds));
 }
 

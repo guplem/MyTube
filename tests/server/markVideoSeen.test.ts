@@ -16,7 +16,10 @@ import {
 } from "../helpers/appsScriptMock";
 import { makeVideo } from "../helpers/fixtures";
 import { markVideoSeen, undoMarkVideoSeen } from "../../src/server/main";
-import { getSeenVideoIds, markVideoSeen as recordSeen } from "../../src/server/history";
+import {
+  getSeenVideoIds,
+  markVideoSeen as recordSeen,
+} from "../../src/server/history";
 
 let mocks: AppsScriptMocks;
 let removed: string[];

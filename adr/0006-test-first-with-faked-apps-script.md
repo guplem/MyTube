@@ -18,7 +18,7 @@ in Node, and there is no supported way to run Apps Script locally. Two options:
 
 1. Refactor the server to inject the Apps Script services (dependency
    injection), so tests pass in fakes through normal function arguments.
-2. Keep the server code as-is and replace the *globals* with in-memory fakes in
+2. Keep the server code as-is and replace the _globals_ with in-memory fakes in
    the test process.
 
 Option 1 means reshaping production code purely for testability and shipping

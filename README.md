@@ -116,8 +116,8 @@ npm run deploy      # build, push, then deploy to the fixed deployment URL
 Development is **test-first** (red-green-refactor) and the tests are a required
 gate: `npm test` must pass before a pull request merges to `main`
 (`.github/workflows/ci.yml`). The suite runs the real server code on Node with
-in-memory fakes for the Apps Script runtime — see the *Testing & development
-protocol* in [CLAUDE.md](CLAUDE.md) and [adr/0006](adr/0006-test-first-with-faked-apps-script.md).
+in-memory fakes for the Apps Script runtime — see the _Testing & development
+protocol_ in [CLAUDE.md](CLAUDE.md) and [adr/0006](adr/0006-test-first-with-faked-apps-script.md).
 
 `npm run deploy` deploys to a **fixed deployment id**, so the Live app URL above
 never changes; each deploy just adds a new version to it. (Running a bare
@@ -162,7 +162,7 @@ it for a manual merge — which itself triggers the deploy — so the worst case
 "not auto-merged", never "merged but not deployed".
 
 To deploy the current `main` on demand (e.g. after a merge that didn't deploy),
-use the **Run workflow** button on *Deploy to Apps Script* in the Actions tab
+use the **Run workflow** button on _Deploy to Apps Script_ in the Actions tab
 (`deploy.yml` also has a `workflow_dispatch` trigger).
 
 ## Troubleshooting

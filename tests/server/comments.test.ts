@@ -82,11 +82,16 @@ describe("getComments", () => {
   it("returns an empty page when comments are disabled", () => {
     (mocks.youtube as YouTubeWithComments).CommentThreads = {
       list: () => {
-        throw new Error("The video identified by <videoId> has disabled comments.");
+        throw new Error(
+          "The video identified by <videoId> has disabled comments.",
+        );
       },
     };
 
-    expect(getComments("v1", "relevance", "")).toEqual({ comments: [], nextPageToken: "" });
+    expect(getComments("v1", "relevance", "")).toEqual({
+      comments: [],
+      nextPageToken: "",
+    });
   });
 
   it("re-throws any other error (e.g. a missing scope)", () => {

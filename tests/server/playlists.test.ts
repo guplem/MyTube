@@ -28,12 +28,24 @@ describe("getPlaylists", () => {
       list: (_part: unknown, params: { pageToken?: string }) => {
         if (!params.pageToken) {
           return {
-            items: [{ id: "PL1", snippet: { title: "One" }, contentDetails: { itemCount: 3 } }],
+            items: [
+              {
+                id: "PL1",
+                snippet: { title: "One" },
+                contentDetails: { itemCount: 3 },
+              },
+            ],
             nextPageToken: "PAGE2",
           };
         }
         return {
-          items: [{ id: "PL2", snippet: { title: "Two" }, contentDetails: { itemCount: 5 } }],
+          items: [
+            {
+              id: "PL2",
+              snippet: { title: "Two" },
+              contentDetails: { itemCount: 5 },
+            },
+          ],
         };
       },
       insert: () => ({}),
@@ -50,13 +62,19 @@ describe("getPlaylists", () => {
       list: () => ({
         items: [
           { snippet: { title: "No id" }, contentDetails: { itemCount: 1 } },
-          { id: "PL2", snippet: { title: "Two" }, contentDetails: { itemCount: 5 } },
+          {
+            id: "PL2",
+            snippet: { title: "Two" },
+            contentDetails: { itemCount: 5 },
+          },
         ],
       }),
       insert: () => ({}),
     };
 
-    expect(getPlaylists()).toEqual([{ playlistId: "PL2", title: "Two", itemCount: 5 }]);
+    expect(getPlaylists()).toEqual([
+      { playlistId: "PL2", title: "Two", itemCount: 5 },
+    ]);
   });
 });
 
@@ -101,7 +119,10 @@ describe("getPlaylistVideos", () => {
               resourceId: { videoId: "v1" },
               thumbnails: {},
             },
-            contentDetails: { videoId: "v1", videoPublishedAt: "2019-06-15T00:00:00Z" },
+            contentDetails: {
+              videoId: "v1",
+              videoPublishedAt: "2019-06-15T00:00:00Z",
+            },
           },
           {
             id: "item-2",
@@ -146,7 +167,10 @@ describe("getPlaylistVideos", () => {
             snippet: {
               title: "default",
               resourceId: { videoId: "v-default" },
-              thumbnails: { default: { url: "default.jpg" }, high: { url: "high.jpg" } },
+              thumbnails: {
+                default: { url: "default.jpg" },
+                high: { url: "high.jpg" },
+              },
             },
             contentDetails: { videoId: "v-default" },
           },
@@ -161,7 +185,11 @@ describe("getPlaylistVideos", () => {
           },
           {
             id: "item-none",
-            snippet: { title: "none", resourceId: { videoId: "v-none" }, thumbnails: {} },
+            snippet: {
+              title: "none",
+              resourceId: { videoId: "v-none" },
+              thumbnails: {},
+            },
             contentDetails: { videoId: "v-none" },
           },
         ],
@@ -182,10 +210,18 @@ describe("getPlaylistVideos", () => {
     mocks.youtube.PlaylistItems = {
       list: () => ({
         items: [
-          { id: "item-bad", snippet: { title: "No video id", thumbnails: {} }, contentDetails: {} },
+          {
+            id: "item-bad",
+            snippet: { title: "No video id", thumbnails: {} },
+            contentDetails: {},
+          },
           {
             id: "item-good",
-            snippet: { title: "Good", resourceId: { videoId: "v1" }, thumbnails: {} },
+            snippet: {
+              title: "Good",
+              resourceId: { videoId: "v1" },
+              thumbnails: {},
+            },
             contentDetails: { videoId: "v1" },
           },
         ],

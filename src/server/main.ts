@@ -59,7 +59,9 @@ export function getFeedPage(options: FeedPageOptions): FeedPage {
   }
   if (options.beforeDate) {
     // Keep videos published on or after the cutoff date; compare date parts only.
-    visible = visible.filter((video) => video.publishedAt.slice(0, 10) >= options.beforeDate);
+    visible = visible.filter(
+      (video) => video.publishedAt.slice(0, 10) >= options.beforeDate,
+    );
   }
   if (options.hideShorts) {
     enrichDurations(visible);
@@ -88,8 +90,11 @@ const SHORT_MAX_SECONDS = 180;
 
 function enrichDurations(videos: Video[]): void {
   try {
-    const durations = youtube.getVideoDurationsSeconds(videos.map((video) => video.videoId));
-    for (const video of videos) video.durationSeconds = durations[video.videoId];
+    const durations = youtube.getVideoDurationsSeconds(
+      videos.map((video) => video.videoId),
+    );
+    for (const video of videos)
+      video.durationSeconds = durations[video.videoId];
   } catch {
     // Length lookup is best-effort; without it no video is treated as a Short.
   }
@@ -109,7 +114,11 @@ export function getVideoDescription(videoId: string): string {
 }
 
 /** One page of a video's top-level comments, sorted by order ("relevance"/"time"). */
-export function getComments(videoId: string, order: CommentOrder, pageToken: string): CommentPage {
+export function getComments(
+  videoId: string,
+  order: CommentOrder,
+  pageToken: string,
+): CommentPage {
   return youtube.getComments(videoId, order, pageToken);
 }
 

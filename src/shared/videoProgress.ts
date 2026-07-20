@@ -65,7 +65,10 @@ export function shouldSuggestWatched(
  * duration of 0 means "unknown" (the IFrame API reports 0 until the video's
  * metadata loads) and skips the finished check.
  */
-export function progressToStore(positionSeconds: number, durationSeconds: number): number {
+export function progressToStore(
+  positionSeconds: number,
+  durationSeconds: number,
+): number {
   if (!Number.isFinite(positionSeconds) || positionSeconds <= 0) return 0;
   if (
     Number.isFinite(durationSeconds) &&

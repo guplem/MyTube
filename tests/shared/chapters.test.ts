@@ -3,7 +3,9 @@ import { parseChapters } from "../../src/shared/chapters";
 
 describe("parseChapters", () => {
   it("parses a standard leading-timestamp chapter list", () => {
-    const description = ["0:00 Intro", "1:30 First topic", "5:05 Wrap up"].join("\n");
+    const description = ["0:00 Intro", "1:30 First topic", "5:05 Wrap up"].join(
+      "\n",
+    );
     expect(parseChapters(description)).toEqual([
       { seconds: 0, label: "Intro", timestampText: "0:00" },
       { seconds: 90, label: "First topic", timestampText: "1:30" },
@@ -71,7 +73,9 @@ describe("parseChapters", () => {
 
   it("returns [] for empty or non-chaptered descriptions", () => {
     expect(parseChapters("")).toEqual([]);
-    expect(parseChapters("Just a normal description with no timestamps.")).toEqual([]);
+    expect(
+      parseChapters("Just a normal description with no timestamps."),
+    ).toEqual([]);
   });
 
   it("keeps chapters mixed with surrounding description text", () => {
@@ -85,6 +89,10 @@ describe("parseChapters", () => {
       "",
       "Follow me on social media",
     ].join("\n");
-    expect(parseChapters(description).map((c) => c.label)).toEqual(["Intro", "Setup", "Demo"]);
+    expect(parseChapters(description).map((c) => c.label)).toEqual([
+      "Intro",
+      "Setup",
+      "Demo",
+    ]);
   });
 });

@@ -92,7 +92,9 @@ function readEntries(): HistoryEntry[] {
     .sort((a, b) => chunkIndex(a) - chunkIndex(b));
   if (chunkKeys.length === 0) return [];
   try {
-    return JSON.parse(chunkKeys.map((key) => all[key]).join("")) as HistoryEntry[];
+    return JSON.parse(
+      chunkKeys.map((key) => all[key]).join(""),
+    ) as HistoryEntry[];
   } catch {
     return [];
   }

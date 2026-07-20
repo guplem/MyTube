@@ -54,9 +54,15 @@ class FakeProperties {
 
   // GAS: setProperties(properties, deleteAllOthers). When deleteAllOthers is
   // true the store is replaced wholesale, otherwise merged.
-  setProperties(properties: { [key: string]: string }, deleteAllOthers?: boolean): FakeProperties {
-    for (const key of Object.keys(properties)) this.checkValueSize(key, properties[key]);
-    const next = deleteAllOthers ? { ...properties } : { ...this.store, ...properties };
+  setProperties(
+    properties: { [key: string]: string },
+    deleteAllOthers?: boolean,
+  ): FakeProperties {
+    for (const key of Object.keys(properties))
+      this.checkValueSize(key, properties[key]);
+    const next = deleteAllOthers
+      ? { ...properties }
+      : { ...this.store, ...properties };
     this.checkTotalSize(next);
     this.store = deleteAllOthers ? next : Object.assign(this.store, properties);
     return this;
@@ -95,7 +101,8 @@ class FakeCache {
 
   getAll(keys: string[]): { [key: string]: string } {
     const result: { [key: string]: string } = {};
-    for (const key of keys) if (key in this.store) result[key] = this.store[key];
+    for (const key of keys)
+      if (key in this.store) result[key] = this.store[key];
     return result;
   }
 
@@ -105,7 +112,8 @@ class FakeCache {
   }
 
   putAll(values: { [key: string]: string }, _ttlSeconds?: number): void {
-    for (const key of Object.keys(values)) this.checkValueSize(key, values[key]);
+    for (const key of Object.keys(values))
+      this.checkValueSize(key, values[key]);
     Object.assign(this.store, values);
   }
 
@@ -180,7 +188,11 @@ class FakeElement {
     const result: FakeElement[] = [];
     for (let i = 0; i < this.node.childNodes.length; i += 1) {
       const child = this.node.childNodes[i] as Element;
-      if (child.nodeType === 1 && child.localName === name && child.namespaceURI === ns.uri) {
+      if (
+        child.nodeType === 1 &&
+        child.localName === name &&
+        child.namespaceURI === ns.uri
+      ) {
         result.push(new FakeElement(child));
       }
     }
@@ -197,7 +209,8 @@ class FakeElement {
     let text = "";
     for (let i = 0; i < this.node.childNodes.length; i += 1) {
       const child = this.node.childNodes[i];
-      if (child.nodeType === 3 || child.nodeType === 4) text += child.nodeValue ?? "";
+      if (child.nodeType === 3 || child.nodeType === 4)
+        text += child.nodeValue ?? "";
     }
     return text;
   }
@@ -219,7 +232,9 @@ const fakeXmlService = {
     const doc = new DOMParser().parseFromString(xml, "text/xml");
     const root = doc.documentElement;
     if (!root) throw new Error("XML parse error: no root element");
-    return { getRootElement: () => new FakeElement(root as unknown as Element) };
+    return {
+      getRootElement: () => new FakeElement(root as unknown as Element),
+    };
   },
 };
 
@@ -249,7 +264,10 @@ interface FetchRequest {
 export interface FakeYouTube {
   Subscriptions?: { list: (...args: unknown[]) => unknown };
   Videos?: { list: (...args: unknown[]) => unknown };
-  Playlists?: { list: (...args: unknown[]) => unknown; insert: (...args: unknown[]) => unknown };
+  Playlists?: {
+    list: (...args: unknown[]) => unknown;
+    insert: (...args: unknown[]) => unknown;
+  };
   PlaylistItems?: {
     list: (...args: unknown[]) => unknown;
     insert: (...args: unknown[]) => unknown;
@@ -291,7 +309,8 @@ export function installAppsScriptMocks(): AppsScriptMocks {
     userProperties,
     scriptCache,
     userCache,
-    fetchAll: (requests: FetchRequest[]) => requests.map(() => httpResponse(404, "")),
+    fetchAll: (requests: FetchRequest[]) =>
+      requests.map(() => httpResponse(404, "")),
     youtube: {},
     sleeps: [],
     lockCalls: [],

@@ -31,7 +31,10 @@ function timestampToSeconds(timestamp: string): number {
 }
 
 function stripSeparators(label: string): string {
-  return label.replace(LEADING_SEPARATORS, "").replace(TRAILING_SEPARATORS, "").trim();
+  return label
+    .replace(LEADING_SEPARATORS, "")
+    .replace(TRAILING_SEPARATORS, "")
+    .trim();
 }
 
 /**
@@ -63,7 +66,11 @@ export function parseChapters(description: string): Chapter[] {
 
     label = stripSeparators(label);
     if (!label) continue; // a bare timestamp with no title is not a chapter
-    chapters.push({ seconds: timestampToSeconds(timestampText), label, timestampText });
+    chapters.push({
+      seconds: timestampToSeconds(timestampText),
+      label,
+      timestampText,
+    });
   }
 
   if (chapters.length < 2) return [];

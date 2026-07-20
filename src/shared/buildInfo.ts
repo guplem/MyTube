@@ -14,7 +14,12 @@ export function formatBuildTimestamp(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
   const pad = (value: number): string => String(value).padStart(2, "0");
-  const datePart = date.getFullYear() + "-" + pad(date.getMonth() + 1) + "-" + pad(date.getDate());
+  const datePart =
+    date.getFullYear() +
+    "-" +
+    pad(date.getMonth() + 1) +
+    "-" +
+    pad(date.getDate());
   const timePart = pad(date.getHours()) + ":" + pad(date.getMinutes());
   return datePart + " " + timePart;
 }

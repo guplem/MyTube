@@ -20,8 +20,16 @@ interface ScriptUrl {
   getLocation(callback: (location: ScriptLocation) => void): void;
 }
 interface ScriptHistory {
-  push(stateObject: unknown, params: { [key: string]: string }, hash?: string): void;
-  replace(stateObject: unknown, params: { [key: string]: string }, hash?: string): void;
+  push(
+    stateObject: unknown,
+    params: { [key: string]: string },
+    hash?: string,
+  ): void;
+  replace(
+    stateObject: unknown,
+    params: { [key: string]: string },
+    hash?: string,
+  ): void;
   setChangeHandler(handler: (event: HistoryChangeEvent) => void): void;
 }
 declare const google: { script: { url?: ScriptUrl; history?: ScriptHistory } };
@@ -47,7 +55,9 @@ export function replaceUrlState(state: unknown, params: UrlParams): void {
 }
 
 /** Calls handler whenever the user navigates with the browser back/forward buttons. */
-export function onUrlStateChange(handler: (state: unknown, params: UrlParams) => void): void {
+export function onUrlStateChange(
+  handler: (state: unknown, params: UrlParams) => void,
+): void {
   try {
     google.script.history?.setChangeHandler((event) =>
       handler(event.state, event.location?.parameter ?? {}),
@@ -61,7 +71,9 @@ export function onUrlStateChange(handler: (state: unknown, params: UrlParams) =>
 export function readInitialParams(callback: (params: UrlParams) => void): void {
   try {
     if (google.script.url) {
-      google.script.url.getLocation((location) => callback(location.parameter ?? {}));
+      google.script.url.getLocation((location) =>
+        callback(location.parameter ?? {}),
+      );
       return;
     }
   } catch {

@@ -78,7 +78,10 @@ interface YouTubePlayer {
   destroy(): void;
 }
 interface YouTubeNamespace {
-  Player: new (element: HTMLElement, options: YouTubePlayerOptions) => YouTubePlayer;
+  Player: new (
+    element: HTMLElement,
+    options: YouTubePlayerOptions,
+  ) => YouTubePlayer;
 }
 const PLAYER_STATE_ENDED = 0;
 const PLAYER_STATE_PAUSED = 2;
@@ -152,7 +155,8 @@ function loadYouTubeApi(): Promise<YouTubeNamespace> {
       resolve(win.YT);
       return;
     }
-    win.onYouTubeIframeAPIReady = (): void => resolve(win.YT as YouTubeNamespace);
+    win.onYouTubeIframeAPIReady = (): void =>
+      resolve(win.YT as YouTubeNamespace);
     const script = document.createElement("script");
     script.src = "https://www.youtube.com/iframe_api";
     document.head.appendChild(script);
@@ -229,7 +233,9 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
       },
       send: (): Promise<void> =>
         target ? markVideoSeen(video) : removeVideoSeen(video.videoId),
-      failMessage: target ? "Couldn't mark as watched" : "Couldn't mark as not watched",
+      failMessage: target
+        ? "Couldn't mark as watched"
+        : "Couldn't mark as not watched",
     });
     // Marking watched drops the video from Watch Later server-side; mirror it
     // on the in-memory queue like the card toggle does. One-directional —
@@ -256,7 +262,10 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   autoplayCheckbox.addEventListener("change", (): void => {
     autoplayNext = autoplayCheckbox.checked;
   });
-  autoplayLabel.append(autoplayCheckbox, document.createTextNode(" Autoplay next"));
+  autoplayLabel.append(
+    autoplayCheckbox,
+    document.createTextNode(" Autoplay next"),
+  );
 
   // Fullscreen on mobile must rotate the video to landscape like the native
   // YouTube app, and the real API for that is unavailable here: the Apps
@@ -282,7 +291,8 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   // iPhone Safari has no element fullscreen at all; there the YouTube button
   // stays (fs=1) and plays fullscreen in the native iOS presentation, and the
   // custom controls are hidden — the same behavior as before this feature.
-  const supportsElementFullscreen = typeof frame.requestFullscreen === "function";
+  const supportsElementFullscreen =
+    typeof frame.requestFullscreen === "function";
 
   function toggleFullscreen(): void {
     if (document.fullscreenElement) {
@@ -322,7 +332,8 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   // iOS) and is swallowed. Unlocking on exit hands rotation back to the
   // device setting.
   const onFullscreenChange = (): void => {
-    const orientation = window.screen.orientation as unknown as OrientationLocker | undefined;
+    const orientation = window.screen.orientation as unknown as
+      OrientationLocker | undefined;
     if (!orientation) return;
     if (document.fullscreenElement) {
       if (typeof orientation.lock === "function") {
@@ -357,11 +368,15 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   const prevButton = document.createElement("button");
   prevButton.type = "button";
   prevButton.textContent = "← Previous";
-  prevButton.addEventListener("click", (): void => requestNavigate(currentIndex - 1));
+  prevButton.addEventListener("click", (): void =>
+    requestNavigate(currentIndex - 1),
+  );
   const nextButton = document.createElement("button");
   nextButton.type = "button";
   nextButton.textContent = "Next →";
-  nextButton.addEventListener("click", (): void => requestNavigate(currentIndex + 1));
+  nextButton.addEventListener("click", (): void =>
+    requestNavigate(currentIndex + 1),
+  );
   // Keep prev/next together so they wrap as a single unit — either both stay on
   // the row or both move to the next line, never one above the other.
   const navButtons = document.createElement("div");
@@ -468,7 +483,16 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   endCard.className = "player-end-card";
   endCard.hidden = true;
 
-  root.append(frame, titleRow, nav, chaptersSection, tabStrip, descPanel, commentsPanel, endCard);
+  root.append(
+    frame,
+    titleRow,
+    nav,
+    chaptersSection,
+    tabStrip,
+    descPanel,
+    commentsPanel,
+    endCard,
+  );
   updateTabsUi();
 
   // Ask the router to navigate; it pushes history and calls goToVideo back.
@@ -582,10 +606,14 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   function watchedNudge(): boolean {
     const video = queue[currentIndex];
     if (!video || video.seen) return false;
-    if (shouldSuggestWatched(video.progressSeconds, video.durationSeconds)) return true;
+    if (shouldSuggestWatched(video.progressSeconds, video.durationSeconds))
+      return true;
     if (!player) return false;
     try {
-      return shouldSuggestWatched(player.getCurrentTime(), player.getDuration());
+      return shouldSuggestWatched(
+        player.getCurrentTime(),
+        player.getDuration(),
+      );
     } catch {
       return false; // player not ready yet
     }
@@ -614,7 +642,9 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   function updateTheater(): void {
     root.classList.toggle("player-view--theater", theaterMode);
     theaterButton.classList.toggle("active", theaterMode);
-    theaterButton.innerHTML = theaterMode ? ICON_EXIT_THEATER : ICON_ENTER_THEATER;
+    theaterButton.innerHTML = theaterMode
+      ? ICON_EXIT_THEATER
+      : ICON_ENTER_THEATER;
     const label = theaterMode ? "Exit theater mode" : "Theater mode";
     theaterButton.title = label;
     theaterButton.setAttribute("aria-label", label);
@@ -651,7 +681,8 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   function setActiveTab(tab: "description" | "comments"): void {
     activeTab = tab;
     updateTabsUi();
-    if (tab === "comments" && commentsVideoId && !commentsLoaded) loadComments(commentsVideoId);
+    if (tab === "comments" && commentsVideoId && !commentsLoaded)
+      loadComments(commentsVideoId);
   }
 
   // Called on each video change: resets comment state and only fetches if the
@@ -678,7 +709,10 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     void fetchCommentsPage(videoId, true);
   }
 
-  async function fetchCommentsPage(videoId: string, first: boolean): Promise<void> {
+  async function fetchCommentsPage(
+    videoId: string,
+    first: boolean,
+  ): Promise<void> {
     if (commentsLoading) return;
     commentsLoading = true;
     showMoreButton.disabled = true;
@@ -694,12 +728,14 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
         comments.textContent = "No comments.";
       }
       for (const placeholder of placeholders) placeholder.remove();
-      for (const comment of page.comments) comments.appendChild(renderComment(comment));
+      for (const comment of page.comments)
+        comments.appendChild(renderComment(comment));
       commentsToken = page.nextPageToken;
       showMoreButton.hidden = commentsToken === "";
     } catch (error) {
       if (commentsVideoId !== videoId) return;
-      comments.textContent = "Could not load comments: " + (error as Error).message;
+      comments.textContent =
+        "Could not load comments: " + (error as Error).message;
       showMoreButton.hidden = true;
     } finally {
       for (const placeholder of placeholders) placeholder.remove();
@@ -748,7 +784,10 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   // URLs into links (both styled the same via `.ts-link`). A single pass over a
   // combined pattern keeps the two in document order; URLs match first so a
   // timestamp inside a URL is not double-matched.
-  function appendTextWithTimestamps(container: HTMLElement, text: string): void {
+  function appendTextWithTimestamps(
+    container: HTMLElement,
+    text: string,
+  ): void {
     container.textContent = "";
     // Group 1: URL. Groups 2-4: an "M:SS" / "H:MM:SS" timestamp.
     const pattern = /(https?:\/\/\S+)|(\d{1,2}):([0-5]\d)(?::([0-5]\d))?/g;
@@ -757,13 +796,17 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     while ((match = pattern.exec(text)) !== null) {
       const [whole, url, hoursOrMinutes, middle, maybeSeconds] = match;
       if (match.index > lastIndex) {
-        container.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+        container.appendChild(
+          document.createTextNode(text.slice(lastIndex, match.index)),
+        );
       }
       if (url !== undefined) {
         // Trailing punctuation is almost never part of the URL (e.g. a link at
         // the end of a sentence); split it back off as plain text.
         const trailing = url.match(/[.,;:!?)\]}'"]+$/);
-        const href = trailing ? url.slice(0, url.length - trailing[0].length) : url;
+        const href = trailing
+          ? url.slice(0, url.length - trailing[0].length)
+          : url;
         const link = document.createElement("a");
         link.className = "ts-link";
         link.href = href;
@@ -771,11 +814,14 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
         link.rel = "noopener noreferrer";
         link.textContent = href;
         container.appendChild(link);
-        if (trailing) container.appendChild(document.createTextNode(trailing[0]));
+        if (trailing)
+          container.appendChild(document.createTextNode(trailing[0]));
       } else {
         const seconds =
           maybeSeconds !== undefined
-            ? Number(hoursOrMinutes) * 3600 + Number(middle) * 60 + Number(maybeSeconds)
+            ? Number(hoursOrMinutes) * 3600 +
+              Number(middle) * 60 +
+              Number(maybeSeconds)
             : Number(hoursOrMinutes) * 60 + Number(middle);
         const link = document.createElement("button");
         link.type = "button";
@@ -803,7 +849,9 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
       const playNext = document.createElement("button");
       playNext.type = "button";
       playNext.textContent = "Play next";
-      playNext.addEventListener("click", (): void => requestNavigate(currentIndex + 1));
+      playNext.addEventListener("click", (): void =>
+        requestNavigate(currentIndex + 1),
+      );
       endCard.appendChild(playNext);
     }
 
@@ -893,7 +941,10 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     // the Apps Script iframe, so capture the position right away. Ending
     // saves too: progressToStore maps the final position to 0, clearing the
     // stored progress so a finished video restarts from the top.
-    if (event.data === PLAYER_STATE_PAUSED || event.data === PLAYER_STATE_ENDED) {
+    if (
+      event.data === PLAYER_STATE_PAUSED ||
+      event.data === PLAYER_STATE_ENDED
+    ) {
       saveProgress();
     }
     if (event.data !== PLAYER_STATE_ENDED) return;
@@ -956,7 +1007,8 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
 
   return {
     element: root,
-    hasVideo: (videoId: string): boolean => queue.some((video) => video.videoId === videoId),
+    hasVideo: (videoId: string): boolean =>
+      queue.some((video) => video.videoId === videoId),
     goToVideo: (videoId: string): void => {
       const index = queue.findIndex((video) => video.videoId === videoId);
       if (index >= 0) void playAt(index);
@@ -981,7 +1033,9 @@ function formatRelativeTime(iso: string): string {
   if (Number.isNaN(then)) return "";
   try {
     const diffSeconds = Math.round((then - Date.now()) / 1000);
-    const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+    const formatter = new Intl.RelativeTimeFormat(undefined, {
+      numeric: "auto",
+    });
     const units: [number, Intl.RelativeTimeFormatUnit][] = [
       [31557600, "year"],
       [2629800, "month"],
@@ -1004,7 +1058,8 @@ function formatRelativeTime(iso: string): string {
 
 // Compact like count: 1234 -> "1.2K", 1200000 -> "1.2M".
 function formatCount(count: number): string {
-  if (count >= 1000000) return (count / 1000000).toFixed(1).replace(/\.0$/, "") + "M";
+  if (count >= 1000000)
+    return (count / 1000000).toFixed(1).replace(/\.0$/, "") + "M";
   if (count >= 1000) return (count / 1000).toFixed(1).replace(/\.0$/, "") + "K";
   return String(count);
 }

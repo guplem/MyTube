@@ -55,7 +55,10 @@ describe("getWatchLaterPlaylistId", () => {
   });
 
   it("creates a private playlist titled 'MyTube — Watch Later' and stores its id", () => {
-    let insertedResource: { snippet?: { title?: string }; status?: { privacyStatus?: string } } = {};
+    let insertedResource: {
+      snippet?: { title?: string };
+      status?: { privacyStatus?: string };
+    } = {};
     mocks.youtube.Playlists = {
       list: () => ({ items: [] }),
       insert: (resource: typeof insertedResource) => {
@@ -69,7 +72,9 @@ describe("getWatchLaterPlaylistId", () => {
     expect(id).toBe("WL-created");
     expect(insertedResource.snippet?.title).toBe("MyTube — Watch Later");
     expect(insertedResource.status?.privacyStatus).toBe("private");
-    expect(mocks.userProperties.getProperty("watchLaterPlaylistId")).toBe("WL-created");
+    expect(mocks.userProperties.getProperty("watchLaterPlaylistId")).toBe(
+      "WL-created",
+    );
   });
 
   it("creates the playlist under the user lock", () => {
@@ -157,7 +162,9 @@ describe("addToWatchLater", () => {
     mocks.userProperties.setProperty("watchLaterPlaylistId", "WL");
     // Seed the cache so the in-place update path runs (no cache = next read fetches fresh).
     mocks.userCache.put("watchLaterVideoIds", JSON.stringify(["a"]));
-    let inserted: { snippet?: { playlistId?: string; resourceId?: { videoId?: string } } } = {};
+    let inserted: {
+      snippet?: { playlistId?: string; resourceId?: { videoId?: string } };
+    } = {};
     let listCalls = 0;
     mocks.youtube.PlaylistItems = {
       list: () => {

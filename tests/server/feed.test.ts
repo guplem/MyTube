@@ -33,7 +33,9 @@ function seedChannels(channels: { channelId: string; title: string }[]): void {
 }
 
 /** UrlFetchApp.fetchAll responder driven by a per-channel response map. */
-function respondPerChannel(map: { [channelId: string]: FakeHttpResponse }): void {
+function respondPerChannel(map: {
+  [channelId: string]: FakeHttpResponse;
+}): void {
   mocks.fetchAll = (requests) =>
     requests.map((req) => {
       const channelId = req.url.split("channel_id=")[1];
@@ -85,14 +87,32 @@ describe("getUploadsFeed", () => {
       C1: httpResponse(
         200,
         channelRss([
-          { videoId: "old", title: "Old", channelId: "C1", channelTitle: "One", publishedAt: "2026-06-01T00:00:00+00:00" },
-          { videoId: "newest", title: "Newest", channelId: "C1", channelTitle: "One", publishedAt: "2026-06-25T00:00:00+00:00" },
+          {
+            videoId: "old",
+            title: "Old",
+            channelId: "C1",
+            channelTitle: "One",
+            publishedAt: "2026-06-01T00:00:00+00:00",
+          },
+          {
+            videoId: "newest",
+            title: "Newest",
+            channelId: "C1",
+            channelTitle: "One",
+            publishedAt: "2026-06-25T00:00:00+00:00",
+          },
         ]),
       ),
       C2: httpResponse(
         200,
         channelRss([
-          { videoId: "mid", title: "Mid", channelId: "C2", channelTitle: "Two", publishedAt: "2026-06-10T00:00:00+00:00" },
+          {
+            videoId: "mid",
+            title: "Mid",
+            channelId: "C2",
+            channelTitle: "Two",
+            publishedAt: "2026-06-10T00:00:00+00:00",
+          },
         ]),
       ),
     });
@@ -105,7 +125,18 @@ describe("getUploadsFeed", () => {
   it("reuses the freshness cache on the next load without refetching", () => {
     seedChannels([{ channelId: "C1", title: "One" }]);
     respondPerChannel({
-      C1: httpResponse(200, channelRss([{ videoId: "v1", title: "V1", channelId: "C1", channelTitle: "One", publishedAt: "2026-06-20T00:00:00+00:00" }])),
+      C1: httpResponse(
+        200,
+        channelRss([
+          {
+            videoId: "v1",
+            title: "V1",
+            channelId: "C1",
+            channelTitle: "One",
+            publishedAt: "2026-06-20T00:00:00+00:00",
+          },
+        ]),
+      ),
     });
     getUploadsFeed(false); // warms the cache
 
@@ -126,7 +157,18 @@ describe("getUploadsFeed", () => {
       { channelId: "BAD", title: "Bad" },
     ]);
     respondPerChannel({
-      OK: httpResponse(200, channelRss([{ videoId: "ok1", title: "Ok1", channelId: "OK", channelTitle: "Ok", publishedAt: "2026-06-20T00:00:00+00:00" }])),
+      OK: httpResponse(
+        200,
+        channelRss([
+          {
+            videoId: "ok1",
+            title: "Ok1",
+            channelId: "OK",
+            channelTitle: "Ok",
+            publishedAt: "2026-06-20T00:00:00+00:00",
+          },
+        ]),
+      ),
       // BAD is absent from the map -> always 404
     });
 
@@ -143,10 +185,23 @@ describe("getUploadsFeed", () => {
     seedChannels([{ channelId: "C1", title: "One" }]);
     // A forced refresh also re-fetches the subscription list from the API.
     mocks.youtube.Subscriptions = {
-      list: () => ({ items: [{ snippet: { title: "One", resourceId: { channelId: "C1" } } }] }),
+      list: () => ({
+        items: [{ snippet: { title: "One", resourceId: { channelId: "C1" } } }],
+      }),
     };
     respondPerChannel({
-      C1: httpResponse(200, channelRss([{ videoId: "good", title: "Good", channelId: "C1", channelTitle: "One", publishedAt: "2026-06-20T00:00:00+00:00" }])),
+      C1: httpResponse(
+        200,
+        channelRss([
+          {
+            videoId: "good",
+            title: "Good",
+            channelId: "C1",
+            channelTitle: "One",
+            publishedAt: "2026-06-20T00:00:00+00:00",
+          },
+        ]),
+      ),
     });
     getUploadsFeed(false); // stores the last-good copy
 

@@ -65,7 +65,9 @@ describe("dismissed list", () => {
   it("does not delete unrelated properties when writing", () => {
     mocks.userProperties.setProperty("subscriptionChannels", "keep-me");
     let deletedAllOthers = false;
-    const realSetProperties = mocks.userProperties.setProperties.bind(mocks.userProperties);
+    const realSetProperties = mocks.userProperties.setProperties.bind(
+      mocks.userProperties,
+    );
     mocks.userProperties.setProperties = (properties, deleteAllOthers) => {
       if (deleteAllOthers) deletedAllOthers = true;
       return realSetProperties(properties, deleteAllOthers);
@@ -73,7 +75,9 @@ describe("dismissed list", () => {
 
     markVideoDismissed("a");
 
-    expect(mocks.userProperties.getProperty("subscriptionChannels")).toBe("keep-me");
+    expect(mocks.userProperties.getProperty("subscriptionChannels")).toBe(
+      "keep-me",
+    );
     expect(deletedAllOthers).toBe(false);
   });
 
