@@ -150,8 +150,9 @@ pushes, so a merge made with it would land on `main` without firing the deploy
 (the app would silently stop updating). Setup:
 
 1. Settings → General → enable **Allow auto-merge**.
-2. Branch protection on `main` requires the `test` status check (and **no**
-   required review, or auto-merge waits forever for an approval).
+2. The repo ruleset **Requirements for merge** makes the `test` status check
+   required on `main`. It deliberately requires **no** review: a required
+   review would make auto-merge wait forever for an approval.
 3. Create a GitHub App installed on this repo with **Contents: read/write** and
    **Pull requests: read/write**. Store its App ID as the Actions **variable**
    `AUTOMERGE_APP_ID` (not sensitive) and a generated private key as the
