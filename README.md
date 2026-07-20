@@ -116,8 +116,8 @@ npm run deploy      # build, push, then deploy to the fixed deployment URL
 Development is **test-first** (red-green-refactor) and the tests are a required
 gate: `npm test` must pass before a pull request merges to `main`
 (`.github/workflows/ci.yml`). The suite runs the real server code on Node with
-in-memory fakes for the Apps Script runtime — see the *Testing & development
-protocol* in [CLAUDE.md](CLAUDE.md) and [adr/0006](adr/0006-test-first-with-faked-apps-script.md).
+in-memory fakes for the Apps Script runtime — see the _Testing & development
+protocol_ in [CLAUDE.md](CLAUDE.md) and [adr/0006](adr/0006-test-first-with-faked-apps-script.md).
 
 `npm run deploy` deploys to a **fixed deployment id**, so the Live app URL above
 never changes; each deploy just adds a new version to it. (Running a bare
@@ -150,8 +150,9 @@ pushes, so a merge made with it would land on `main` without firing the deploy
 (the app would silently stop updating). Setup:
 
 1. Settings → General → enable **Allow auto-merge**.
-2. Branch protection on `main` requires the `test` status check (and **no**
-   required review, or auto-merge waits forever for an approval).
+2. The repo ruleset **Requirements for merge** makes the `test` status check
+   required on `main`. It deliberately requires **no** review: a required
+   review would make auto-merge wait forever for an approval.
 3. Create a GitHub App installed on this repo with **Contents: read/write** and
    **Pull requests: read/write**. Store its App ID as the Actions **variable**
    `AUTOMERGE_APP_ID` (not sensitive) and a generated private key as the
@@ -162,7 +163,7 @@ it for a manual merge — which itself triggers the deploy — so the worst case
 "not auto-merged", never "merged but not deployed".
 
 To deploy the current `main` on demand (e.g. after a merge that didn't deploy),
-use the **Run workflow** button on *Deploy to Apps Script* in the Actions tab
+use the **Run workflow** button on _Deploy to Apps Script_ in the Actions tab
 (`deploy.yml` also has a `workflow_dispatch` trigger).
 
 ## Troubleshooting

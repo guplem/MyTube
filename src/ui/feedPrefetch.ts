@@ -34,7 +34,9 @@ export function warmFeedPage(options: FeedPageOptions): void {
 }
 
 /** The prefetched page for these exact options, if fresh (single use), else null. */
-export function takePrefetchedFeedPage(options: FeedPageOptions): Promise<FeedPage> | null {
+export function takePrefetchedFeedPage(
+  options: FeedPageOptions,
+): Promise<FeedPage> | null {
   return store.take(options);
 }
 

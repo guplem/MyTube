@@ -32,7 +32,14 @@ function seedApi(): void {
     list: () => {
       apiCalls += 1;
       return {
-        items: [{ snippet: { title: "Some Channel", resourceId: { channelId: "UC_api" } } }],
+        items: [
+          {
+            snippet: {
+              title: "Some Channel",
+              resourceId: { channelId: "UC_api" },
+            },
+          },
+        ],
       };
     },
   };
@@ -64,7 +71,9 @@ describe("getSubscriptionChannels", () => {
       fetchedAt: number;
       channels: { channelId: string; title: string }[];
     };
-    expect(parsed.channels).toEqual([{ channelId: "UC_api", title: "Some Channel" }]);
+    expect(parsed.channels).toEqual([
+      { channelId: "UC_api", title: "Some Channel" },
+    ]);
   });
 
   it("returns a fresh cached value without calling the API", () => {
@@ -79,7 +88,9 @@ describe("getSubscriptionChannels", () => {
 
     const channels = getSubscriptionChannels(false);
 
-    expect(channels).toEqual([{ channelId: "UC_cached", title: "Cached Channel" }]);
+    expect(channels).toEqual([
+      { channelId: "UC_cached", title: "Cached Channel" },
+    ]);
     expect(apiCalls).toBe(0);
   });
 

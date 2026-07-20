@@ -54,7 +54,8 @@ const SKELETON_COUNT = 12; // placeholder cards shown while a page loads
 
 function fillWithSkeletons(grid: HTMLElement, count: number): void {
   grid.innerHTML = "";
-  for (let index = 0; index < count; index += 1) grid.appendChild(skeletonVideoCard());
+  for (let index = 0; index < count; index += 1)
+    grid.appendChild(skeletonVideoCard());
 }
 
 /** A standalone placeholder grid, for a screen loading its first batch. */
@@ -66,12 +67,18 @@ export function skeletonGrid(count: number = SKELETON_COUNT): HTMLElement {
 }
 
 /** Paged list backed by an async loader (the feed pages on the server). */
-export function PagedVideoListView(load: PageLoader, options: VideoListOptions): HTMLElement {
+export function PagedVideoListView(
+  load: PageLoader,
+  options: VideoListOptions,
+): HTMLElement {
   return renderList(load, options, null);
 }
 
 /** In-memory list over a full array (playlists, Watch Later, history). */
-export function VideoListView(videos: Video[], options: VideoListOptions): HTMLElement {
+export function VideoListView(
+  videos: Video[],
+  options: VideoListOptions,
+): HTMLElement {
   const load: PageLoader = (page, pageSize) =>
     Promise.resolve({
       videos: videos.slice(page * pageSize, page * pageSize + pageSize),
@@ -82,7 +89,11 @@ export function VideoListView(videos: Video[], options: VideoListOptions): HTMLE
 
 // fullQueue is the array to use as the player queue in in-memory mode, or null
 // for server-paged mode (where the queue is just the current page).
-function renderList(load: PageLoader, options: VideoListOptions, fullQueue: Video[] | null): HTMLElement {
+function renderList(
+  load: PageLoader,
+  options: VideoListOptions,
+  fullQueue: Video[] | null,
+): HTMLElement {
   const actions = options.actions ?? [];
   const root = document.createElement("div");
   root.className = "list-view";
@@ -179,7 +190,12 @@ function renderList(load: PageLoader, options: VideoListOptions, fullQueue: Vide
       const queue = fullQueue ?? videos;
       const index = fullQueue ? page * pageSize + indexInPage : indexInPage;
       grid.appendChild(
-        videoCard(video, (): void => options.onPlay(index, queue), actions, options.cornerAction),
+        videoCard(
+          video,
+          (): void => options.onPlay(index, queue),
+          actions,
+          options.cornerAction,
+        ),
       );
     });
 
@@ -232,7 +248,10 @@ function videoCard(
   // Both numbers are already on the video (progressSeconds from the resume
   // store, durationSeconds from the badge lookup), so this costs no requests;
   // it simply isn't shown when either is missing.
-  const watched = progressFraction(video.progressSeconds, video.durationSeconds);
+  const watched = progressFraction(
+    video.progressSeconds,
+    video.durationSeconds,
+  );
   if (watched !== null) {
     const track = document.createElement("div");
     track.className = "video-progress";
@@ -270,7 +289,9 @@ function videoCard(
     corner.type = "button";
     corner.className = "video-card-corner";
     if (cornerAction.name) corner.dataset.action = cornerAction.name;
-    corner.addEventListener("click", (): void => cornerAction.onClick(video, corner));
+    corner.addEventListener("click", (): void =>
+      cornerAction.onClick(video, corner),
+    );
     card.appendChild(corner);
     cornerAction.reflect(video, corner);
   }
@@ -284,7 +305,9 @@ function videoCard(
       button.type = "button";
       button.className = "video-action";
       if (action.name) button.dataset.action = action.name;
-      button.addEventListener("click", (): void => action.onClick(video, button));
+      button.addEventListener("click", (): void =>
+        action.onClick(video, button),
+      );
       actionRow.appendChild(button);
       action.reflect(video, button);
     }
@@ -304,5 +327,7 @@ function formatDuration(totalSeconds: number): string {
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = Math.floor(totalSeconds % 60);
   const pad = (value: number): string => String(value).padStart(2, "0");
-  return hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${minutes}:${pad(seconds)}`;
+  return hours > 0
+    ? `${hours}:${pad(minutes)}:${pad(seconds)}`
+    : `${minutes}:${pad(seconds)}`;
 }

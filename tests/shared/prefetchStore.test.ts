@@ -4,7 +4,10 @@
 // injected clock and loader, so it tests without a browser or Apps Script.
 
 import { describe, it, expect } from "vitest";
-import { createPrefetchStore, type PrefetchStore } from "../../src/shared/prefetchStore";
+import {
+  createPrefetchStore,
+  type PrefetchStore,
+} from "../../src/shared/prefetchStore";
 
 interface Harness {
   store: PrefetchStore<{ filter: string }, string>;
@@ -18,12 +21,17 @@ const MAX_AGE_MS = 90_000;
 
 function makeHarness(): Harness {
   const loads: { filter: string }[] = [];
-  const pending: { resolve: (value: string) => void; reject: (error: Error) => void }[] = [];
+  const pending: {
+    resolve: (value: string) => void;
+    reject: (error: Error) => void;
+  }[] = [];
   const clock = { now: 1_000_000 };
   const store = createPrefetchStore<{ filter: string }, string>({
     load: (options): Promise<string> => {
       loads.push(options);
-      return new Promise<string>((resolve, reject) => pending.push({ resolve, reject }));
+      return new Promise<string>((resolve, reject) =>
+        pending.push({ resolve, reject }),
+      );
     },
     key: (options): string => JSON.stringify(options),
     now: (): number => clock.now,
@@ -34,11 +42,15 @@ function makeHarness(): Harness {
     loads,
     clock,
     resolveAll: async (): Promise<void> => {
-      pending.splice(0).forEach((entry, index) => entry.resolve(`result-${index}`));
+      pending
+        .splice(0)
+        .forEach((entry, index) => entry.resolve(`result-${index}`));
       await Promise.resolve();
     },
     failAll: async (): Promise<void> => {
-      pending.splice(0).forEach((entry) => entry.reject(new Error("load failed")));
+      pending
+        .splice(0)
+        .forEach((entry) => entry.reject(new Error("load failed")));
       // Let the store's internal catch run.
       await Promise.resolve();
       await Promise.resolve();

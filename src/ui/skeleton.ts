@@ -21,7 +21,8 @@ export function skeletonLine(width: string, height: string): HTMLElement {
 export function skeletonParagraph(widths: string[]): HTMLElement {
   const paragraph = document.createElement("div");
   paragraph.className = "skeleton-paragraph";
-  for (const width of widths) paragraph.appendChild(skeletonLine(width, "0.9rem"));
+  for (const width of widths)
+    paragraph.appendChild(skeletonLine(width, "0.9rem"));
   return paragraph;
 }
 
@@ -77,9 +78,14 @@ export function skeletonComment(index: number = 0): HTMLElement {
 
   const head = document.createElement("div");
   head.className = "comment-head";
-  head.append(skeletonLine("7rem", "0.85rem"), skeletonLine("3.5rem", "0.75rem"));
+  head.append(
+    skeletonLine("7rem", "0.85rem"),
+    skeletonLine("3.5rem", "0.75rem"),
+  );
 
-  const text = skeletonParagraph(COMMENT_TEXT_WIDTHS[index % COMMENT_TEXT_WIDTHS.length]);
+  const text = skeletonParagraph(
+    COMMENT_TEXT_WIDTHS[index % COMMENT_TEXT_WIDTHS.length],
+  );
   const meta = skeletonLine("2.5rem", "0.8rem");
 
   body.append(head, text, meta);
@@ -118,7 +124,12 @@ export function skeletonPlaylistList(count: number = 6): HTMLElement {
   for (let index = 0; index < count; index += 1) {
     const item = document.createElement("div");
     item.className = "playlist-item playlist-item--skeleton";
-    item.appendChild(skeletonLine(PLAYLIST_ROW_WIDTHS[index % PLAYLIST_ROW_WIDTHS.length], "1.2rem"));
+    item.appendChild(
+      skeletonLine(
+        PLAYLIST_ROW_WIDTHS[index % PLAYLIST_ROW_WIDTHS.length],
+        "1.2rem",
+      ),
+    );
     list.appendChild(item);
   }
   return list;

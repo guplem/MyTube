@@ -23,18 +23,26 @@ await mkdir(DIST, { recursive: true });
 // 1. Server bundle -> dist/Code.js
 // Discover the functions to expose (every `export function` in the entry file).
 const serverSource = await readFile(SERVER_ENTRY, "utf8");
-const exposedFunctions = [...serverSource.matchAll(/export\s+function\s+(\w+)/g)].map(
-  (match) => match[1],
-);
+const exposedFunctions = [
+  ...serverSource.matchAll(/export\s+function\s+(\w+)/g),
+].map((match) => match[1]);
 if (exposedFunctions.length === 0) {
-  throw new Error(`No "export function" found in ${SERVER_ENTRY}; nothing would be callable.`);
+  throw new Error(
+    `No "export function" found in ${SERVER_ENTRY}; nothing would be callable.`,
+  );
 }
-console.log("Exposing server functions to Apps Script:", exposedFunctions.join(", "));
+console.log(
+  "Exposing server functions to Apps Script:",
+  exposedFunctions.join(", "),
+);
 
 // Top-level wrappers that Apps Script can find, each forwarding to the bundle
 // (esbuild stores the entry's exports on the global __server when globalName is set).
 const globalWrappers = exposedFunctions
-  .map((name) => `function ${name}() { return __server.${name}.apply(__server, arguments); }`)
+  .map(
+    (name) =>
+      `function ${name}() { return __server.${name}.apply(__server, arguments); }`,
+  )
   .join("\n");
 
 await build({
@@ -72,4 +80,6 @@ await writeFile(`${DIST}/ui.html`, `<script>\n${browserJs}\n</script>\n`);
 await copyFile("src/ui/index.html", `${DIST}/index.html`);
 await copyFile("appsscript.json", `${DIST}/appsscript.json`);
 
-console.log("Build complete -> dist/ (Code.js, index.html, ui.html, appsscript.json)");
+console.log(
+  "Build complete -> dist/ (Code.js, index.html, ui.html, appsscript.json)",
+);

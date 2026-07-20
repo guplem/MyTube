@@ -23,7 +23,7 @@ If a pattern does not exist in code yet, cite PLAN.md as the spec.
   new screen. Find how existing screens compose these before proposing UI.
 - **Server function exposure.** Browser-callable functions are declared with
   `export function` in `src/server/main.ts`; `build.mjs` generates the top-level
-  wrappers. A new server call follows this. (See the CLAUDE.md gotcha.)
+  wrappers. A new server call follows this. (See the AGENTS.md gotcha.)
 - **The browser bridge.** Client calls go through `google.script.run` with
   `withSuccessHandler`/`withFailureHandler`. Find the existing typed wrapper in
   `src/ui/`.
@@ -46,4 +46,4 @@ If a pattern does not exist in code yet, cite PLAN.md as the spec.
 - **Closest existing example:** file paths and a one-line summary.
 - **Pattern to follow:** concrete structure with short code excerpts.
 - **Reuse, do not duplicate:** what already exists that the new code must call.
-- **Watch out for:** project gotchas relevant to this change (see CLAUDE.md).
+- **Watch out for:** project gotchas relevant to this change (see AGENTS.md).

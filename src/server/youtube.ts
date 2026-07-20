@@ -6,7 +6,11 @@
 
 import type { Video } from "../shared/video";
 import type { PlaylistSummary } from "../shared/playlist";
-import type { VideoComment, CommentOrder, CommentPage } from "../shared/comment";
+import type {
+  VideoComment,
+  CommentOrder,
+  CommentPage,
+} from "../shared/comment";
 
 export interface SubscriptionChannel {
   channelId: string;
@@ -27,14 +31,17 @@ interface CachedChannels {
 }
 
 /** Returns the user's subscription channels, cached for a day. Pass true to refetch. */
-export function getSubscriptionChannels(forceRefresh: boolean): SubscriptionChannel[] {
+export function getSubscriptionChannels(
+  forceRefresh: boolean,
+): SubscriptionChannel[] {
   const properties = PropertiesService.getUserProperties();
   if (!forceRefresh) {
     const cached = properties.getProperty(CACHE_KEY);
     if (cached) {
       try {
         const parsed = JSON.parse(cached) as CachedChannels;
-        if (Date.now() - parsed.fetchedAt < CACHE_TTL_MS) return parsed.channels;
+        if (Date.now() - parsed.fetchedAt < CACHE_TTL_MS)
+          return parsed.channels;
       } catch {
         // Corrupt cache entry; fall through and refetch (which overwrites it).
       }
@@ -83,7 +90,11 @@ export function getPlaylists(): PlaylistSummary[] {
   let pageToken: string | undefined = undefined;
   do {
     const response: GoogleAppsScript.YouTube.Schema.PlaylistListResponse =
-      YouTube.Playlists!.list("snippet,contentDetails", { mine: true, maxResults: 50, pageToken });
+      YouTube.Playlists!.list("snippet,contentDetails", {
+        mine: true,
+        maxResults: 50,
+        pageToken,
+      });
     for (const item of response.items ?? []) {
       if (!item.id) continue;
       playlists.push({
@@ -103,7 +114,11 @@ export function getPlaylistVideos(playlistId: string): Video[] {
   let pageToken: string | undefined = undefined;
   do {
     const response: GoogleAppsScript.YouTube.Schema.PlaylistItemListResponse =
-      YouTube.PlaylistItems!.list("snippet,contentDetails", { playlistId, maxResults: 50, pageToken });
+      YouTube.PlaylistItems!.list("snippet,contentDetails", {
+        playlistId,
+        maxResults: 50,
+        pageToken,
+      });
     for (const item of response.items ?? []) {
       // videoOwnerChannel* are the actual uploader; they exist in the API
       // response but are missing from this @types version, so widen the type.
@@ -113,17 +128,20 @@ export function getPlaylistVideos(playlistId: string): Video[] {
             videoOwnerChannelTitle?: string;
           })
         | undefined;
-      const videoId = snippet?.resourceId?.videoId ?? item.contentDetails?.videoId;
+      const videoId =
+        snippet?.resourceId?.videoId ?? item.contentDetails?.videoId;
       if (!videoId || !snippet) continue;
       videos.push({
         videoId,
         title: snippet.title ?? "",
         channelId: snippet.videoOwnerChannelId ?? snippet.channelId ?? "",
-        channelTitle: snippet.videoOwnerChannelTitle ?? snippet.channelTitle ?? "",
+        channelTitle:
+          snippet.videoOwnerChannelTitle ?? snippet.channelTitle ?? "",
         thumbnailUrl: bestThumbnailUrl(snippet.thumbnails),
         // Use the video's real upload date (contentDetails.videoPublishedAt),
         // not snippet.publishedAt, which is the date it was added to the playlist.
-        publishedAt: item.contentDetails?.videoPublishedAt ?? snippet.publishedAt ?? "",
+        publishedAt:
+          item.contentDetails?.videoPublishedAt ?? snippet.publishedAt ?? "",
         seen: false,
       });
     }
@@ -146,13 +164,17 @@ export function getWatchLaterPlaylistId(): string {
   try {
     const winner = properties.getProperty(WATCH_LATER_ID_KEY);
     if (winner) return winner;
-    const created: GoogleAppsScript.YouTube.Schema.Playlist = YouTube.Playlists!.insert(
-      {
-        snippet: { title: WATCH_LATER_TITLE, description: "Managed by MyTube." },
-        status: { privacyStatus: "private" },
-      },
-      "snippet,status",
-    );
+    const created: GoogleAppsScript.YouTube.Schema.Playlist =
+      YouTube.Playlists!.insert(
+        {
+          snippet: {
+            title: WATCH_LATER_TITLE,
+            description: "Managed by MyTube.",
+          },
+          status: { privacyStatus: "private" },
+        },
+        "snippet,status",
+      );
     const id = created.id ?? "";
     if (id) properties.setProperty(WATCH_LATER_ID_KEY, id);
     return id;
@@ -163,7 +185,9 @@ export function getWatchLaterPlaylistId(): string {
 
 /** The Watch Later playlist id if it already exists, or "" without creating one. */
 function findWatchLaterPlaylistId(): string {
-  return PropertiesService.getUserProperties().getProperty(WATCH_LATER_ID_KEY) ?? "";
+  return (
+    PropertiesService.getUserProperties().getProperty(WATCH_LATER_ID_KEY) ?? ""
+  );
 }
 
 /**
@@ -184,7 +208,11 @@ export function getWatchLaterVideoIds(): string[] {
     }
   }
   const ids = getPlaylistVideos(playlistId).map((video) => video.videoId);
-  cache.put(WATCH_LATER_IDS_CACHE_KEY, JSON.stringify(ids), WATCH_LATER_IDS_TTL_SECONDS);
+  cache.put(
+    WATCH_LATER_IDS_CACHE_KEY,
+    JSON.stringify(ids),
+    WATCH_LATER_IDS_TTL_SECONDS,
+  );
   return ids;
 }
 
@@ -200,7 +228,11 @@ function updateCachedWatchLaterIds(videoId: string, present: boolean): void {
         ? ids
         : [...ids, videoId]
       : ids.filter((id) => id !== videoId);
-    cache.put(WATCH_LATER_IDS_CACHE_KEY, JSON.stringify(next), WATCH_LATER_IDS_TTL_SECONDS);
+    cache.put(
+      WATCH_LATER_IDS_CACHE_KEY,
+      JSON.stringify(next),
+      WATCH_LATER_IDS_TTL_SECONDS,
+    );
   } catch {
     // Leave the cache; it will expire and refetch.
   }
@@ -253,7 +285,11 @@ export function removeFromWatchLater(videoId: string): void {
   let pageToken: string | undefined = undefined;
   do {
     const response: GoogleAppsScript.YouTube.Schema.PlaylistItemListResponse =
-      YouTube.PlaylistItems!.list("snippet", { playlistId, maxResults: 50, pageToken });
+      YouTube.PlaylistItems!.list("snippet", {
+        playlistId,
+        maxResults: 50,
+        pageToken,
+      });
     for (const item of response.items ?? []) {
       if (item.id && item.snippet?.resourceId?.videoId === videoId) {
         YouTube.PlaylistItems!.remove(item.id);
@@ -269,7 +305,12 @@ function bestThumbnailUrl(
   thumbnails: GoogleAppsScript.YouTube.Schema.ThumbnailDetails | undefined,
 ): string {
   if (!thumbnails) return "";
-  return thumbnails.medium?.url ?? thumbnails.default?.url ?? thumbnails.high?.url ?? "";
+  return (
+    thumbnails.medium?.url ??
+    thumbnails.default?.url ??
+    thumbnails.high?.url ??
+    ""
+  );
 }
 
 const DURATION_CACHE_PREFIX = "dur:";
@@ -282,7 +323,9 @@ const DURATION_UNKNOWN = -1; // cached for ids the API does not return (deleted/
  * ids). Results are cached in the shared script cache because a video's length
  * is the same for every user, so most lookups are free after the first.
  */
-export function getVideoDurationsSeconds(videoIds: string[]): { [id: string]: number } {
+export function getVideoDurationsSeconds(videoIds: string[]): {
+  [id: string]: number;
+} {
   const result: { [id: string]: number } = {};
   if (videoIds.length === 0) return result;
 
@@ -305,7 +348,10 @@ export function getVideoDurationsSeconds(videoIds: string[]): { [id: string]: nu
   for (let offset = 0; offset < missing.length; offset += 50) {
     const batch = missing.slice(offset, offset + 50);
     const response: GoogleAppsScript.YouTube.Schema.VideoListResponse =
-      YouTube.Videos!.list("contentDetails", { id: batch.join(","), maxResults: 50 });
+      YouTube.Videos!.list("contentDetails", {
+        id: batch.join(","),
+        maxResults: 50,
+      });
     const returned = new Set<string>();
     for (const item of response.items ?? []) {
       if (!item.id) continue;
@@ -326,7 +372,8 @@ export function getVideoDurationsSeconds(videoIds: string[]): { [id: string]: nu
   const entries = Object.keys(toCache);
   for (let offset = 0; offset < entries.length; offset += 100) {
     const chunk: { [key: string]: string } = {};
-    for (const key of entries.slice(offset, offset + 100)) chunk[key] = toCache[key];
+    for (const key of entries.slice(offset, offset + 100))
+      chunk[key] = toCache[key];
     cache.putAll(chunk, DURATION_CACHE_TTL_SECONDS);
   }
   return result;
@@ -349,7 +396,11 @@ function parseIso8601Duration(iso: string): number {
  * pageToken is "" for the first page. Returns no comments (not an error) when
  * the video has comments turned off.
  */
-export function getComments(videoId: string, order: CommentOrder, pageToken: string): CommentPage {
+export function getComments(
+  videoId: string,
+  order: CommentOrder,
+  pageToken: string,
+): CommentPage {
   let response: GoogleAppsScript.YouTube.Schema.CommentThreadListResponse;
   try {
     response = YouTube.CommentThreads!.list("snippet", {
@@ -364,7 +415,10 @@ export function getComments(videoId: string, order: CommentOrder, pageToken: str
     // A video with comments turned off returns "disabled comments"; that is a
     // normal empty case. Surface anything else (e.g. a missing OAuth scope)
     // instead of silently hiding it as "No comments".
-    if (message.indexOf("disabled comments") >= 0 || message.indexOf("commentsDisabled") >= 0) {
+    if (
+      message.indexOf("disabled comments") >= 0 ||
+      message.indexOf("commentsDisabled") >= 0
+    ) {
       return { comments: [], nextPageToken: "" };
     }
     throw new Error(message);

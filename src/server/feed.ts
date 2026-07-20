@@ -40,12 +40,16 @@ const MEDIA_NS = "http://search.yahoo.com/mrss/";
  */
 export function getUploadsFeed(forceRefresh: boolean): UploadsFeed {
   const channels = getSubscriptionChannels(forceRefresh);
-  if (channels.length === 0) return { videos: [], failedChannels: 0, totalChannels: 0 };
+  if (channels.length === 0)
+    return { videos: [], failedChannels: 0, totalChannels: 0 };
 
   const cache = CacheService.getScriptCache();
   const cached: { [key: string]: string } = forceRefresh
     ? {}
-    : getAllChunked(cache, channels.map((channel) => freshKey(channel.channelId)));
+    : getAllChunked(
+        cache,
+        channels.map((channel) => freshKey(channel.channelId)),
+      );
 
   const videos: Video[] = [];
   let toFetch: SubscriptionChannel[] = [];
@@ -62,7 +66,11 @@ export function getUploadsFeed(forceRefresh: boolean): UploadsFeed {
     toFetch.push(channel);
   }
 
-  for (let attempt = 0; toFetch.length > 0 && attempt < MAX_FETCH_ATTEMPTS; attempt += 1) {
+  for (
+    let attempt = 0;
+    toFetch.length > 0 && attempt < MAX_FETCH_ATTEMPTS;
+    attempt += 1
+  ) {
     if (attempt > 0) Utilities.sleep(RETRY_BACKOFF_MS[attempt - 1] ?? 1500);
     toFetch = fetchChannels(toFetch, cache, videos);
   }
@@ -71,7 +79,10 @@ export function getUploadsFeed(forceRefresh: boolean): UploadsFeed {
   // transient failure shows stale videos rather than dropping the channel.
   const failed = toFetch;
   if (failed.length > 0) {
-    const lastGood = getAllChunked(cache, failed.map((channel) => lastGoodKey(channel.channelId)));
+    const lastGood = getAllChunked(
+      cache,
+      failed.map((channel) => lastGoodKey(channel.channelId)),
+    );
     for (const channel of failed) {
       const hit = lastGood[lastGoodKey(channel.channelId)];
       if (!hit) continue;
@@ -84,7 +95,11 @@ export function getUploadsFeed(forceRefresh: boolean): UploadsFeed {
   }
 
   videos.sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
-  return { videos, failedChannels: failed.length, totalChannels: channels.length };
+  return {
+    videos,
+    failedChannels: failed.length,
+    totalChannels: channels.length,
+  };
 }
 
 // Fetches the given channels' RSS in parallel, pushing parsed videos into
@@ -135,7 +150,10 @@ function getAllChunked(
 ): { [key: string]: string } {
   const result: { [key: string]: string } = {};
   for (let offset = 0; offset < keys.length; offset += CACHE_BATCH_SIZE) {
-    Object.assign(result, cache.getAll(keys.slice(offset, offset + CACHE_BATCH_SIZE)));
+    Object.assign(
+      result,
+      cache.getAll(keys.slice(offset, offset + CACHE_BATCH_SIZE)),
+    );
   }
   return result;
 }
@@ -148,7 +166,8 @@ function putAllChunked(
   const keys = Object.keys(values);
   for (let offset = 0; offset < keys.length; offset += CACHE_BATCH_SIZE) {
     const chunk: { [key: string]: string } = {};
-    for (const key of keys.slice(offset, offset + CACHE_BATCH_SIZE)) chunk[key] = values[key];
+    for (const key of keys.slice(offset, offset + CACHE_BATCH_SIZE))
+      chunk[key] = values[key];
     cache.putAll(chunk, ttlSeconds);
   }
 }

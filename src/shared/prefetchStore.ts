@@ -42,7 +42,9 @@ interface Entry<T> {
   startedAt: number;
 }
 
-export function createPrefetchStore<O, T>(config: PrefetchStoreConfig<O, T>): PrefetchStore<O, T> {
+export function createPrefetchStore<O, T>(
+  config: PrefetchStoreConfig<O, T>,
+): PrefetchStore<O, T> {
   let entry: Entry<T> | null = null;
 
   function isFresh(candidate: Entry<T>): boolean {
@@ -53,7 +55,11 @@ export function createPrefetchStore<O, T>(config: PrefetchStoreConfig<O, T>): Pr
     warm: (options: O): void => {
       const key = config.key(options);
       if (entry && entry.key === key && isFresh(entry)) return;
-      const next: Entry<T> = { key, promise: config.load(options), startedAt: config.now() };
+      const next: Entry<T> = {
+        key,
+        promise: config.load(options),
+        startedAt: config.now(),
+      };
       entry = next;
       // Clear a failed load — but only if this entry still occupies the slot,
       // so a stale rejection never wipes out a newer warm.
@@ -62,7 +68,8 @@ export function createPrefetchStore<O, T>(config: PrefetchStoreConfig<O, T>): Pr
       });
     },
     take: (options: O): Promise<T> | null => {
-      if (!entry || entry.key !== config.key(options) || !isFresh(entry)) return null;
+      if (!entry || entry.key !== config.key(options) || !isFresh(entry))
+        return null;
       const { promise } = entry;
       entry = null;
       return promise;

@@ -19,10 +19,30 @@
       "Bash(npm ci:*)",
       "Bash(npm run build:*)",
       "Bash(npm run typecheck:*)",
+      "Bash(npm run format:*)",
+      "Bash(npm test:*)",
+      "Bash(npm run check:*)",
+      "Bash(npx prettier:*)",
       "Bash(npx clasp deployments:*)",
       "Bash(npx clasp versions:*)",
       "Bash(gh issue:*)",
-      "Bash(gh pr:*)"
+      "Bash(gh pr:*)",
+      "Bash(gh label:*)"
+    ],
+    "ask": ["Bash(npm run push:*)", "Bash(npm run deploy:*)"],
+    "deny": ["Read(./.clasprc.json)", "Read(**/.clasprc.json)"]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "case \"$CLAUDE_FILE\" in *dist/*) echo '[hook] WARNING: dist/ is generated build output. Revert the edit and change src/ instead (see AGENTS.md).' ;; *.ts|*.mjs|*.json|*.md) npx prettier --write \"$CLAUDE_FILE\" >/dev/null 2>&1 || true ;; esac"
+          }
+        ]
+      }
     ]
   }
 }

@@ -6,7 +6,10 @@
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { AppsScriptMocks } from "./appsScriptMock";
-import { installAppsScriptMocks, uninstallAppsScriptMocks } from "./appsScriptMock";
+import {
+  installAppsScriptMocks,
+  uninstallAppsScriptMocks,
+} from "./appsScriptMock";
 
 let mocks: AppsScriptMocks;
 
@@ -20,12 +23,16 @@ afterEach(() => {
 describe("FakeProperties size limits", () => {
   it("rejects a value over the 9KB per-value limit", () => {
     const tooBig = "a".repeat(10 * 1024);
-    expect(() => mocks.userProperties.setProperty("history_0", tooBig)).toThrow();
+    expect(() =>
+      mocks.userProperties.setProperty("history_0", tooBig),
+    ).toThrow();
   });
 
   it("accepts a value just under the 9KB per-value limit", () => {
     const underLimit = "a".repeat(8 * 1024);
-    expect(() => mocks.userProperties.setProperty("history_0", underLimit)).not.toThrow();
+    expect(() =>
+      mocks.userProperties.setProperty("history_0", underLimit),
+    ).not.toThrow();
   });
 
   it("rejects setProperties when any value exceeds the 9KB per-value limit", () => {
@@ -49,7 +56,9 @@ describe("FakeProperties size limits", () => {
     // well under 9KB.
     const multiByte = "€".repeat(4 * 1024);
     expect(multiByte.length).toBeLessThan(9 * 1024);
-    expect(() => mocks.userProperties.setProperty("history_0", multiByte)).toThrow();
+    expect(() =>
+      mocks.userProperties.setProperty("history_0", multiByte),
+    ).toThrow();
   });
 
   it("respects deleteAllOthers when computing the total store size", () => {
@@ -73,7 +82,9 @@ describe("FakeCache size limits", () => {
 
   it("accepts a value just under the 100KB per-value limit", () => {
     const underLimit = "a".repeat(90 * 1024);
-    expect(() => mocks.scriptCache.put("feed_channel", underLimit)).not.toThrow();
+    expect(() =>
+      mocks.scriptCache.put("feed_channel", underLimit),
+    ).not.toThrow();
   });
 
   it("rejects putAll when any value exceeds the 100KB per-value limit", () => {

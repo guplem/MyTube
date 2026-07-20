@@ -8,7 +8,10 @@ import {
   uninstallAppsScriptMocks,
   type AppsScriptMocks,
 } from "../helpers/appsScriptMock";
-import { saveVideoProgress, getProgressSeconds } from "../../src/server/progress";
+import {
+  saveVideoProgress,
+  getProgressSeconds,
+} from "../../src/server/progress";
 import { PROGRESS_FINISHED } from "../../src/shared/videoProgress";
 import { getHistory, markVideoSeen } from "../../src/server/main";
 import { makeVideo } from "../helpers/fixtures";
@@ -89,7 +92,9 @@ describe("video progress store", () => {
   it("skips the write when the video is already marked finished", () => {
     saveVideoProgress("a", PROGRESS_FINISHED);
     let writes = 0;
-    const realSetProperties = mocks.userProperties.setProperties.bind(mocks.userProperties);
+    const realSetProperties = mocks.userProperties.setProperties.bind(
+      mocks.userProperties,
+    );
     mocks.userProperties.setProperties = (properties, deleteAllOthers) => {
       writes += 1;
       return realSetProperties(properties, deleteAllOthers);
@@ -104,7 +109,9 @@ describe("video progress store", () => {
   it("skips the write when the position has not changed", () => {
     saveVideoProgress("a", 120);
     let writes = 0;
-    const realSetProperties = mocks.userProperties.setProperties.bind(mocks.userProperties);
+    const realSetProperties = mocks.userProperties.setProperties.bind(
+      mocks.userProperties,
+    );
     mocks.userProperties.setProperties = (properties, deleteAllOthers) => {
       writes += 1;
       return realSetProperties(properties, deleteAllOthers);
@@ -157,7 +164,9 @@ describe("video progress store", () => {
   it("does not delete unrelated properties when writing", () => {
     mocks.userProperties.setProperty("subscriptionChannels", "keep-me");
     let deletedAllOthers = false;
-    const realSetProperties = mocks.userProperties.setProperties.bind(mocks.userProperties);
+    const realSetProperties = mocks.userProperties.setProperties.bind(
+      mocks.userProperties,
+    );
     mocks.userProperties.setProperties = (properties, deleteAllOthers) => {
       if (deleteAllOthers) deletedAllOthers = true;
       return realSetProperties(properties, deleteAllOthers);
@@ -165,7 +174,9 @@ describe("video progress store", () => {
 
     saveVideoProgress("a", 120);
 
-    expect(mocks.userProperties.getProperty("subscriptionChannels")).toBe("keep-me");
+    expect(mocks.userProperties.getProperty("subscriptionChannels")).toBe(
+      "keep-me",
+    );
     expect(deletedAllOthers).toBe(false);
   });
 

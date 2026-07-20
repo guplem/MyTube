@@ -79,7 +79,9 @@ function readEntries(): ProgressEntry[] {
     .sort((a, b) => chunkIndex(a) - chunkIndex(b));
   if (chunkKeys.length === 0) return [];
   try {
-    return JSON.parse(chunkKeys.map((key) => all[key]).join("")) as ProgressEntry[];
+    return JSON.parse(
+      chunkKeys.map((key) => all[key]).join(""),
+    ) as ProgressEntry[];
   } catch {
     return [];
   }

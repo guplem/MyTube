@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { DEFAULT_FEED_BEFORE_MONTHS, defaultFeedBeforeDate, monthsAgoIso } from "../../src/shared/feed";
+import {
+  DEFAULT_FEED_BEFORE_MONTHS,
+  defaultFeedBeforeDate,
+  monthsAgoIso,
+} from "../../src/shared/feed";
 
 describe("monthsAgoIso", () => {
   it("returns the date the given number of months earlier as YYYY-MM-DD", () => {
