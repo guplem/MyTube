@@ -1,0 +1,15 @@
+# Git-level hooks (enforcement layer 3), run at commit time for agent and human
+# alike. They mirror the checks CI runs (ci.yml) so a mistake is caught before
+# the commit, not only at the merge gate. Keep these commands identical to CI's.
+#
+# No post-merge codegen hook: the only generated output is dist/, which is
+# gitignored and rebuilt by build/push/deploy, so a fresh pull never carries
+# stale generated code.
+
+pre-commit:
+  parallel: true
+  commands:
+    format:
+      run: npm run format:check
+    typecheck:
+      run: npm run typecheck
