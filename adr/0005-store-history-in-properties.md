@@ -1,6 +1,6 @@
 # 5. Store watch history in PropertiesService, not a Google Sheet
 
-Status: Accepted (supersedes the Sheet approach in PLAN.md section 6)
+Status: Accepted (replaces the earlier Sheet idea sketched in PLAN.md section 6)
 
 ## Context
 

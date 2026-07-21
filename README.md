@@ -56,7 +56,7 @@ quota. See [One-time Google setup](#one-time-google-setup) below.
 - Browser code: TypeScript in `src/ui/`.
 - `esbuild` bundles both into `dist/`; `clasp` (the Apps Script CLI) uploads
   `dist/` to your Apps Script project. Architecture details for contributors are
-  in [CLAUDE.md](CLAUDE.md).
+  in [PLAN.md](PLAN.md).
 
 ## Prerequisites
 
@@ -116,8 +116,8 @@ npm run deploy      # build, push, then deploy to the fixed deployment URL
 Development is **test-first** (red-green-refactor) and the tests are a required
 gate: `npm test` must pass before a pull request merges to `main`
 (`.github/workflows/ci.yml`). The suite runs the real server code on Node with
-in-memory fakes for the Apps Script runtime — see the _Testing & development
-protocol_ in [CLAUDE.md](CLAUDE.md) and [adr/0006](adr/0006-test-first-with-faked-apps-script.md).
+in-memory fakes for the Apps Script runtime, so no Google login is needed to run
+the tests locally.
 
 `npm run deploy` deploys to a **fixed deployment id**, so the Live app URL above
 never changes; each deploy just adds a new version to it. (Running a bare
