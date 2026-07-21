@@ -30,7 +30,7 @@
       "Bash(gh label:*)"
     ],
     "ask": ["Bash(npm run push:*)", "Bash(npm run deploy:*)"],
-    "deny": ["Read(./.clasprc.json)", "Read(**/.clasprc.json)"]
+    "deny": []
   },
   "hooks": {
     "PostToolUse": [
