@@ -59,4 +59,18 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PR_URL: ${{ github.event.pull_request.html_url }}
-        run: gh pr merge --auto --merge "$PR_URL"
+        run: |
+          # A later event (synchronize, or the checks passing) can re-run this
+          # after auto-merge is already enabled or the merge has started. gh then
+          # exits non-zero with "already in progress" / "already enabled", which
+          # only means the job already did its work. Treat those as success; fail
+          # only on a genuinely different error.
+          if out="$(gh pr merge --auto --merge "$PR_URL" 2>&1)"; then
+            echo "$out"
+          else
+            echo "$out"
+            case "$out" in
+              *"already in progress"*|*"already enabled"*|*"Auto-merge is already"*) ;;
+              *) exit 1 ;;
+            esac
+          fi
