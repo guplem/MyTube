@@ -84,7 +84,7 @@ For each step (or the single unit):
    >
    > Implement only what the step describes. Do not touch code outside that scope.
 
-4. **Create the PR** (always label and self-assign):
+4. **Create the PR** (always label and self-assign). Write the PR description in the repo's **Communicating with users** style (`AGENTS.md`): a reviewer skims it, so lead with what changed and why, in short plain sentences.
 
 ```bash
 gh label create "waiting-for-human-check" --description "No human has verified this yet -- direct AI output" --color "D93F0B" 2>/dev/null || true

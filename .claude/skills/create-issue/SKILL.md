@@ -40,10 +40,16 @@ Store findings as `CODE_CONTEXT`. This context feeds the issue's Context section
 
 ## 5. Search for Duplicates and Related Issues
 
-1. Search open issues: `gh issue list --state open --limit 100 --json number,title,labels,body`
-2. Search recently closed issues: `gh issue list --state closed --limit 50 --json number,title,labels,body`
-3. Search issues that were closed as not planned (rejected, not fixed): `gh issue list --state closed --search "<keywords> reason:not-planned" --json number,title` (the keywords must come before the `reason:` qualifier).
-4. Compare intent, not wording: exact duplicates, related issues, closed duplicates.
+Do **not** fetch "the newest N issues": `gh issue list --limit N` returns only the most recently created, so an older duplicate is never seen. Search by **relevance across the whole repo**, both states. Scope every `gh search issues` to this repo with `--repo guplem/MyTube` (without it, `gh search` queries all of GitHub).
+
+1. **Derive 2-4 keyword sets** from the issue intent (Step 3) and `CODE_CONTEXT`, each a few words, varied so together they cover how a duplicate might be worded: the feature or component name; the symptom or user-facing effect; the specific entity or code path. Each set must include the exact noun a person would put in the **title** -- the title is the strongest duplicate signal.
+2. **Search each set, relevance-ranked** (put the keywords BEFORE any qualifier, or `gh search` returns an empty list):
+   ```bash
+   gh search issues --repo guplem/MyTube "<keywords> in:title" --limit 20 --json number,title,state,stateReason,url   # title-scoped: strongest signal
+   gh search issues --repo guplem/MyTube "<keywords>" --limit 30 --json number,title,state,stateReason,url            # title + body: differently worded duplicates
+   ```
+3. **Recency backup, once**: `gh issue list --state all --limit 40 --json number,title,state,stateReason,labels`. It catches duplicates that use none of your keywords and brand-new issues the search index has not picked up yet (`gh search` is eventually consistent).
+4. **Compare intent, not wording.** `stateReason` separates `COMPLETED` from `NOT_PLANNED`; treat any `NOT_PLANNED` match as a **reopen candidate**, not a reason to create a duplicate (backlog issues are often closed as not-planned to reopen later).
 5. **If a likely duplicate exists**, ask via `AskUserQuestion`: stop (duplicate) / link it (related but different) / create anyway. **Prefer reopening a matching not-planned issue over creating a duplicate.**
 6. Store related issue numbers as `RELATED_ISSUES`.
 
@@ -58,7 +64,7 @@ Store findings as `CODE_CONTEXT`. This context feeds the issue's Context section
 
 ## 7. Draft the Issue
 
-Compose the issue body based on `ISSUE_TYPE`, then apply the TL;DR rule, the Proposed Solution rule, the root-cause language rules, the anti-redundancy rules, and the plain-language rules below. Task issues follow the closest matching template (usually Improvement).
+Compose the issue body based on `ISSUE_TYPE`, then apply the TL;DR rule, the Proposed Solution rule, the root-cause language rules, the anti-redundancy rules, and the communication style below. Task issues follow the closest matching template (usually Improvement).
 
 ### TL;DR rule (mandatory, all templates)
 
@@ -164,9 +170,9 @@ Before finalizing the draft, re-read it and apply:
 7. **A kept Proposed Solution must add implementation detail** (specific files, functions, patterns, ADRs), never a restatement of Expected Behavior.
 8. **The redundancy self-check.** After writing, read each section and ask: "If I deleted this, would the reader lose any information?" If no, delete it.
 
-### Plain-language rules
+### Communication style (critical for triage)
 
-Write for a junior developer who reads English as a second language: short sentences, one idea per sentence, common words. Define jargon and acronyms on first use with one short clause. Replace vague verbs with what actually happens. When naming a file or pattern, add one clause on what it is.
+The issue is read to be **chosen, not studied**: whoever triages skims it among many, with little context and little time, so if it is not instantly clear it gets skipped or misjudged. Write it in the repo's **Communicating with users** style (`AGENTS.md`) -- lead with the point (the TL;DR), assume a short attention span, one idea per sentence, define jargon, keep it skimmable.
 
 ### Title options
 
