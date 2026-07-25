@@ -71,9 +71,8 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   has two modes: `PagedVideoListView(loader)` for the feed and the in-memory
   array form for the smaller lists. Do not reintroduce shipping the full feed.
   **Whatever a filter reads must be flagged on the whole list, before the
-  slice.** Watch Later membership is otherwise flagged on the page only (only
-  the cards need it), so the "Hide saved" filter flags everything first;
-  flagging after the slice leaves holes in the page and inflates `total`.
+  slice.** Membership and duration are otherwise flagged on the page only.
+  Flagging after the slice leaves holes in the page and inflates `total`.
 - **Shorts are detected by length, not a real flag** (RSS has none): duration
   via `youtube.getVideoDurationsSeconds` (Data API `contentDetails`, cached in
   the shared script cache since length is the same for everyone), hidden when
