@@ -11,7 +11,7 @@
 // their own loading/skeleton state instead. See CLAUDE.md "Optimistic UI updates".
 
 import { showToast } from "./toast";
-import { invalidateFeedPrefetch } from "./feedPrefetch";
+import { dropUnservedFeedPages } from "./feedPageCache";
 
 // Per-key tap counter: when a control is tapped repeatedly before its requests
 // settle, only the LATEST tap owns the rollback. A stale request that fails
@@ -45,9 +45,11 @@ export function optimistic(options: OptimisticOptions): void {
   const op = (latestOp.get(key) ?? 0) + 1;
   latestOp.set(key, op);
   // Every server mutation flows through here, and any of them (seen, dismissed,
-  // Watch Later) can change the flags baked into the background-prefetched feed
-  // page — so drop that stash; the next screen render warms a fresh one.
-  invalidateFeedPrefetch();
+  // Watch Later) can change the flags baked into a feed page warmed in the
+  // background — so drop those; the next screen render warms a fresh one. Pages
+  // the feed already showed are NOT dropped: their Video objects are the ones
+  // apply() is about to mutate, so they stay correct (see feedPageCache.ts).
+  dropUnservedFeedPages();
   options.apply();
   options
     .send()

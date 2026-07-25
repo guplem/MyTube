@@ -9,7 +9,6 @@ import type { FeedPageOptions } from "../shared/feed";
 import { defaultFeedBeforeDate } from "../shared/feed";
 import { shouldSuggestWatched } from "../shared/videoProgress";
 import {
-  getFeedPage,
   getHistory,
   getPlaylists,
   getPlaylistVideos,
@@ -29,7 +28,11 @@ import {
   DEFAULT_PAGE_SIZE,
   type VideoAction,
 } from "./videoListView";
-import { warmFeedPage, takePrefetchedFeedPage } from "./feedPrefetch";
+import {
+  warmFeedPage,
+  loadFeedPage,
+  forceReloadFeedPage,
+} from "./feedPageCache";
 import { renderBuildStamp } from "./buildStamp";
 import {
   skeletonPlaylistList,
@@ -437,15 +440,13 @@ function showFeed(forceFirstLoad: boolean = false): void {
         const forceRefresh = pendingForce;
         pendingForce = false;
         const options = feedPageOptions(page, pageSize, forceRefresh);
-        // First page, no forced refresh: use the page warmed in the background
-        // while the user was on another screen (see feedPrefetch.ts). A miss
-        // (different filters, gone stale, already used) falls through to a
-        // normal server call.
-        if (!forceRefresh) {
-          const prefetched = takePrefetchedFeedPage(options);
-          if (prefetched) return prefetched;
-        }
-        return getFeedPage(options);
+        // Normally reuse the page kept in memory: warmed in the background
+        // while the user was on another screen, or shown earlier this session
+        // (see feedPageCache.ts). Force refresh throws every kept page away
+        // and fetches this one from the server.
+        return forceRefresh
+          ? forceReloadFeedPage(options)
+          : loadFeedPage(options);
       },
       {
         onPlay: (index, queue): void =>

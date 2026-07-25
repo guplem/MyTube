@@ -22,7 +22,7 @@ import {
   saveVideoProgress,
 } from "./serverBridge";
 import { progressToStore, shouldSuggestWatched } from "../shared/videoProgress";
-import { invalidateFeedPrefetch } from "./feedPrefetch";
+import { dropUnservedFeedPages } from "./feedPageCache";
 import {
   getBoolPreference,
   setBoolPreference,
@@ -884,9 +884,11 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     // (back/forward, prev) resumes at the newest position, not the flagged
     // one. The finished marker is kept — it drives the card's full bar.
     video.progressSeconds = seconds !== 0 ? seconds : undefined;
-    // The stashed feed page snapshots progressSeconds like the other flags, so
-    // saving progress invalidates it — same invariant as optimistic() writes.
-    invalidateFeedPrefetch();
+    // A feed page warmed in the background snapshots progressSeconds like the
+    // other flags, so saving progress drops it — same invariant as optimistic()
+    // writes. A page the feed already showed keeps ITS copy of this video in
+    // `queue`, which the line above just updated, so it stays correct.
+    dropUnservedFeedPages();
     saveVideoProgress(video.videoId, seconds).catch((): void => {});
   }
 
