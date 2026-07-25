@@ -1,5 +1,6 @@
-// Test fixtures: builders for YouTube RSS XML and Video objects. Keeping the XML
-// shape in one place means a feed-format change is a one-line fixture edit.
+// Test fixtures: builders for YouTube RSS XML, Data API responses, and Video
+// objects. Keeping each wire shape in one place means a format change is a
+// one-line fixture edit.
 
 import type { Video } from "../../src/shared/video";
 
@@ -36,6 +37,17 @@ export function channelRss(entries: RssEntry[]): string {
       xmlns="http://www.w3.org/2005/Atom">
   <title>Channel feed</title>${items}
 </feed>`;
+}
+
+/** One PlaylistItems.list page shaped like the real API for the given video ids. */
+export function playlistItemsPage(videoIds: string[]): { items: unknown[] } {
+  return {
+    items: videoIds.map((videoId) => ({
+      id: `item-${videoId}`,
+      snippet: { title: videoId, resourceId: { videoId }, thumbnails: {} },
+      contentDetails: { videoId },
+    })),
+  };
 }
 
 /** A Video with sensible defaults; override any field. */

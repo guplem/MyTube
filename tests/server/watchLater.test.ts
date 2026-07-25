@@ -17,6 +17,7 @@ import {
   removeFromWatchLater,
 } from "../../src/server/youtube";
 import { getWatchLaterVideos } from "../../src/server/main";
+import { playlistItemsPage } from "../helpers/fixtures";
 
 let mocks: AppsScriptMocks;
 
@@ -26,17 +27,6 @@ beforeEach(() => {
 afterEach(() => {
   uninstallAppsScriptMocks();
 });
-
-// One PlaylistItems.list page shaped like the real API for the given video ids.
-function pageOf(videoIds: string[]): { items: unknown[] } {
-  return {
-    items: videoIds.map((videoId) => ({
-      id: `item-${videoId}`,
-      snippet: { title: videoId, resourceId: { videoId }, thumbnails: {} },
-      contentDetails: { videoId },
-    })),
-  };
-}
 
 describe("getWatchLaterPlaylistId", () => {
   it("returns the stored id without creating a playlist", () => {
@@ -128,7 +118,7 @@ describe("getWatchLaterVideoIds", () => {
     mocks.youtube.PlaylistItems = {
       list: () => {
         listCalls += 1;
-        return pageOf(["a", "b"]);
+        return playlistItemsPage(["a", "b"]);
       },
       insert: () => ({}),
       remove: () => ({}),
@@ -146,7 +136,7 @@ describe("getWatchLaterVideoIds", () => {
     mocks.youtube.PlaylistItems = {
       list: () => {
         listCalls += 1;
-        return pageOf(["a", "b"]);
+        return playlistItemsPage(["a", "b"]);
       },
       insert: () => ({}),
       remove: () => ({}),
@@ -169,7 +159,7 @@ describe("addToWatchLater", () => {
     mocks.youtube.PlaylistItems = {
       list: () => {
         listCalls += 1;
-        return pageOf([]);
+        return playlistItemsPage([]);
       },
       insert: (resource: typeof inserted) => {
         inserted = resource;
@@ -191,7 +181,7 @@ describe("getWatchLaterVideos", () => {
   it("flags every returned video as in Watch Later, so the card toggle starts on", () => {
     mocks.userProperties.setProperty("watchLaterPlaylistId", "WL");
     mocks.youtube.PlaylistItems = {
-      list: () => pageOf(["a", "b"]),
+      list: () => playlistItemsPage(["a", "b"]),
       insert: () => ({}),
       remove: () => ({}),
     };
@@ -213,9 +203,9 @@ describe("removeFromWatchLater", () => {
       list: (_part: unknown, params: { pageToken?: string }) => {
         listCalls += 1;
         if (!params.pageToken) {
-          return { ...pageOf(["a", "b"]), nextPageToken: "PAGE2" };
+          return { ...playlistItemsPage(["a", "b"]), nextPageToken: "PAGE2" };
         }
-        return pageOf(["target", "c"]);
+        return playlistItemsPage(["target", "c"]);
       },
       insert: () => ({}),
       remove: (id: string) => {
@@ -234,7 +224,7 @@ describe("removeFromWatchLater", () => {
     mocks.userProperties.setProperty("watchLaterPlaylistId", "WL");
     const removed: string[] = [];
     mocks.youtube.PlaylistItems = {
-      list: () => pageOf(["a", "b"]),
+      list: () => playlistItemsPage(["a", "b"]),
       insert: () => ({}),
       remove: (id: string) => {
         removed.push(id);

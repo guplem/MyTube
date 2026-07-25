@@ -57,6 +57,13 @@ export function getFeedPage(options: FeedPageOptions): FeedPage {
   if (options.hideDismissed) {
     visible = visible.filter((video) => !video.dismissed);
   }
+  if (options.hideSaved) {
+    // Membership is normally flagged after paging (it is only needed for the
+    // cards shown), but filtering on it has to happen before the slice, so flag
+    // the whole surviving list here. Both calls read the same 10-minute cache.
+    flagInWatchLater(visible);
+    visible = visible.filter((video) => !video.inWatchLater);
+  }
   if (options.beforeDate) {
     // Keep videos published on or after the cutoff date; compare date parts only.
     visible = visible.filter(

@@ -55,6 +55,7 @@ import {
 const HIDE_SHORTS_PREF = "mytube.hideShorts";
 const HIDE_VIEWED_PREF = "mytube.hideViewed";
 const HIDE_DISMISSED_PREF = "mytube.hideDismissed";
+const HIDE_SAVED_PREF = "mytube.hideSaved";
 const BEFORE_DATE_PREF = "mytube.beforeDate";
 
 // A navigable screen. The player carries its queue/index in memory when opened
@@ -345,6 +346,7 @@ function feedPageOptions(
     hideShorts: getBoolPreference(HIDE_SHORTS_PREF, true),
     hideViewed: getBoolPreference(HIDE_VIEWED_PREF, false),
     hideDismissed: getBoolPreference(HIDE_DISMISSED_PREF, true),
+    hideSaved: getBoolPreference(HIDE_SAVED_PREF, true),
     beforeDate: getStringPreference(
       BEFORE_DATE_PREF,
       defaultFeedBeforeDate(new Date()),
@@ -371,6 +373,9 @@ function showFeed(forceFirstLoad: boolean = false): void {
     // the preference key keeps its old name so stored settings survive.
     feedToggle("Hide watched", HIDE_VIEWED_PREF, false),
     feedToggle("Hide dismissed", HIDE_DISMISSED_PREF, true),
+    // On by default: a saved video is already dealt with, so keeping it out
+    // makes the feed an inbox of videos still waiting for a decision.
+    feedToggle("Hide saved", HIDE_SAVED_PREF, true),
     beforeDateControl(),
   );
 
