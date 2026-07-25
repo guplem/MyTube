@@ -776,7 +776,12 @@ function renderPlayer(screen: PlayerScreen): void {
     showPlayer(screen, screen.queue);
     return;
   }
-  // No in-memory queue (shared link or forward navigation): rebuild it.
+  // No in-memory queue (shared link or forward navigation): rebuild it. Tear the
+  // old player down BEFORE its DOM is replaced below, for the same reason
+  // render() does it first: destroy() saves the playback position, and that
+  // write belongs to the player going away. Leaving it mounted would also keep
+  // its 20-second save interval running until showPlayer finally lands.
+  clearActivePlayer();
   const movedOn = navigationMovedOn();
   const app = appContainer();
   if (app) app.replaceChildren(skeletonPlayerView());
