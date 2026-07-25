@@ -65,8 +65,6 @@ export function getFeedPage(options: FeedPageOptions): FeedPage {
     );
   }
   if (options.hideSaved) {
-    // After the free filters, before the duration lookup: this one can cost a
-    // playlist fetch on a cold cache and its flag loop walks the whole list.
     // Membership is normally flagged after paging (it is only needed for the
     // cards shown), but filtering on it has to happen before the slice, so flag
     // the whole surviving list here. Both calls read the same 10-minute cache.
