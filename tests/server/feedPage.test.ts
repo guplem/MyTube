@@ -44,8 +44,9 @@ function seedFeed(entries: RssEntry[]): void {
 
 /**
  * Stub the Data API duration lookup: videoId -> ISO 8601 duration. The returned
- * array collects every id the lookup is asked about, so a test can assert which
- * videos reached this step (the one filter that costs an API call).
+ * array records the ids actually sent to the Data API, so a test can assert
+ * which videos reached the paid call. An id already in the duration cache never
+ * appears: getVideoDurationsSeconds serves it from the cache without asking.
  */
 function seedDurations(durations: { [videoId: string]: string }): string[] {
   const askedFor: string[] = [];
