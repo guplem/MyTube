@@ -99,8 +99,10 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   same 95% line as `PROGRESS_FINISHED`, so the nudge and the store agree),
   fed the stored flag on cards and, in the player, also the live position
   (polled every second). Nothing removes a card
-  from the DOM mid-session: a toggled-off video stays in place (dimmed where it
-  will disappear on the next load), so a mis-tap is undone with a second tap.
+  from the DOM mid-session: a toggled video stays in place, dimmed whenever its
+  new state is the one that drops it from this list (saved in the feed while
+  "Hide saved" is on, unsaved on the Watch Later screen), so a mis-tap is undone
+  with a second tap.
   On the Watch Later screen the membership toggle IS the remove button.
 - **Marking seen drops the video from Watch Later** (`markVideoSeen` in
   `src/server/main.ts` removes it if present). This is the one cross-list side
