@@ -94,11 +94,14 @@ For each step (or the single unit):
    >
    > Implement only what the step describes. Do not touch code outside that scope.
 
-4. **Create the PR** (always label and self-assign). Write the PR description in the repo's **Communicating with users** style (`AGENTS.md`): a reviewer skims it, so lead with what changed and why, in short plain sentences.
+4. **Create the PR as a draft** (always label and self-assign). Write the PR description in the repo's **Communicating with users** style (`AGENTS.md`): a reviewer skims it, so lead with what changed and why, in short plain sentences.
+
+**`--draft` is mandatory.** `auto-merge.yml` queues GitHub auto-merge on `opened`, so a ready PR merges itself the moment CI turns green, which is faster than the review cycle below can finish. The workflow skips drafts, so a draft is the only thing holding the PR open long enough to review it. Section 7 marks it ready at the end.
 
 ```bash
 gh label create "waiting-for-human-check" --description "No human has verified this yet -- direct AI output" --color "D93F0B" 2>/dev/null || true
 gh pr create \
+  --draft \
   --base $PR_TARGET_BRANCH \
   --head <branch> \
   --title "<conventional-prefix>: <short title>" \
@@ -159,9 +162,11 @@ Use the **review-pr** skill in `--no-verdict` mode. That mode runs unattended (i
 
    Persist every such lesson only in these **shared, version-controlled files** that all coworkers and their agents read; never in your personal memory or the user's global config, which teammates never see. Ride these doc changes along in the same PR and list them in the PR summary.
 
-7. **Then finish:** delete the review file (and `.reviews/` if it is now empty) and tell the user.
+7. **Mark the PR ready, which is what releases it to merge:** `gh pr ready <PR_NUMBER>`. Do this only once you have stopped acting on findings. Until then the draft is the only thing keeping the PR open.
 
-**Merging is automatic once the required `test` check passes** (`auto-merge.yml` queues GitHub auto-merge, and merging `main` deploys to production). Do not merge manually. Wait for CI; the tests are the review gate.
+8. **Then finish:** delete the review file (and `.reviews/` if it is now empty) and tell the user.
+
+**Merging is automatic once the PR is ready and the required `test` check passes** (`auto-merge.yml` queues GitHub auto-merge on `ready_for_review`, and merging `main` deploys to production). Do not merge manually. Wait for CI; the tests are the review gate.
 
 ## 8. Completion
 
@@ -175,6 +180,7 @@ Report which steps are done and which remain. If steps remain: "Run `/implement-
 - **Verification is mandatory.** The implementation agent runs `npm run check` before pushing, and the orchestrator confirms a clean state with the **validate** agent.
 - **Fresh reviewers.** The review agent has no context from the implementation (the `review-pr` skill already spawns fresh agents).
 - **Bounded iteration.** At most 3 review rounds; then report to the user instead of looping.
+- **Every PR starts as a draft.** `auto-merge.yml` skips drafts only; a ready PR merges as soon as CI is green, before the review cycle can act. Mark it ready when the cycle ends.
 - **Judgement on every comment.** Act on any comment worth acting on, not just the Required ones; reply and resolve each thread with the reason.
 - **Learn in shared docs.** When feedback reveals a should-have-known standard, persist the lesson to `AGENTS.md`/ADR/skill, never to personal memory or global config.
 - **Config is interactive, the issue write-up is autonomous.** Gather the branch and step config via `AskUserQuestion` (batched where possible); when given only a problem description, create the issue with `create-issue --autonomous` and ask nothing.
