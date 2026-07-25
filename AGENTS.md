@@ -125,8 +125,8 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   finished videos from the top. The player saves on a 20s interval, on pause, on prev/next, and on
   unmount — never on tab close, which the Apps Script iframe can't observe
   reliably; saves are fire-and-forget (not `optimistic()` — there is no UI
-  state to roll back) but still drop the unserved feed pages, whose snapshot
-  carries `progressSeconds` like the other flags. Lists get the flag
+  state to roll back) but still call `dropStaleFeedPage()` like every other
+  write, because the kept feed page holds `progressSeconds` too. Lists get the flag
   via `flagProgress` in `src/server/main.ts`; the player resumes from
   `video.progressSeconds`, and cards show it as a red bar on the thumbnail
   (`progressFraction` picks the width; no bar when the position or the
@@ -136,29 +136,20 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   feed-only "Hide dismissed" toggle filters on it. The dismiss control is the
   top-right corner cross on feed cards (`VideoListOptions.cornerAction`), never
   shown on the other lists; dismissed feed cards are dimmed like seen ones.
-- **Feed pages are warmed and then kept in memory.** `src/ui/feedPageCache.ts`
-  is the one path to `getFeedPage`; policy in `src/shared/pageCache.ts` (keyed
-  on the page options, at most 8 entries with oldest-first eviction, 30-minute
-  fresh window matching the server's RSS cache). The app lands on Watch Later,
-  so any non-feed `render()` warms one background load of the page the feed
-  will open on. A hit is served again and again and resolves on the same task,
-  so `PagedVideoListView`'s skeletons never paint. The warm call never passes
-  `forceRefresh`; the server reuses live cache entries and refetches only
-  expired channels. Do not add other feed-loading paths that bypass this cache.
-- **A mutation drops the feed pages it would leave wrong.** `optimistic()` and
-  the player's `saveProgress` call `dropStaleFeedPages()`. From the feed section
-  (the feed screen and a player opened from it) that spares the pages the feed
-  already rendered: their cards and the player mutate the very `Video` objects
-  the cache holds, so they update themselves. Pages only warmed in the
-  background still go. From any other screen every page goes, because Watch
-  Later, History and the playlist screens load their own `Video` objects and
-  changing one leaves the feed's copy stale. `render()` reports the active
-  section with `setFeedSectionActive`. Force refresh clears everything
-  (`forceReloadFeedPage`); a changed filter changes the key and misses on its own.
+- **The feed keeps exactly ONE page in memory: the page on show.** Never more.
+  `src/ui/feedPageCache.ts` is the only path to `getFeedPage`, and it owns the
+  reasoning in its header. The policy it wires together lives in
+  `src/shared/pageCache.ts` (single slot, 30-minute fresh window) and
+  `src/shared/feedPageStaleness.ts` (whether a mutation leaves the page
+  correct). Serving a different page replaces the kept one, so paging away and
+  back re-fetches. Every server write calls `dropStaleFeedPage()`; the router
+  reports the screen it would apply to with `setFeedMutationScreen`. Any
+  non-feed `render()` warms the page the feed will open on, never with
+  `forceRefresh`. Do not add feed-loading paths that bypass this cache.
 - **The feed reopens on the page it last showed.** `feedPage`/`feedPageSize` in
-  `src/ui/main.ts` seed `VideoListOptions.paging` and are updated from its
-  `onChange`. The filters and Force refresh reset to page 0
-  (`reloadFeedFromStart`). Scroll position is not restored.
+  `src/ui/main.ts` seed `VideoListOptions.paging` and follow its `onChange`. The
+  filters and Force refresh reset to page 0 (`reloadFeedFromStart`). Scroll
+  position is not restored.
 - UI toggles persist in `localStorage` via `src/ui/preferences.ts` (works inside
   the Apps Script iframe; no server round-trip).
 - **Optimistic UI updates for every server mutation.** Any button that writes to
