@@ -134,42 +134,45 @@ function optimisticToggle(
 // Reflects Watch Later membership on the toggle button. The ON state keeps the
 // list's name in the label ("✓ Watch Later", never a bare "Added ✓") and fills
 // the button (video-action--on) so membership reads at a glance; the tooltip
-// names what a click would do NOW. On the Watch Later screen (dimRemoved) a
-// toggled-off video's card also dims, marking that it will disappear on the
-// next load.
+// names what a click would do NOW. `vanishesWhen` is the membership value that
+// drops the card from this list on the next load, so the card dims once the
+// toggle reaches it; null means the card always stays and never dims.
 function reflectWatchLater(
   video: Video,
   button: HTMLButtonElement,
-  dimRemoved: boolean,
+  vanishesWhen: boolean | null,
 ): void {
   const saved = Boolean(video.inWatchLater);
   button.textContent = saved ? "✓ Watch Later" : "+ Watch Later";
   button.classList.toggle("video-action--on", saved);
   button.title = saved ? "Remove from Watch Later" : "Save to Watch Later";
   button.setAttribute("aria-pressed", String(saved));
-  if (dimRemoved) {
+  if (vanishesWhen !== null) {
     button
       .closest(".video-card")
-      ?.classList.toggle("video-card--removed", !saved);
+      ?.classList.toggle("video-card--removed", saved === vanishesWhen);
   }
 }
 
-// Toggles a video in/out of Watch Later — the same button on every list. On
-// the Watch Later screen (dimRemoved) this toggle IS the remove button: the
-// card stays in place, dimmed, until the next load. Flips immediately and
-// rolls back on failure.
-function makeWatchLaterToggle(dimRemoved: boolean): VideoAction {
+// Toggles a video in/out of Watch Later — the same button on every list. The
+// two screens that shed cards do it on opposite states, which is why
+// `vanishesWhen` is a value and not a flag: false on the Watch Later screen
+// (where this toggle IS the remove button), true on the feed while "Hide
+// saved" is on, null on playlists and history. Either way the card stays in
+// place, only dimmed, until the next load. Flips immediately and rolls back on
+// failure.
+function makeWatchLaterToggle(vanishesWhen: boolean | null): VideoAction {
   return {
     name: "watchlater",
     reflect: (video, button): void =>
-      reflectWatchLater(video, button, dimRemoved),
+      reflectWatchLater(video, button, vanishesWhen),
     onClick: (video, button): void => {
       optimisticToggle(
         button,
         (): boolean => Boolean(video.inWatchLater),
         (value): void => {
           video.inWatchLater = value;
-          reflectWatchLater(video, button, dimRemoved);
+          reflectWatchLater(video, button, vanishesWhen);
         },
         (next): Promise<void> =>
           next
@@ -184,9 +187,10 @@ function makeWatchLaterToggle(dimRemoved: boolean): VideoAction {
   };
 }
 
-const watchLaterToggleAction = makeWatchLaterToggle(false);
+// Playlists and history: the card stays whatever the toggle says, so no dim.
+const watchLaterToggleAction = makeWatchLaterToggle(null);
 // The Watch Later screen's copy of the toggle: toggling off dims the card.
-const watchLaterRemoveAction = makeWatchLaterToggle(true);
+const watchLaterRemoveAction = makeWatchLaterToggle(false);
 
 // Reflects the current seen state on the card and its toggle button. Same
 // pressed-toggle treatment as the Watch Later button; the UI copy says
@@ -400,6 +404,13 @@ function showFeed(forceFirstLoad: boolean = false): void {
   notice.style.display = "none";
   app.appendChild(notice);
 
+  // Built per render, not shared like the other screens': with "Hide saved" on,
+  // saving a video is what drops it from the feed, so that is when the card
+  // must dim. Flipping the toggle re-runs showFeed, which rebuilds this.
+  const feedWatchLaterAction: VideoAction = makeWatchLaterToggle(
+    getBoolPreference(HIDE_SAVED_PREF, true) ? true : null,
+  );
+
   let pendingForce = forceFirstLoad;
   app.appendChild(
     PagedVideoListView(
@@ -420,7 +431,7 @@ function showFeed(forceFirstLoad: boolean = false): void {
       {
         onPlay: (index, queue): void =>
           playFromList(queue, index, { source: "feed" }),
-        actions: [watchLaterToggleAction, markSeenAction],
+        actions: [feedWatchLaterAction, markSeenAction],
         cornerAction: dismissAction,
         onPageLoaded: (result): void => updateFeedNotice(notice, result),
       },
