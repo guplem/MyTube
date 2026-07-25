@@ -32,7 +32,7 @@ import {
   warmFeedPage,
   loadFeedPage,
   forceReloadFeedPage,
-  setFeedSectionActive,
+  setFeedMutationScreen,
 } from "./feedPageCache";
 import { renderBuildStamp } from "./buildStamp";
 import {
@@ -727,6 +727,14 @@ function renderPlaylistScreen(
 // video in place (loadVideoById) instead of reloading the iframe.
 let activePlayer: { controller: PlayerController; key: string } | null = null;
 
+// The array the feed list handed to the player when the user tapped a card. It
+// IS the kept feed page's own array, so a toggle in that player updates the page
+// too. Any other queue is a copy: browser back/forward restores the screen (and
+// its queue) through google.script.history, which serializes it across the Apps
+// Script iframe, and a forward navigation with no queue rebuilds one from
+// scratch. Compared by identity in recordPlayerScreen.
+let feedQueueInPlay: Video[] | null = null;
+
 function playFromList(
   queue: Video[],
   index: number,
@@ -734,6 +742,7 @@ function playFromList(
 ): void {
   const video = queue[index];
   if (!video) return;
+  feedQueueInPlay = context.source === "feed" ? queue : null;
   go({
     view: "player",
     videoId: video.videoId,
@@ -767,12 +776,14 @@ function showPlayer(screen: PlayerScreen, queue: Video[]): void {
     activePlayer.key === key &&
     activePlayer.controller.hasVideo(screen.videoId)
   ) {
+    recordPlayerScreen(screen, queue);
     activePlayer.controller.goToVideo(screen.videoId);
     return;
   }
   const app = appContainer();
   if (!app) return;
   clearActivePlayer();
+  recordPlayerScreen(screen, queue);
   app.innerHTML = "";
   const controller = PlayerView({
     queue,
@@ -799,6 +810,18 @@ function playerQueueKey(context: PlayerContext, queue: Video[]): string {
       ? "playlist:" + context.playlistId
       : context.source;
   return base + "|" + queue.map((video) => video.videoId).join(",");
+}
+
+// Tells the feed page cache which screen a mutation would be made on. Always
+// called AFTER clearActivePlayer(): tearing a player down saves its playback
+// position, and that write belongs to the player going away, not to the screen
+// coming in.
+function recordPlayerScreen(screen: PlayerScreen, queue: Video[]): void {
+  setFeedMutationScreen({
+    inFeedSection: sectionOf(screen) === "feed",
+    isPlayer: true,
+    playerQueueIsFeedPage: queue === feedQueueInPlay,
+  });
 }
 
 function clearActivePlayer(): void {
@@ -855,13 +878,21 @@ function go(screen: Screen): void {
 }
 
 function render(screen: Screen): void {
+  // Leaving the player: tear down the YouTube iframe so it stops playing. This
+  // runs FIRST, before the incoming screen is recorded below and before the
+  // warm-up, because destroy() saves the playback position: that mutation
+  // belongs to the player going away, and it may drop the kept feed page.
+  if (screen.view !== "player") clearActivePlayer();
   const section = sectionOf(screen);
   setActiveNav(section);
-  // The feed section (the feed and a player opened from it) is the only place
-  // whose cards hold the kept feed pages' own Video objects, so it is the only
-  // place where a mutation may keep them. Anywhere else works on its own copies
-  // of the same videos, which would leave a kept page wrong.
-  setFeedSectionActive(section === "feed");
+  // A player records its own screen in showPlayer(), which knows whether its
+  // queue is the kept feed page's own array.
+  if (screen.view !== "player")
+    setFeedMutationScreen({
+      inFeedSection: section === "feed",
+      isPlayer: false,
+      playerQueueIsFeedPage: false,
+    });
   // Any screen but the feed warms the page the feed would open on — the one it
   // last showed, not always the first (the feed's own loader is the fetch
   // there). Fire-and-forget: it runs as its own parallel server call, so it
@@ -870,8 +901,6 @@ function render(screen: Screen): void {
   // expired — never a forced refresh.
   if (screen.view !== "feed")
     warmFeedPage(feedPageOptions(feedPage, feedPageSize, false));
-  // Leaving the player: tear down the YouTube iframe so it stops playing.
-  if (screen.view !== "player") clearActivePlayer();
   switch (screen.view) {
     case "watchlater":
       showWatchLater();

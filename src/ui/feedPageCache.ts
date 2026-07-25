@@ -1,19 +1,25 @@
-// The feed's in-memory page cache (policy in src/shared/pageCache.ts). It does
-// two jobs:
+// The feed's in-memory page cache (single-slot policy in src/shared/pageCache.ts,
+// keep-or-drop policy in src/shared/feedPageStaleness.ts). It does two jobs:
 //
 // 1. Warm-up. The app lands on Watch Later, and a cold feed load can take a long
 //    time (RSS for every expired channel), so every non-feed screen starts one
 //    background getFeedPage call for the page the feed will open on. Opening the
-//    feed then serves that page and renders with no skeletons.
-// 2. Keeping. Every page the feed actually showed is kept, so leaving the feed
+//    feed then serves that load instead of starting its own.
+// 2. Keeping ONE page. The page the feed is showing is kept, so leaving the feed
 //    for another tab or the player and coming back re-renders it instantly.
 //
-// A kept page is not a stale snapshot. The cards were built from the very Video
-// objects the cache holds, and every toggle — on a card or in the player —
-// mutates those same objects in place, so the entry updates itself. A page that
-// was only warmed was never handed to anyone, so a flag change anywhere DOES
-// make it stale: that is why a mutation from the feed calls dropStaleFeedPages()
-// and keeps the pages it already showed.
+// Exactly one page is held on purpose. A page carries a snapshot: its `total`,
+// which videos are on it, and each video's flags. Keeping several lets two
+// entries hold two Video objects for the same video and disagree, and lets a
+// page nobody is looking at go on reporting a `total` the server has moved past.
+// Holding only the page on show means paging away and back re-fetches, so the
+// list self-heals and the count line stays honest.
+//
+// The page on show does NOT go stale under the user's own toggles: its cards
+// were built from the very Video objects the cache holds, so a toggle updates
+// both at once. That is what keeps a card in place, dimmed, instead of vanishing
+// under the finger. A mutation made anywhere else works on a different copy of
+// the same video, so it drops the page (see dropStaleFeedPage below).
 //
 // The warm call NEVER passes forceRefresh — it reuses every live cache entry and
 // fetches only the channels whose 30-minute entry expired, so it adds no
@@ -21,16 +27,19 @@
 
 import type { FeedPage, FeedPageOptions } from "../shared/feed";
 import { createPageCache } from "../shared/pageCache";
+import {
+  feedPageSurvivesMutation,
+  type FeedMutationScreen,
+} from "../shared/feedPageStaleness";
 import { getFeedPage } from "./serverBridge";
 
-// Matches the server's 30-minute per-channel RSS cache (CHANNEL_VIDEOS_TTL_SECONDS
-// in src/server/feed.ts): inside that window a refetch returns the same videos,
-// so keeping the page loses no freshness. Past it, load again.
+// The same length as the server's per-channel RSS cache
+// (CHANNEL_VIDEOS_TTL_SECONDS in src/server/feed.ts), but NOT the same window:
+// the server's starts when it last fetched that channel, ours when our page load
+// started. So a kept page can trail the server by up to one window. That is the
+// trade-off we take — new uploads wait a little, and Force refresh is the way
+// out.
 const FRESH_WINDOW_MS = 30 * 60_000;
-
-// Enough for paging through the feed and coming back, small enough that the
-// browser never holds a large slice of the 1000+ video list.
-const MAX_PAGES = 8;
 
 const cache = createPageCache<FeedPageOptions, FeedPage>({
   load: (options): Promise<FeedPage> => getFeedPage(options),
@@ -40,21 +49,21 @@ const cache = createPageCache<FeedPageOptions, FeedPage>({
   key: (options): string => JSON.stringify({ ...options, forceRefresh: false }),
   now: (): number => Date.now(),
   maxAgeMs: FRESH_WINDOW_MS,
-  maxEntries: MAX_PAGES,
 });
 
-/** Loads a feed page in the background; no-op if a fresh one is already held. */
+/** Loads a feed page in the background; no-op if that page is already held. */
 export function warmFeedPage(options: FeedPageOptions): void {
   cache.warm(options);
 }
 
-/** The kept page for these options, loading it on a miss. A hit resolves on the
- *  same task, so PagedVideoListView's skeletons never paint. */
+/** The kept page for these options, loading it on a miss. A hit that already
+ *  resolved renders with no skeletons; a hit on a load still in flight shows
+ *  them, like any other load. */
 export function loadFeedPage(options: FeedPageOptions): Promise<FeedPage> {
   return cache.use(options);
 }
 
-/** Throws every kept page away and loads this one fresh (the Force refresh
+/** Throws the kept page away and loads this one fresh (the Force refresh
  *  button, whose options carry forceRefresh: true). */
 export function forceReloadFeedPage(
   options: FeedPageOptions,
@@ -63,24 +72,21 @@ export function forceReloadFeedPage(
   return cache.use(options);
 }
 
-// True while the screen on show is the feed or a player opened from it — the
-// only screens whose cards hold the kept pages' own Video objects. Watch Later,
-// History and the playlist screens load their own Video objects, so a toggle
-// there changes a DIFFERENT object for the same video and leaves a kept feed
-// page wrong.
-let feedObjectsAreLive = false;
+// The screen a mutation would be made on right now. Reported by the router; see
+// render() and showPlayer() in src/ui/main.ts.
+let currentScreen: FeedMutationScreen = {
+  inFeedSection: false,
+  isPlayer: false,
+  playerQueueIsFeedPage: false,
+};
 
-/** Routing reports which section is on show; see render() in src/ui/main.ts. */
-export function setFeedSectionActive(active: boolean): void {
-  feedObjectsAreLive = active;
+export function setFeedMutationScreen(screen: FeedMutationScreen): void {
+  currentScreen = screen;
 }
 
-/** Drops the pages a server mutation may have made wrong: their
- *  seen/dismissed/Watch Later/progress flags may no longer match the server.
- *  From the feed that is only the pages nobody has seen, because the mutation
- *  just updated the shown page's own objects in place. From any other screen it
- *  is every page. */
-export function dropStaleFeedPages(): void {
-  if (feedObjectsAreLive) cache.dropUnserved();
-  else cache.clear();
+/** Drops the kept page unless the mutation just changed that page's own Video
+ *  objects. Called by every server write (optimistic() and the player's
+ *  progress save). */
+export function dropStaleFeedPage(): void {
+  if (!feedPageSurvivesMutation(currentScreen)) cache.clear();
 }
