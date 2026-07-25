@@ -244,41 +244,53 @@ function toggleSeen(
 // Watch Later screen's watched undo restores it), so mirror a membership change
 // on the Watch Later toggle sitting in the same action row. The button is found
 // by its data-action tag (set from VideoAction.name), never by label text, so
-// relabeling can't silently break this sync.
+// relabeling can't silently break this sync. `vanishesWhen` is the caller
+// screen's own value (see makeWatchLaterToggle) — passing the wrong one here
+// dims a card that is staying, or leaves a stale dim on one that is not.
 function syncWatchLaterButtons(
   video: Video,
   seenButton: HTMLButtonElement,
-  dimRemoved: boolean,
+  vanishesWhen: boolean | null,
 ): void {
   const row = seenButton.closest(".video-actions");
   row
     ?.querySelectorAll<HTMLButtonElement>(
       '.video-action[data-action="watchlater"]',
     )
-    .forEach((button): void => reflectWatchLater(video, button, dimRemoved));
+    .forEach((button): void => reflectWatchLater(video, button, vanishesWhen));
 }
 
-const markSeenAction: VideoAction = {
-  name: "seen",
-  reflect: reflectSeen,
-  onClick: (video, button): void => {
-    const wasSeen = video.seen;
-    toggleSeen(video, button);
-    // Only the unseen→seen direction drops it from Watch Later; un-marking
-    // seen never re-adds it.
-    if (!wasSeen && video.inWatchLater) {
-      video.inWatchLater = false;
-      syncWatchLaterButtons(video, button, false);
-    }
-  },
-};
+// The watched toggle, shared by every list. It is a factory because marking
+// watched also un-saves the video, so the membership button next to it has to
+// be re-reflected with THIS screen's `vanishesWhen` — the same value its
+// Watch Later toggle uses.
+function makeSeenAction(vanishesWhen: boolean | null): VideoAction {
+  return {
+    name: "seen",
+    reflect: reflectSeen,
+    onClick: (video, button): void => {
+      const wasSeen = video.seen;
+      toggleSeen(video, button);
+      // Only the unseen→seen direction drops it from Watch Later; un-marking
+      // seen never re-adds it.
+      if (!wasSeen && video.inWatchLater) {
+        video.inWatchLater = false;
+        syncWatchLaterButtons(video, button, vanishesWhen);
+      }
+    },
+  };
+}
+
+// Playlists and history: pairs with watchLaterToggleAction's null.
+const markSeenAction: VideoAction = makeSeenAction(null);
 
 // Watch Later: same watched toggle, but its un-toggle goes through
 // undoMarkVideoSeen, which restores the playlist entry that marking seen
 // dropped server-side — otherwise the toggle would look undone here but the
 // video would be gone from Watch Later after a refresh. The membership toggle
-// next to it mirrors both directions, and (this action only runs on the Watch
-// Later screen) the removal dim follows it via reflectWatchLater.
+// next to it mirrors both directions, and the removal dim follows via
+// reflectWatchLater with the Watch Later screen's own vanishesWhen (false, the
+// same value watchLaterRemoveAction uses).
 const watchLaterSeenAction: VideoAction = {
   name: "seen",
   reflect: reflectSeen,
@@ -286,7 +298,7 @@ const watchLaterSeenAction: VideoAction = {
     toggleSeen(video, button, undoMarkVideoSeen);
     // toggleSeen applied optimistically, so video.seen is already the new state.
     video.inWatchLater = !video.seen;
-    syncWatchLaterButtons(video, button, true);
+    syncWatchLaterButtons(video, button, false);
   },
 };
 
@@ -406,10 +418,17 @@ function showFeed(forceFirstLoad: boolean = false): void {
 
   // Built per render, not shared like the other screens': with "Hide saved" on,
   // saving a video is what drops it from the feed, so that is when the card
-  // must dim. Flipping the toggle re-runs showFeed, which rebuilds this.
-  const feedWatchLaterAction: VideoAction = makeWatchLaterToggle(
-    getBoolPreference(HIDE_SAVED_PREF, true) ? true : null,
-  );
+  // must dim. Flipping the toggle re-runs showFeed, which rebuilds these. One
+  // shared local, so the two actions can never disagree on the value.
+  const feedVanishesWhen: boolean | null = getBoolPreference(
+    HIDE_SAVED_PREF,
+    true,
+  )
+    ? true
+    : null;
+  const feedWatchLaterAction: VideoAction =
+    makeWatchLaterToggle(feedVanishesWhen);
+  const feedSeenAction: VideoAction = makeSeenAction(feedVanishesWhen);
 
   let pendingForce = forceFirstLoad;
   app.appendChild(
@@ -431,7 +450,7 @@ function showFeed(forceFirstLoad: boolean = false): void {
       {
         onPlay: (index, queue): void =>
           playFromList(queue, index, { source: "feed" }),
-        actions: [feedWatchLaterAction, markSeenAction],
+        actions: [feedWatchLaterAction, feedSeenAction],
         cornerAction: dismissAction,
         onPageLoaded: (result): void => updateFeedNotice(notice, result),
       },
