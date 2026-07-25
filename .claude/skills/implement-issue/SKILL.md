@@ -96,7 +96,7 @@ For each step (or the single unit):
 
 4. **Create the PR as a draft** (always label and self-assign). Write the PR description in the repo's **Communicating with users** style (`AGENTS.md`): a reviewer skims it, so lead with what changed and why, in short plain sentences.
 
-**`--draft` is mandatory.** `auto-merge.yml` queues GitHub auto-merge on `opened`, so a ready PR merges itself the moment CI turns green, which is faster than the review cycle below can finish. The workflow skips drafts, so a draft is the only thing holding the PR open long enough to review it. Section 7 marks it ready at the end.
+   **`--draft` is mandatory.** `auto-merge.yml` queues GitHub auto-merge on `opened`, so a ready PR merges itself the moment CI turns green, which is faster than the review cycle below can finish. The workflow skips drafts, so a draft is the only thing holding the PR open long enough to review it. Section 7 marks it ready at the end.
 
 ```bash
 gh label create "waiting-for-human-check" --description "No human has verified this yet -- direct AI output" --color "D93F0B" 2>/dev/null || true
