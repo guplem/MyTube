@@ -1,8 +1,8 @@
 // Core concept: server-side paging and filtering of the subscriptions feed.
 // getFeedPage builds the full feed, flags seen/dismissed, applies the
-// hideViewed / hideDismissed / beforeDate / hideShorts filters, then returns a
-// single page plus the total. Shorts are detected by duration (<= 180s), not a
-// flag. See CLAUDE.md and PLAN.md section 5.
+// hideViewed / hideDismissed / hideSaved / beforeDate / hideShorts filters, then
+// returns a single page plus the total. Shorts are detected by duration
+// (<= 180s), not a flag. See CLAUDE.md and PLAN.md section 5.
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
@@ -11,7 +11,11 @@ import {
   httpResponse,
   type AppsScriptMocks,
 } from "../helpers/appsScriptMock";
-import { channelRss, type RssEntry } from "../helpers/fixtures";
+import {
+  channelRss,
+  playlistItemsPage,
+  type RssEntry,
+} from "../helpers/fixtures";
 import { getFeedPage } from "../../src/server/main";
 import { markVideoSeen } from "../../src/server/history";
 import { markVideoDismissed } from "../../src/server/dismissed";
@@ -50,6 +54,16 @@ function seedDurations(durations: { [videoId: string]: string }): void {
   };
 }
 
+/** Seed a Watch Later playlist holding exactly these video ids. */
+function seedWatchLater(videoIds: string[]): void {
+  mocks.userProperties.setProperty("watchLaterPlaylistId", "WL");
+  mocks.youtube.PlaylistItems = {
+    list: () => playlistItemsPage(videoIds),
+    insert: () => ({}),
+    remove: () => ({}),
+  };
+}
+
 function entry(videoId: string, publishedAt: string): RssEntry {
   return {
     videoId,
@@ -67,6 +81,7 @@ const baseOptions: FeedPageOptions = {
   hideShorts: false,
   hideViewed: false,
   hideDismissed: false,
+  hideSaved: false,
   beforeDate: "",
 };
 
@@ -139,6 +154,69 @@ describe("getFeedPage", () => {
     const page = getFeedPage({ ...baseOptions, hideDismissed: true });
 
     expect(page.videos.map((v) => v.videoId)).toEqual(["a"]);
+  });
+
+  it("hides videos already in Watch Later when hideSaved is on", () => {
+    seedFeed([
+      entry("a", "2026-06-20T00:00:00+00:00"),
+      entry("b", "2026-06-19T00:00:00+00:00"),
+    ]);
+    seedWatchLater(["b"]);
+
+    const page = getFeedPage({ ...baseOptions, hideSaved: true });
+
+    expect(page.videos.map((v) => v.videoId)).toEqual(["a"]);
+    // The nav badge counts total, so the filter must shrink it too.
+    expect(page.total).toBe(1);
+  });
+
+  it("keeps saved videos and still flags them when hideSaved is off", () => {
+    seedFeed([
+      entry("a", "2026-06-20T00:00:00+00:00"),
+      entry("b", "2026-06-19T00:00:00+00:00"),
+    ]);
+    seedWatchLater(["b"]);
+
+    const page = getFeedPage({ ...baseOptions, hideSaved: false });
+
+    expect(page.videos.map((v) => v.videoId)).toEqual(["a", "b"]);
+    expect(page.videos.map((v) => v.inWatchLater)).toEqual([false, true]);
+  });
+
+  it("drops saved videos before paging, so the page has no hole", () => {
+    seedFeed([
+      entry("a", "2026-06-20T00:00:00+00:00"),
+      entry("b", "2026-06-19T00:00:00+00:00"),
+      entry("c", "2026-06-18T00:00:00+00:00"),
+    ]);
+    seedWatchLater(["b"]);
+
+    const page = getFeedPage({ ...baseOptions, hideSaved: true, pageSize: 2 });
+
+    // Filtering after the slice would return only ["a"]; the page must be
+    // filled from the videos that survive the filter.
+    expect(page.videos.map((v) => v.videoId)).toEqual(["a", "c"]);
+    expect(page.total).toBe(2);
+  });
+
+  it("hides nothing and makes no API call when there is no Watch Later playlist", () => {
+    seedFeed([
+      entry("a", "2026-06-20T00:00:00+00:00"),
+      entry("b", "2026-06-19T00:00:00+00:00"),
+    ]);
+    // A stray PlaylistItems.list call would throw, proving we never reach it.
+    mocks.youtube.PlaylistItems = {
+      list: () => {
+        throw new Error("should not be called");
+      },
+      insert: () => ({}),
+      remove: () => ({}),
+    };
+
+    const page = getFeedPage({ ...baseOptions, hideSaved: true });
+
+    expect(page.videos.map((v) => v.videoId)).toEqual(["a", "b"]);
+    expect(page.total).toBe(2);
   });
 
   it("hides videos published before beforeDate without touching seen", () => {

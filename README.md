@@ -30,7 +30,8 @@ quota. See [One-time Google setup](#one-time-google-setup) below.
   to, built from each channel's RSS feed (no recommendations). It is paged on the
   server, so even a 1000+ video feed loads a page at a time.
 - **Feed filters** (remembered in your browser): Hide Shorts (by video length),
-  Hide watched, Hide dismissed, and Hide videos older than a chosen date.
+  Hide watched, Hide dismissed, Hide saved (videos already in Watch Later), and
+  Hide videos older than a chosen date.
 - **Dismiss** — a small cross on the top-right of a feed card hides videos you do
   not want to see again in the feed.
 - **Watch history** — mark a video as watched (a button on the card or in the
