@@ -204,10 +204,14 @@ describe("getFeedPage", () => {
       entry("a", "2026-06-20T00:00:00+00:00"),
       entry("b", "2026-06-19T00:00:00+00:00"),
     ]);
-    // A stray PlaylistItems.list call would throw, proving we never reach it.
+    // Count the calls instead of throwing inside the mock: flagInWatchLater
+    // swallows every error, so a thrower would keep this test green even if
+    // the call did happen.
+    let listCalls = 0;
     mocks.youtube.PlaylistItems = {
       list: () => {
-        throw new Error("should not be called");
+        listCalls += 1;
+        return playlistItemsPage([]);
       },
       insert: () => ({}),
       remove: () => ({}),
@@ -217,6 +221,9 @@ describe("getFeedPage", () => {
 
     expect(page.videos.map((v) => v.videoId)).toEqual(["a", "b"]);
     expect(page.total).toBe(2);
+    // No stored playlist id short-circuits getWatchLaterVideoIds to [], so the
+    // filter never costs an API round-trip for a user who never saved anything.
+    expect(listCalls).toBe(0);
   });
 
   it("hides videos published before beforeDate without touching seen", () => {
