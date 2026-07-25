@@ -42,16 +42,25 @@ function seedFeed(entries: RssEntry[]): void {
   mocks.fetchAll = () => [httpResponse(200, channelRss(entries))];
 }
 
-/** Stub the Data API duration lookup: videoId -> ISO 8601 duration. */
-function seedDurations(durations: { [videoId: string]: string }): void {
+/**
+ * Stub the Data API duration lookup: videoId -> ISO 8601 duration. The returned
+ * array collects every id the lookup is asked about, so a test can assert which
+ * videos reached this step (the one filter that costs an API call).
+ */
+function seedDurations(durations: { [videoId: string]: string }): string[] {
+  const askedFor: string[] = [];
   mocks.youtube.Videos = {
-    list: (_part: unknown, params: { id: string }) => ({
-      items: params.id
-        .split(",")
-        .filter((id) => id in durations)
-        .map((id) => ({ id, contentDetails: { duration: durations[id] } })),
-    }),
+    list: (_part: unknown, params: { id: string }) => {
+      askedFor.push(...params.id.split(","));
+      return {
+        items: params.id
+          .split(",")
+          .filter((id) => id in durations)
+          .map((id) => ({ id, contentDetails: { duration: durations[id] } })),
+      };
+    },
   };
+  return askedFor;
 }
 
 /** Seed a Watch Later playlist holding exactly these video ids. */
@@ -224,6 +233,32 @@ describe("getFeedPage", () => {
     // No stored playlist id short-circuits getWatchLaterVideoIds to [], so the
     // filter never costs an API round-trip for a user who never saved anything.
     expect(listCalls).toBe(0);
+  });
+
+  it("drops saved videos before looking up any duration for hideShorts", () => {
+    seedFeed([
+      entry("saved", "2026-06-20T00:00:00+00:00"),
+      entry("short", "2026-06-19T00:00:00+00:00"),
+      entry("normal", "2026-06-18T00:00:00+00:00"),
+    ]);
+    seedWatchLater(["saved"]);
+    const durationLookups = seedDurations({
+      saved: "PT30S",
+      short: "PT30S",
+      normal: "PT10M",
+    });
+
+    const page = getFeedPage({
+      ...baseOptions,
+      hideSaved: true,
+      hideShorts: true,
+    });
+
+    expect(page.videos.map((v) => v.videoId)).toEqual(["normal"]);
+    expect(page.total).toBe(1);
+    // The duration lookup is the only filter that costs an API call, so it must
+    // stay last: a saved video is gone before anyone asks how long it is.
+    expect(durationLookups).toEqual(["short", "normal"]);
   });
 
   it("hides videos published before beforeDate without touching seen", () => {
