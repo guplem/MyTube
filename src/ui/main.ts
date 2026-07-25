@@ -33,6 +33,7 @@ import {
   loadFeedPage,
   forceReloadFeedPage,
   setFeedMutationScreen,
+  isKeptFeedPage,
 } from "./feedPageCache";
 import { renderBuildStamp } from "./buildStamp";
 import {
@@ -727,14 +728,6 @@ function renderPlaylistScreen(
 // video in place (loadVideoById) instead of reloading the iframe.
 let activePlayer: { controller: PlayerController; key: string } | null = null;
 
-// The array the feed list handed to the player when the user tapped a card. It
-// IS the kept feed page's own array, so a toggle in that player updates the page
-// too. Any other queue is a copy: browser back/forward restores the screen (and
-// its queue) through google.script.history, which serializes it across the Apps
-// Script iframe, and a forward navigation with no queue rebuilds one from
-// scratch. Compared by identity in recordPlayerScreen.
-let feedQueueInPlay: Video[] | null = null;
-
 function playFromList(
   queue: Video[],
   index: number,
@@ -742,7 +735,6 @@ function playFromList(
 ): void {
   const video = queue[index];
   if (!video) return;
-  feedQueueInPlay = context.source === "feed" ? queue : null;
   go({
     view: "player",
     videoId: video.videoId,
@@ -816,11 +808,16 @@ function playerQueueKey(context: PlayerContext, queue: Video[]): string {
 // called AFTER clearActivePlayer(): tearing a player down saves its playback
 // position, and that write belongs to the player going away, not to the screen
 // coming in.
+//
+// The cache answers the identity question (isKeptFeedPage), never a flag we set
+// when the feed handed the queue over: the kept page can be replaced while this
+// player is still holding the old array, and a remembered flag would then spare
+// a page the mutation no longer touches.
 function recordPlayerScreen(screen: PlayerScreen, queue: Video[]): void {
   setFeedMutationScreen({
     inFeedSection: sectionOf(screen) === "feed",
     isPlayer: true,
-    playerQueueIsFeedPage: queue === feedQueueInPlay,
+    playerQueueIsFeedPage: isKeptFeedPage(queue),
   });
 }
 

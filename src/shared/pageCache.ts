@@ -16,6 +16,10 @@
 // - A failed load is dropped, so a rejected promise is never handed out later
 //   (a caller already holding it sees the rejection, same as a direct call
 //   failing).
+// - resolved() answers "which value do you hold right now". A caller that holds
+//   an object from an earlier use() can compare against it instead of trusting
+//   its own reference, which would go on claiming identity with a page the cache
+//   had already replaced or dropped.
 
 export interface PageCacheConfig<O, T> {
   /** Starts the load for the given options. */
@@ -35,6 +39,9 @@ export interface PageCache<O, T> {
   /** The kept page for these options, loading it on a miss. A different key
    *  replaces the kept page, so only one is ever held. */
   use: (options: O) => Promise<T>;
+  /** The value the kept page loaded to, or null when nothing is held, the held
+   *  load is still in flight, or it failed. */
+  resolved: () => T | null;
   /** Drops the kept page. */
   clear: () => void;
 }
@@ -49,6 +56,10 @@ export function createPageCache<O, T>(
   config: PageCacheConfig<O, T>,
 ): PageCache<O, T> {
   let entry: Entry<T> | null = null;
+  // What the kept entry loaded to. Reset the instant the slot is taken by
+  // another load or dropped, so it can never outlive the page it belongs to,
+  // and only ever set by the load that still owns the slot.
+  let resolvedValue: T | null = null;
 
   function fresh(key: string): Entry<T> | null {
     if (!entry || entry.key !== key) return null;
@@ -62,11 +73,18 @@ export function createPageCache<O, T>(
       startedAt: config.now(),
     };
     entry = next;
-    // Drop a failed load — but only while it is still the kept page, so a stale
-    // rejection never wipes out a newer one.
-    next.promise.catch((): void => {
-      if (entry === next) entry = null;
-    });
+    resolvedValue = null;
+    // Both hooks are guarded on this load still being the kept page, so a slow
+    // older load can neither wipe out a newer one on failure nor claim the slot
+    // back on success.
+    next.promise.then(
+      (value): void => {
+        if (entry === next) resolvedValue = value;
+      },
+      (): void => {
+        if (entry === next) entry = null;
+      },
+    );
     return next;
   }
 
@@ -80,8 +98,10 @@ export function createPageCache<O, T>(
       const key = config.key(options);
       return (fresh(key) ?? start(key, options)).promise;
     },
+    resolved: (): T | null => resolvedValue,
     clear: (): void => {
       entry = null;
+      resolvedValue = null;
     },
   };
 }

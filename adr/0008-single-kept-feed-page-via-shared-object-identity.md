@@ -35,6 +35,15 @@ a given mutation still leaves the kept page correct lives in
 must either share the feed's `Video` objects or make the mutation drop the
 kept page.
 
+Identity is **asked of the cache at mutation time**, never remembered when the
+array was handed over. The cache reports what it currently holds
+(`resolved()` in `src/shared/pageCache.ts`, wrapped as `isKeptFeedPage` in
+`src/ui/feedPageCache.ts`). A remembered flag goes wrong on its own: the kept
+page can be replaced under a screen that still holds the old array — an
+in-player navigation warms the feed, and that warm reloads once the fresh
+window passes or the key moves — and the old array would still look like the
+kept page.
+
 The single-slot cache mechanics (fresh window, warm, replace) live in
 `src/shared/pageCache.ts`, generic and independent of the feed. `src/ui/feedPageCache.ts`
 wires that generic cache to the feed: it is the only path to `getFeedPage`.
@@ -69,6 +78,13 @@ identity, not by keeping more pages or invalidating more eagerly.
   feed's own `Video` objects, or call the drop path
   (`dropStaleFeedPage` in `src/ui/feedPageCache.ts`) on every mutation it
   makes. Silently doing neither means the feed shows stale flags.
+- Anything that claims identity with the kept page must prove it through
+  `isKeptFeedPage` at the moment of the mutation. A stored "this is the feed's
+  array" flag is the failure this ADR exists to prevent.
+- A screen that paints after an `await` must check it is still the current
+  screen before painting. Otherwise the mutation policy describes the screen
+  the router moved to while the DOM shows a different list, and a toggle on
+  that list spares a kept page it does not share objects with.
 - The feed can lag the server by up to one 30-minute RSS window; Force
   refresh is the user's way to force a same-instant reload.
 - Paging away from the kept page and back always re-fetches; only the page

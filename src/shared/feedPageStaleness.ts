@@ -14,11 +14,14 @@ export interface FeedMutationScreen {
   inFeedSection: boolean;
   /** A player is mounted (rather than a list screen). */
   isPlayer: boolean;
-  /** The mounted player's queue is the array the feed list handed over, not a
-   *  copy. Browser back/forward restores the queue through
-   *  google.script.history, which serializes it across the Apps Script iframe,
-   *  and a forward navigation with no queue rebuilds a fresh one — both give the
-   *  player copies. */
+  /** The mounted player's queue IS the kept feed page's own Video array right
+   *  now. Two ways it is false. The queue can be a copy from the start: browser
+   *  back/forward restores it through google.script.history, which serializes it
+   *  across the Apps Script iframe, and a forward navigation with no queue
+   *  rebuilds a fresh one. Or the kept page can be swapped out later, under a
+   *  player still holding the old array. So the caller must ask the cache at
+   *  mutation time (isKeptFeedPage in src/ui/feedPageCache.ts), never set this
+   *  once at hand-over. */
   playerQueueIsFeedPage: boolean;
 }
 

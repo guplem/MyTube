@@ -11,6 +11,7 @@ interface Harness {
   loads: { filter: string }[];
   clock: { now: number };
   resolveAll: () => Promise<void>;
+  resolveLoad: (index: number) => Promise<void>;
   failAll: () => Promise<void>;
   failLoad: (index: number) => Promise<void>;
 }
@@ -49,6 +50,10 @@ function makeHarness(): Harness {
     clock,
     resolveAll: async (): Promise<void> => {
       pending.forEach((entry, index) => entry.resolve(`result-${index}`));
+      await settle();
+    },
+    resolveLoad: async (index: number): Promise<void> => {
+      pending[index]?.resolve(`result-${index}`);
       await settle();
     },
     failAll: async (): Promise<void> => {
@@ -147,5 +152,73 @@ describe("createPageCache", () => {
     await failLoad(0); // only the first load fails
     expect(cache.use({ filter: "a" })).toBe(fresh);
     expect(loads).toHaveLength(2);
+  });
+});
+
+// resolved() is how a caller asks "is the object I am holding still the page you
+// hold?" without keeping its own reference, which would go on claiming identity
+// after the cache had already swapped the page out.
+describe("createPageCache resolved", () => {
+  it("is null with nothing held", () => {
+    const { cache } = makeHarness();
+    expect(cache.resolved()).toBeNull();
+  });
+
+  it("is null while the kept load is still in flight", () => {
+    const { cache } = makeHarness();
+    cache.use({ filter: "a" });
+    expect(cache.resolved()).toBeNull();
+  });
+
+  it("reports the kept page once its load resolves", async () => {
+    const { cache, resolveAll } = makeHarness();
+    cache.use({ filter: "a" });
+    await resolveAll();
+    expect(cache.resolved()).toBe("result-0");
+  });
+
+  it("is null after a failed load", async () => {
+    const { cache, failAll } = makeHarness();
+    cache.use({ filter: "a" }).catch((): void => undefined);
+    await failAll();
+    expect(cache.resolved()).toBeNull();
+  });
+
+  it("is null after clear", async () => {
+    const { cache, resolveAll } = makeHarness();
+    cache.use({ filter: "a" });
+    await resolveAll();
+    cache.clear();
+    expect(cache.resolved()).toBeNull();
+  });
+
+  // The hole this closes: a warm-up replaces the kept page while another screen
+  // still holds the old one. The old page must stop being recognised the instant
+  // it is replaced, not when the replacement finishes loading.
+  it("is null again the moment a warm-up replaces the kept page", async () => {
+    const { cache, resolveAll } = makeHarness();
+    cache.use({ filter: "a" });
+    await resolveAll();
+    cache.warm({ filter: "b" });
+    expect(cache.resolved()).toBeNull();
+  });
+
+  it("reports the replacement, not the page it replaced", async () => {
+    const { cache, resolveAll } = makeHarness();
+    cache.use({ filter: "a" });
+    await resolveAll();
+    cache.use({ filter: "b" });
+    await resolveAll();
+    expect(cache.resolved()).toBe("result-1");
+  });
+
+  it("ignores a replaced load that resolves late", async () => {
+    const { cache, clock, resolveLoad } = makeHarness();
+    cache.use({ filter: "a" }); // load 0
+    clock.now += MAX_AGE_MS; // it ages out
+    cache.use({ filter: "a" }); // load 1 takes the slot
+    await resolveLoad(1);
+    await resolveLoad(0);
+    expect(cache.resolved()).toBe("result-1");
   });
 });

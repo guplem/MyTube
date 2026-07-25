@@ -146,6 +146,10 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   reports the screen it would apply to with `setFeedMutationScreen`. Any
   non-feed `render()` warms the page the feed will open on, never with
   `forceRefresh`. Do not add feed-loading paths that bypass this cache.
+  **Never remember "this array is the feed's page" — ask `isKeptFeedPage` at
+  mutation time.** A warm-up can replace the kept page under a player still
+  holding the old array, and a stored flag would then spare a page the
+  mutation does not touch (ADR 0008).
 - **The feed reopens on the page it last showed.** `feedPage`/`feedPageSize` in
   `src/ui/main.ts` seed `VideoListOptions.paging` and follow its `onChange`. The
   filters and Force refresh reset to page 0 (`reloadFeedFromStart`). Scroll

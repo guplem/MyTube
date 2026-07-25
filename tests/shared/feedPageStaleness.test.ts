@@ -38,8 +38,10 @@ describe("feedPageSurvivesMutation", () => {
 
   // Browser back/forward re-renders the player from google.script.history, which
   // serializes the queue across the Apps Script iframe, and a forward navigation
-  // with no queue rebuilds a fresh one. Either way the player mutates copies.
-  it("drops the page for a feed player whose queue is a copy", () => {
+  // with no queue rebuilds a fresh one. Either way the player mutates copies —
+  // and so does a player whose queue WAS the kept page until a warm-up replaced
+  // it, which is why the caller re-asks the cache instead of remembering a flag.
+  it("drops the page for a feed player whose queue is not the kept page", () => {
     expect(
       feedPageSurvivesMutation(
         screen({

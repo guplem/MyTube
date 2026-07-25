@@ -26,6 +26,7 @@
 // steady-state fetch volume (and RSS costs no API quota; see PLAN.md section 5).
 
 import type { FeedPage, FeedPageOptions } from "../shared/feed";
+import type { Video } from "../shared/video";
 import { createPageCache } from "../shared/pageCache";
 import {
   feedPageSurvivesMutation,
@@ -70,6 +71,20 @@ export function forceReloadFeedPage(
 ): Promise<FeedPage> {
   cache.clear();
   return cache.use(options);
+}
+
+/** True when this exact array IS the kept page's Video array, right now — so
+ *  mutating one of its videos updates the kept page along with the screen.
+ *
+ *  Always ask this at the moment of the mutation instead of remembering the
+ *  array when it was handed over. The kept page can be swapped out under a
+ *  screen that still holds the old array: a player is not the feed, so every
+ *  in-player navigation warms the feed page, and that warm reloads once the
+ *  30-minute window passes or the key changes (beforeDate defaults to a date
+ *  computed from today, so it moves at midnight). The old array would still
+ *  look like the kept page to anyone tracking it by hand. */
+export function isKeptFeedPage(videos: Video[]): boolean {
+  return cache.resolved()?.videos === videos;
 }
 
 // The screen a mutation would be made on right now. Reported by the router; see
