@@ -65,6 +65,13 @@ const PAGE_SIZE_OPTIONS = [24, 48, 96];
 export const DEFAULT_PAGE_SIZE = 24;
 const SKELETON_COUNT = 12; // placeholder cards shown while a page loads
 
+// Bumped by every renderList call. Only one list is on screen at a time, so a
+// list whose generation is no longer the latest was thrown away (a filter change
+// rebuilds the whole feed screen). Its load can still be in flight — an Apps
+// Script call takes seconds — and must then report nothing: its grid is detached
+// from the page, and its onChange would overwrite the new list's remembered page.
+let listGeneration = 0;
+
 function fillWithSkeletons(grid: HTMLElement, count: number): void {
   grid.innerHTML = "";
   for (let index = 0; index < count; index += 1)
@@ -108,6 +115,9 @@ function renderList(
   fullQueue: Video[] | null,
 ): HTMLElement {
   const actions = options.actions ?? [];
+  listGeneration += 1;
+  const generation = listGeneration;
+  const isDiscarded = (): boolean => generation !== listGeneration;
   const root = document.createElement("div");
   root.className = "list-view";
 
@@ -169,6 +179,7 @@ function renderList(
     try {
       result = await load(page, pageSize);
     } catch (error) {
+      if (isDiscarded()) return;
       grid.innerHTML = "";
       const failure = document.createElement("p");
       failure.className = "muted";
@@ -176,6 +187,7 @@ function renderList(
       grid.appendChild(failure);
       return;
     }
+    if (isDiscarded()) return;
 
     options.onPageLoaded?.(result);
 
