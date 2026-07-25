@@ -26,6 +26,17 @@ export interface VideoAction {
   onClick: (video: Video, button: HTMLButtonElement) => void;
 }
 
+/** Where the list opens, and a way to report where it moved to. Pass it when
+ *  the caller wants the shown page to outlive the DOM (the feed reopens on the
+ *  page the user left); omit it to start at page 0 and the default size. */
+export interface ListPaging {
+  /** 0-based page to open on. */
+  page: number;
+  pageSize: number;
+  /** Called with the page and size actually shown, after every load. */
+  onChange: (page: number, pageSize: number) => void;
+}
+
 export interface VideoListOptions {
   onPlay: (index: number, queue: Video[]) => void;
   actions?: VideoAction[];
@@ -34,6 +45,7 @@ export interface VideoListOptions {
   /** Called after each page load with the loader's result, e.g. to surface a
    *  feed load-health warning. */
   onPageLoaded?: (result: VideoPage) => void;
+  paging?: ListPaging;
 }
 
 interface VideoPage {
@@ -48,7 +60,8 @@ interface VideoPage {
 type PageLoader = (page: number, pageSize: number) => Promise<VideoPage>;
 
 const PAGE_SIZE_OPTIONS = [24, 48, 96];
-/** Exported so the feed warm-up (feedPageCache) requests the same first page. */
+/** Exported so the feed's remembered page size starts on the same default, and
+ *  the background warm-up therefore requests the page the list will show. */
 export const DEFAULT_PAGE_SIZE = 24;
 const SKELETON_COUNT = 12; // placeholder cards shown while a page loads
 
@@ -98,8 +111,8 @@ function renderList(
   const root = document.createElement("div");
   root.className = "list-view";
 
-  let pageSize = DEFAULT_PAGE_SIZE;
-  let page = 0;
+  let pageSize = options.paging?.pageSize ?? DEFAULT_PAGE_SIZE;
+  let page = options.paging?.page ?? 0;
 
   const controls = document.createElement("div");
   controls.className = "list-controls";
@@ -124,7 +137,7 @@ function renderList(
     const option = document.createElement("option");
     option.value = String(size);
     option.textContent = String(size);
-    if (size === DEFAULT_PAGE_SIZE) option.selected = true;
+    if (size === pageSize) option.selected = true;
     sizeSelect.appendChild(option);
   }
   sizeSelect.addEventListener("change", (): void => {
@@ -174,6 +187,9 @@ function renderList(
       void render();
       return;
     }
+    // Report only the page actually shown, so a caller keeping it never stores
+    // a page number the clamp above just corrected.
+    options.paging?.onChange(page, pageSize);
 
     grid.innerHTML = "";
     if (total === 0) {

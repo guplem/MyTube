@@ -373,6 +373,21 @@ function feedPageOptions(
   };
 }
 
+// The page and page size the feed last showed. Module state, not URL state: it
+// is a scroll-like position, so it should survive leaving the feed and coming
+// back within a session but not be part of a shared link. Anything that changes
+// what the feed contains resets it (see reloadFeedFromStart).
+let feedPage = 0;
+let feedPageSize = DEFAULT_PAGE_SIZE;
+
+// Re-renders the feed from its first page. Used by the filters and by Force
+// refresh: both change what the feed holds, so the remembered page number
+// belongs to the old contents and would land the user in the wrong place.
+function reloadFeedFromStart(forceRefresh: boolean): void {
+  feedPage = 0;
+  showFeed(forceRefresh);
+}
+
 function showFeed(forceFirstLoad: boolean = false): void {
   const app = appContainer();
   if (!app) return;
@@ -381,9 +396,11 @@ function showFeed(forceFirstLoad: boolean = false): void {
   const toolbar = document.createElement("div");
   toolbar.className = "feed-toolbar";
 
-  // Filters on the left; changing any of them re-renders the feed (showFeed),
-  // which resets to page 0 and reloads with the new state. The loader reads each
-  // preference fresh on every page request.
+  // Filters on the left; changing any of them re-renders the feed
+  // (reloadFeedFromStart), which goes back to page 0 and loads with the new
+  // state. A changed filter also changes the feed page cache's key, so the new
+  // state always comes from the server. The loader reads each preference fresh
+  // on every page request.
   const filters = document.createElement("div");
   filters.className = "feed-filters";
   filters.append(
@@ -407,7 +424,7 @@ function showFeed(forceFirstLoad: boolean = false): void {
   refresh.textContent = "↻ Force refresh";
   refresh.title =
     "Re-fetch every channel now instead of waiting out the 30-minute cache";
-  refresh.addEventListener("click", (): void => showFeed(true));
+  refresh.addEventListener("click", (): void => reloadFeedFromStart(true));
 
   toolbar.append(filters, refresh);
   app.appendChild(toolbar);
@@ -454,6 +471,14 @@ function showFeed(forceFirstLoad: boolean = false): void {
         actions: [feedWatchLaterAction, feedSeenAction],
         cornerAction: dismissAction,
         onPageLoaded: (result): void => updateFeedNotice(notice, result),
+        paging: {
+          page: feedPage,
+          pageSize: feedPageSize,
+          onChange: (page, pageSize): void => {
+            feedPage = page;
+            feedPageSize = pageSize;
+          },
+        },
       },
     ),
   );
@@ -496,7 +521,7 @@ function feedToggle(
   checkbox.checked = getBoolPreference(prefKey, defaultValue);
   checkbox.addEventListener("change", (): void => {
     setBoolPreference(prefKey, checkbox.checked);
-    showFeed();
+    reloadFeedFromStart(false);
   });
   label.append(checkbox, document.createTextNode(labelText));
   return label;
@@ -520,7 +545,7 @@ function beforeDateControl(): HTMLElement {
   );
   input.addEventListener("change", (): void => {
     setStringPreference(BEFORE_DATE_PREF, input.value);
-    showFeed();
+    reloadFeedFromStart(false);
   });
   label.append(document.createTextNode("Hide older than "), input);
   return label;
@@ -830,13 +855,14 @@ function go(screen: Screen): void {
 
 function render(screen: Screen): void {
   setActiveNav(sectionOf(screen));
-  // Any screen but the feed warms feed page 1 in the background (the feed's own
-  // loader is the fetch there). Fire-and-forget: it runs as its own parallel
-  // server call, so it never delays the screen being rendered. A fresh warm for
-  // the same filters is a no-op, and the server only refetches the channels
-  // whose RSS cache expired — never a forced refresh.
+  // Any screen but the feed warms the page the feed would open on — the one it
+  // last showed, not always the first (the feed's own loader is the fetch
+  // there). Fire-and-forget: it runs as its own parallel server call, so it
+  // never delays the screen being rendered. It is a no-op when that page is
+  // already held, and the server only refetches the channels whose RSS cache
+  // expired — never a forced refresh.
   if (screen.view !== "feed")
-    warmFeedPage(feedPageOptions(0, DEFAULT_PAGE_SIZE, false));
+    warmFeedPage(feedPageOptions(feedPage, feedPageSize, false));
   // Leaving the player: tear down the YouTube iframe so it stops playing.
   if (screen.view !== "player") clearActivePlayer();
   switch (screen.view) {
