@@ -48,27 +48,30 @@ export function getFeedPage(options: FeedPageOptions): FeedPage {
   flagSeen(all);
   flagDismissed(all);
   let visible = all;
-  // Apply the cheap filters first. The duration lookup (hideShorts) is the
-  // expensive step, so shrinking the list with the free filters beforehand means
-  // we only fetch durations for the videos that survive them.
+  // Cheapest filters first, so each costly step runs on an already smaller
+  // list: the free ones (already-computed flags, a date string compare), then
+  // Watch Later membership, then the duration lookup (hideShorts), the most
+  // expensive of all.
   if (options.hideViewed) {
     visible = visible.filter((video) => !video.seen);
   }
   if (options.hideDismissed) {
     visible = visible.filter((video) => !video.dismissed);
   }
-  if (options.hideSaved) {
-    // Membership is normally flagged after paging (it is only needed for the
-    // cards shown), but filtering on it has to happen before the slice, so flag
-    // the whole surviving list here. Both calls read the same 10-minute cache.
-    flagInWatchLater(visible);
-    visible = visible.filter((video) => !video.inWatchLater);
-  }
   if (options.beforeDate) {
     // Keep videos published on or after the cutoff date; compare date parts only.
     visible = visible.filter(
       (video) => video.publishedAt.slice(0, 10) >= options.beforeDate,
     );
+  }
+  if (options.hideSaved) {
+    // After the free filters, before the duration lookup: this one can cost a
+    // playlist fetch on a cold cache and its flag loop walks the whole list.
+    // Membership is normally flagged after paging (it is only needed for the
+    // cards shown), but filtering on it has to happen before the slice, so flag
+    // the whole surviving list here. Both calls read the same 10-minute cache.
+    flagInWatchLater(visible);
+    visible = visible.filter((video) => !video.inWatchLater);
   }
   if (options.hideShorts) {
     enrichDurations(visible);
