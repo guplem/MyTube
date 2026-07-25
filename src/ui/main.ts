@@ -352,6 +352,23 @@ const dismissAction: VideoAction = {
 
 // --- Screens ---------------------------------------------------------------
 
+// Bumped by every render(). A screen that paints after an `await` captures it
+// first and paints nothing once it changed, because the user has navigated on.
+// Two things break otherwise. The obvious one: a slow list paints over the
+// screen the user actually asked for (an Apps Script call takes seconds, so
+// leaving Watch Later mid-load is normal). The quiet one: render() already told
+// feedPageCache which screen a mutation belongs to, so a toggle on that
+// painted-over list would be judged as a toggle on the NEW screen — a kept feed
+// page spared for a mutation made on another list's Video copies (ADR 0008).
+let navigationGeneration = 0;
+
+/** Captured before an async screen starts loading; true once render() has moved
+ *  on to another screen and this one must not paint. */
+function navigationMovedOn(): () => boolean {
+  const generation = navigationGeneration;
+  return (): boolean => generation !== navigationGeneration;
+}
+
 // The feed page options for the current filter preferences. Used by the feed
 // screen's loader AND the background warm-up, so a warmed page matches the
 // exact request the feed screen would make.
@@ -586,10 +603,12 @@ function showPlaylist(playlistId: string, title: string): void {
 function showPlaylists(): void {
   const app = appContainer();
   if (!app) return;
+  const movedOn = navigationMovedOn();
   app.innerHTML = "";
   app.appendChild(skeletonPlaylistList());
   getPlaylists()
     .then((playlists): void => {
+      if (movedOn()) return;
       app.innerHTML = "";
       if (playlists.length === 0) {
         app.textContent = "You have no playlists.";
@@ -614,6 +633,7 @@ function showPlaylists(): void {
       app.appendChild(list);
     })
     .catch((error: Error): void => {
+      if (movedOn()) return;
       app.textContent = `Could not load your playlists: ${error.message}`;
     });
 }
@@ -629,14 +649,17 @@ function renderVideoScreen(
 ): void {
   const app = appContainer();
   if (!app) return;
+  const movedOn = navigationMovedOn();
   app.innerHTML = "";
   app.appendChild(skeletonGrid());
   load
     .then((videos): void => {
+      if (movedOn()) return;
       app.innerHTML = "";
       app.appendChild(VideoListView(videos, optionsFor()));
     })
     .catch((error: Error): void => {
+      if (movedOn()) return;
       app.textContent = `Could not load this list: ${error.message}`;
     });
 }
@@ -675,12 +698,14 @@ function renderPlaylistScreen(
 ): void {
   const app = appContainer();
   if (!app) return;
+  const movedOn = navigationMovedOn();
   app.innerHTML = "";
   // The placeholder mirrors the loaded layout (sort toolbar + grid) so the
   // cards don't shift down when the real toolbar appears.
   app.append(skeletonSortToolbar(), skeletonGrid());
   load
     .then((videos): void => {
+      if (movedOn()) return;
       app.innerHTML = "";
       let currentSort = defaultSort;
 
@@ -718,6 +743,7 @@ function renderPlaylistScreen(
       renderList();
     })
     .catch((error: Error): void => {
+      if (movedOn()) return;
       app.textContent = `Could not load this list: ${error.message}`;
     });
 }
@@ -751,11 +777,18 @@ function renderPlayer(screen: PlayerScreen): void {
     return;
   }
   // No in-memory queue (shared link or forward navigation): rebuild it.
+  const movedOn = navigationMovedOn();
   const app = appContainer();
   if (app) app.replaceChildren(skeletonPlayerView());
   rebuildQueue(screen.context, screen.videoId)
-    .then((queue): void => showPlayer(screen, queue))
-    .catch((): void => showPlayer(screen, [minimalVideo(screen.videoId)]));
+    .then((queue): void => {
+      if (movedOn()) return;
+      showPlayer(screen, queue);
+    })
+    .catch((): void => {
+      if (movedOn()) return;
+      showPlayer(screen, [minimalVideo(screen.videoId)]);
+    });
 }
 
 // Shows the player for a screen. If a player for the same queue is already
@@ -875,6 +908,8 @@ function go(screen: Screen): void {
 }
 
 function render(screen: Screen): void {
+  // Retires every screen still loading: from here on their paint is dropped.
+  navigationGeneration += 1;
   // Leaving the player: tear down the YouTube iframe so it stops playing. This
   // runs FIRST, before the incoming screen is recorded below and before the
   // warm-up, because destroy() saves the playback position: that mutation
