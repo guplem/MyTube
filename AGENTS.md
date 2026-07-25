@@ -222,15 +222,16 @@ the component reuse model, feed caching/paging, and deployment/CI/auto-merge.
 only if you introduced a new architectural pattern or changed one an ADR already
 records.
 
-| ADR                                                                | Decision                                                                                     |
-| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
-| [0001](adr/0001-use-google-apps-script.md)                         | Platform: Google Apps Script web app                                                         |
-| [0002](adr/0002-watch-later-as-real-youtube-playlist.md)           | Watch Later is a real YouTube playlist (write scope)                                         |
-| [0003](adr/0003-expose-server-functions-via-top-level-wrappers.md) | Expose server functions via generated top-level wrappers                                     |
-| [0004](adr/0004-component-reuse-model.md)                          | One `Video` type, one `VideoListView`, one `PlayerView`                                      |
-| [0005](adr/0005-store-history-in-properties.md)                    | Store watch history in PropertiesService, not a Sheet                                        |
-| [0006](adr/0006-test-first-with-faked-apps-script.md)              | Test-first (TDD) on Node/Vitest with faked Apps Script globals; green tests gate every merge |
-| [0007](adr/0007-agent-docs-structure.md)                           | `AGENTS.md` map + Claude-Code-only skills, subagents, and settings                           |
+| ADR                                                                  | Decision                                                                                     |
+| -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| [0001](adr/0001-use-google-apps-script.md)                           | Platform: Google Apps Script web app                                                         |
+| [0002](adr/0002-watch-later-as-real-youtube-playlist.md)             | Watch Later is a real YouTube playlist (write scope)                                         |
+| [0003](adr/0003-expose-server-functions-via-top-level-wrappers.md)   | Expose server functions via generated top-level wrappers                                     |
+| [0004](adr/0004-component-reuse-model.md)                            | One `Video` type, one `VideoListView`, one `PlayerView`                                      |
+| [0005](adr/0005-store-history-in-properties.md)                      | Store watch history in PropertiesService, not a Sheet                                        |
+| [0006](adr/0006-test-first-with-faked-apps-script.md)                | Test-first (TDD) on Node/Vitest with faked Apps Script globals; green tests gate every merge |
+| [0007](adr/0007-agent-docs-structure.md)                             | `AGENTS.md` map + Claude-Code-only skills, subagents, and settings                           |
+| [0008](adr/0008-single-kept-feed-page-via-shared-object-identity.md) | Feed keeps ONE loaded page, kept correct by sharing `Video` object identity                  |
 
 ## Gotchas
 
