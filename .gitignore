@@ -6,3 +6,6 @@ dist/
 .clasprc.json
 
 *.log
+
+# local PR review findings written by the implement-issue cycle
+.reviews/

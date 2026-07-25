@@ -70,6 +70,9 @@ Whenever you need to confirm the code still passes, delegate to the **validate**
 total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   has two modes: `PagedVideoListView(loader)` for the feed and the in-memory
   array form for the smaller lists. Do not reintroduce shipping the full feed.
+  **Whatever a filter reads must be flagged on the whole list, before the
+  slice.** Membership and duration are otherwise flagged on the page only.
+  Flagging after the slice leaves holes in the page and inflates `total`.
 - **Shorts are detected by length, not a real flag** (RSS has none): duration
   via `youtube.getVideoDurationsSeconds` (Data API `contentDetails`, cached in
   the shared script cache since length is the same for everyone), hidden when
@@ -96,8 +99,10 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   same 95% line as `PROGRESS_FINISHED`, so the nudge and the store agree),
   fed the stored flag on cards and, in the player, also the live position
   (polled every second). Nothing removes a card
-  from the DOM mid-session: a toggled-off video stays in place (dimmed where it
-  will disappear on the next load), so a mis-tap is undone with a second tap.
+  from the DOM mid-session: a toggled video stays in place, dimmed whenever its
+  new state is the one that drops it from this list (saved in the feed while
+  "Hide saved" is on, unsaved on the Watch Later screen), so a mis-tap is undone
+  with a second tap.
   On the Watch Later screen the membership toggle IS the remove button.
 - **Marking seen drops the video from Watch Later** (`markVideoSeen` in
   `src/server/main.ts` removes it if present). This is the one cross-list side
