@@ -9,7 +9,6 @@ import type { FeedPageOptions } from "../shared/feed";
 import { defaultFeedBeforeDate } from "../shared/feed";
 import { shouldSuggestWatched } from "../shared/videoProgress";
 import {
-  getFeedPage,
   getHistory,
   getPlaylists,
   getPlaylistVideos,
@@ -29,7 +28,13 @@ import {
   DEFAULT_PAGE_SIZE,
   type VideoAction,
 } from "./videoListView";
-import { warmFeedPage, takePrefetchedFeedPage } from "./feedPrefetch";
+import {
+  warmFeedPage,
+  loadFeedPage,
+  forceReloadFeedPage,
+  setFeedMutationScreen,
+  isKeptFeedPage,
+} from "./feedPageCache";
 import { renderBuildStamp } from "./buildStamp";
 import {
   skeletonPlaylistList,
@@ -347,6 +352,23 @@ const dismissAction: VideoAction = {
 
 // --- Screens ---------------------------------------------------------------
 
+// Bumped by every render(). A screen that paints after an `await` captures it
+// first and paints nothing once it changed, because the user has navigated on.
+// Two things break otherwise. The obvious one: a slow list paints over the
+// screen the user actually asked for (an Apps Script call takes seconds, so
+// leaving Watch Later mid-load is normal). The quiet one: render() already told
+// feedPageCache which screen a mutation belongs to, so a toggle on that
+// painted-over list would be judged as a toggle on the NEW screen — a kept feed
+// page spared for a mutation made on another list's Video copies (ADR 0008).
+let navigationGeneration = 0;
+
+/** Captured before an async screen starts loading; true once render() has moved
+ *  on to another screen and this one must not paint. */
+function navigationMovedOn(): () => boolean {
+  const generation = navigationGeneration;
+  return (): boolean => generation !== navigationGeneration;
+}
+
 // The feed page options for the current filter preferences. Used by the feed
 // screen's loader AND the background warm-up, so a warmed page matches the
 // exact request the feed screen would make.
@@ -370,6 +392,21 @@ function feedPageOptions(
   };
 }
 
+// The page and page size the feed last showed. Module state, not URL state: it
+// is a scroll-like position, so it should survive leaving the feed and coming
+// back within a session but not be part of a shared link. Anything that changes
+// what the feed contains resets it (see reloadFeedFromStart).
+let feedPage = 0;
+let feedPageSize = DEFAULT_PAGE_SIZE;
+
+// Re-renders the feed from its first page. Used by the filters and by Force
+// refresh: both change what the feed holds, so the remembered page number
+// belongs to the old contents and would land the user in the wrong place.
+function reloadFeedFromStart(forceRefresh: boolean): void {
+  feedPage = 0;
+  showFeed(forceRefresh);
+}
+
 function showFeed(forceFirstLoad: boolean = false): void {
   const app = appContainer();
   if (!app) return;
@@ -378,9 +415,11 @@ function showFeed(forceFirstLoad: boolean = false): void {
   const toolbar = document.createElement("div");
   toolbar.className = "feed-toolbar";
 
-  // Filters on the left; changing any of them re-renders the feed (showFeed),
-  // which resets to page 0 and reloads with the new state. The loader reads each
-  // preference fresh on every page request.
+  // Filters on the left; changing any of them re-renders the feed
+  // (reloadFeedFromStart), which goes back to page 0 and loads with the new
+  // state. A changed filter also changes the feed page cache's key, so the new
+  // state always comes from the server. The loader reads each preference fresh
+  // on every page request.
   const filters = document.createElement("div");
   filters.className = "feed-filters";
   filters.append(
@@ -404,7 +443,7 @@ function showFeed(forceFirstLoad: boolean = false): void {
   refresh.textContent = "↻ Force refresh";
   refresh.title =
     "Re-fetch every channel now instead of waiting out the 30-minute cache";
-  refresh.addEventListener("click", (): void => showFeed(true));
+  refresh.addEventListener("click", (): void => reloadFeedFromStart(true));
 
   toolbar.append(filters, refresh);
   app.appendChild(toolbar);
@@ -437,15 +476,13 @@ function showFeed(forceFirstLoad: boolean = false): void {
         const forceRefresh = pendingForce;
         pendingForce = false;
         const options = feedPageOptions(page, pageSize, forceRefresh);
-        // First page, no forced refresh: use the page warmed in the background
-        // while the user was on another screen (see feedPrefetch.ts). A miss
-        // (different filters, gone stale, already used) falls through to a
-        // normal server call.
-        if (!forceRefresh) {
-          const prefetched = takePrefetchedFeedPage(options);
-          if (prefetched) return prefetched;
-        }
-        return getFeedPage(options);
+        // Normally reuse the page kept in memory: warmed in the background
+        // while the user was on another screen, or shown earlier this session
+        // (see feedPageCache.ts). Force refresh throws every kept page away
+        // and fetches this one from the server.
+        return forceRefresh
+          ? forceReloadFeedPage(options)
+          : loadFeedPage(options);
       },
       {
         onPlay: (index, queue): void =>
@@ -453,6 +490,14 @@ function showFeed(forceFirstLoad: boolean = false): void {
         actions: [feedWatchLaterAction, feedSeenAction],
         cornerAction: dismissAction,
         onPageLoaded: (result): void => updateFeedNotice(notice, result),
+        paging: {
+          page: feedPage,
+          pageSize: feedPageSize,
+          onChange: (page, pageSize): void => {
+            feedPage = page;
+            feedPageSize = pageSize;
+          },
+        },
       },
     ),
   );
@@ -495,7 +540,7 @@ function feedToggle(
   checkbox.checked = getBoolPreference(prefKey, defaultValue);
   checkbox.addEventListener("change", (): void => {
     setBoolPreference(prefKey, checkbox.checked);
-    showFeed();
+    reloadFeedFromStart(false);
   });
   label.append(checkbox, document.createTextNode(labelText));
   return label;
@@ -519,7 +564,7 @@ function beforeDateControl(): HTMLElement {
   );
   input.addEventListener("change", (): void => {
     setStringPreference(BEFORE_DATE_PREF, input.value);
-    showFeed();
+    reloadFeedFromStart(false);
   });
   label.append(document.createTextNode("Hide older than "), input);
   return label;
@@ -558,10 +603,12 @@ function showPlaylist(playlistId: string, title: string): void {
 function showPlaylists(): void {
   const app = appContainer();
   if (!app) return;
+  const movedOn = navigationMovedOn();
   app.innerHTML = "";
   app.appendChild(skeletonPlaylistList());
   getPlaylists()
     .then((playlists): void => {
+      if (movedOn()) return;
       app.innerHTML = "";
       if (playlists.length === 0) {
         app.textContent = "You have no playlists.";
@@ -586,6 +633,7 @@ function showPlaylists(): void {
       app.appendChild(list);
     })
     .catch((error: Error): void => {
+      if (movedOn()) return;
       app.textContent = `Could not load your playlists: ${error.message}`;
     });
 }
@@ -601,14 +649,17 @@ function renderVideoScreen(
 ): void {
   const app = appContainer();
   if (!app) return;
+  const movedOn = navigationMovedOn();
   app.innerHTML = "";
   app.appendChild(skeletonGrid());
   load
     .then((videos): void => {
+      if (movedOn()) return;
       app.innerHTML = "";
       app.appendChild(VideoListView(videos, optionsFor()));
     })
     .catch((error: Error): void => {
+      if (movedOn()) return;
       app.textContent = `Could not load this list: ${error.message}`;
     });
 }
@@ -647,12 +698,14 @@ function renderPlaylistScreen(
 ): void {
   const app = appContainer();
   if (!app) return;
+  const movedOn = navigationMovedOn();
   app.innerHTML = "";
   // The placeholder mirrors the loaded layout (sort toolbar + grid) so the
   // cards don't shift down when the real toolbar appears.
   app.append(skeletonSortToolbar(), skeletonGrid());
   load
     .then((videos): void => {
+      if (movedOn()) return;
       app.innerHTML = "";
       let currentSort = defaultSort;
 
@@ -690,6 +743,7 @@ function renderPlaylistScreen(
       renderList();
     })
     .catch((error: Error): void => {
+      if (movedOn()) return;
       app.textContent = `Could not load this list: ${error.message}`;
     });
 }
@@ -722,12 +776,24 @@ function renderPlayer(screen: PlayerScreen): void {
     showPlayer(screen, screen.queue);
     return;
   }
-  // No in-memory queue (shared link or forward navigation): rebuild it.
+  // No in-memory queue (shared link or forward navigation): rebuild it. Tear the
+  // old player down BEFORE its DOM is replaced below, for the same reason
+  // render() does it first: destroy() saves the playback position, and that
+  // write belongs to the player going away. Leaving it mounted would also keep
+  // its 20-second save interval running until showPlayer finally lands.
+  clearActivePlayer();
+  const movedOn = navigationMovedOn();
   const app = appContainer();
   if (app) app.replaceChildren(skeletonPlayerView());
   rebuildQueue(screen.context, screen.videoId)
-    .then((queue): void => showPlayer(screen, queue))
-    .catch((): void => showPlayer(screen, [minimalVideo(screen.videoId)]));
+    .then((queue): void => {
+      if (movedOn()) return;
+      showPlayer(screen, queue);
+    })
+    .catch((): void => {
+      if (movedOn()) return;
+      showPlayer(screen, [minimalVideo(screen.videoId)]);
+    });
 }
 
 // Shows the player for a screen. If a player for the same queue is already
@@ -740,12 +806,14 @@ function showPlayer(screen: PlayerScreen, queue: Video[]): void {
     activePlayer.key === key &&
     activePlayer.controller.hasVideo(screen.videoId)
   ) {
+    recordPlayerScreen(screen, queue);
     activePlayer.controller.goToVideo(screen.videoId);
     return;
   }
   const app = appContainer();
   if (!app) return;
   clearActivePlayer();
+  recordPlayerScreen(screen, queue);
   app.innerHTML = "";
   const controller = PlayerView({
     queue,
@@ -772,6 +840,23 @@ function playerQueueKey(context: PlayerContext, queue: Video[]): string {
       ? "playlist:" + context.playlistId
       : context.source;
   return base + "|" + queue.map((video) => video.videoId).join(",");
+}
+
+// Tells the feed page cache which screen a mutation would be made on. Always
+// called AFTER clearActivePlayer(): tearing a player down saves its playback
+// position, and that write belongs to the player going away, not to the screen
+// coming in.
+//
+// The cache answers the identity question (isKeptFeedPage), never a flag we set
+// when the feed handed the queue over: the kept page can be replaced while this
+// player is still holding the old array, and a remembered flag would then spare
+// a page the mutation no longer touches.
+function recordPlayerScreen(screen: PlayerScreen, queue: Video[]): void {
+  setFeedMutationScreen({
+    inFeedSection: sectionOf(screen) === "feed",
+    isPlayer: true,
+    playerQueueIsFeedPage: isKeptFeedPage(queue),
+  });
 }
 
 function clearActivePlayer(): void {
@@ -828,16 +913,31 @@ function go(screen: Screen): void {
 }
 
 function render(screen: Screen): void {
-  setActiveNav(sectionOf(screen));
-  // Any screen but the feed warms feed page 1 in the background (the feed's own
-  // loader is the fetch there). Fire-and-forget: it runs as its own parallel
-  // server call, so it never delays the screen being rendered. A fresh warm for
-  // the same filters is a no-op, and the server only refetches the channels
-  // whose RSS cache expired — never a forced refresh.
-  if (screen.view !== "feed")
-    warmFeedPage(feedPageOptions(0, DEFAULT_PAGE_SIZE, false));
-  // Leaving the player: tear down the YouTube iframe so it stops playing.
+  // Retires every screen still loading: from here on their paint is dropped.
+  navigationGeneration += 1;
+  // Leaving the player: tear down the YouTube iframe so it stops playing. This
+  // runs FIRST, before the incoming screen is recorded below and before the
+  // warm-up, because destroy() saves the playback position: that mutation
+  // belongs to the player going away, and it may drop the kept feed page.
   if (screen.view !== "player") clearActivePlayer();
+  const section = sectionOf(screen);
+  setActiveNav(section);
+  // A player records its own screen in showPlayer(), which knows whether its
+  // queue is the kept feed page's own array.
+  if (screen.view !== "player")
+    setFeedMutationScreen({
+      inFeedSection: section === "feed",
+      isPlayer: false,
+      playerQueueIsFeedPage: false,
+    });
+  // Any screen but the feed warms the page the feed would open on — the one it
+  // last showed, not always the first (the feed's own loader is the fetch
+  // there). Fire-and-forget: it runs as its own parallel server call, so it
+  // never delays the screen being rendered. It is a no-op when that page is
+  // already held, and the server only refetches the channels whose RSS cache
+  // expired — never a forced refresh.
+  if (screen.view !== "feed")
+    warmFeedPage(feedPageOptions(feedPage, feedPageSize, false));
   switch (screen.view) {
     case "watchlater":
       showWatchLater();

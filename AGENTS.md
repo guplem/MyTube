@@ -125,8 +125,8 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   finished videos from the top. The player saves on a 20s interval, on pause, on prev/next, and on
   unmount — never on tab close, which the Apps Script iframe can't observe
   reliably; saves are fire-and-forget (not `optimistic()` — there is no UI
-  state to roll back) but still invalidate the feed prefetch stash, whose
-  snapshot carries `progressSeconds` like the other flags. Lists get the flag
+  state to roll back) but still call `dropStaleFeedPage()` like every other
+  write, because the kept feed page holds `progressSeconds` too. Lists get the flag
   via `flagProgress` in `src/server/main.ts`; the player resumes from
   `video.progressSeconds`, and cards show it as a red bar on the thumbnail
   (`progressFraction` picks the width; no bar when the position or the
@@ -136,15 +136,24 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   feed-only "Hide dismissed" toggle filters on it. The dismiss control is the
   top-right corner cross on feed cards (`VideoListOptions.cornerAction`), never
   shown on the other lists; dismissed feed cards are dimmed like seen ones.
-- **The feed is prefetched from every other screen.** The app lands on Watch
-  Later, so any non-feed `render()` warms one background `getFeedPage` call for
-  page 1 with the current filters (`src/ui/feedPrefetch.ts`, policy in
-  `src/shared/prefetchStore.ts`: single slot, 90s fresh window, single use).
-  Opening the feed consumes the stash and renders instantly. The warm call
-  never passes `forceRefresh` — the server reuses live cache entries and
-  refetches only expired channels — and every `optimistic()` mutation
-  invalidates the stash because the snapshot carries seen/dismissed/Watch Later
-  flags. Do not add other prefetch paths that bypass this store.
+- **The feed keeps exactly ONE page in memory: the page on show.** Never more.
+  `src/ui/feedPageCache.ts` is the only path to `getFeedPage`, and it owns the
+  reasoning in its header. The policy it wires together lives in
+  `src/shared/pageCache.ts` (single slot, 30-minute fresh window) and
+  `src/shared/feedPageStaleness.ts` (whether a mutation leaves the page
+  correct). Serving a different page replaces the kept one, so paging away and
+  back re-fetches. Every server write calls `dropStaleFeedPage()`; the router
+  reports the screen it would apply to with `setFeedMutationScreen`. Any
+  non-feed `render()` warms the page the feed will open on, never with
+  `forceRefresh`. Do not add feed-loading paths that bypass this cache.
+  **Never remember "this array is the feed's page" — ask `isKeptFeedPage` at
+  mutation time.** A warm-up can replace the kept page under a player still
+  holding the old array, and a stored flag would then spare a page the
+  mutation does not touch (ADR 0008).
+- **The feed reopens on the page it last showed.** `feedPage`/`feedPageSize` in
+  `src/ui/main.ts` seed `VideoListOptions.paging` and follow its `onChange`. The
+  filters and Force refresh reset to page 0 (`reloadFeedFromStart`). Scroll
+  position is not restored.
 - UI toggles persist in `localStorage` via `src/ui/preferences.ts` (works inside
   the Apps Script iframe; no server round-trip).
 - **Optimistic UI updates for every server mutation.** Any button that writes to
@@ -164,6 +173,10 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   URL via `src/ui/urlState.ts` (`google.script.history`/`google.script.url`,
   with a no-op fallback). Add a screen to the `Screen` type plus `paramsFor`,
   `screenFromParams`, and `sectionOf`; never render a screen without routing it.
+  **A screen that paints after an `await` must capture `navigationMovedOn()`
+  before its load and return early when it fires.** Otherwise it paints over the
+  screen the user moved to, and its cards then act under that screen's feed
+  mutation policy (ADR 0008).
 
 ## Testing & development protocol (TDD)
 
@@ -217,15 +230,16 @@ the component reuse model, feed caching/paging, and deployment/CI/auto-merge.
 only if you introduced a new architectural pattern or changed one an ADR already
 records.
 
-| ADR                                                                | Decision                                                                                     |
-| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
-| [0001](adr/0001-use-google-apps-script.md)                         | Platform: Google Apps Script web app                                                         |
-| [0002](adr/0002-watch-later-as-real-youtube-playlist.md)           | Watch Later is a real YouTube playlist (write scope)                                         |
-| [0003](adr/0003-expose-server-functions-via-top-level-wrappers.md) | Expose server functions via generated top-level wrappers                                     |
-| [0004](adr/0004-component-reuse-model.md)                          | One `Video` type, one `VideoListView`, one `PlayerView`                                      |
-| [0005](adr/0005-store-history-in-properties.md)                    | Store watch history in PropertiesService, not a Sheet                                        |
-| [0006](adr/0006-test-first-with-faked-apps-script.md)              | Test-first (TDD) on Node/Vitest with faked Apps Script globals; green tests gate every merge |
-| [0007](adr/0007-agent-docs-structure.md)                           | `AGENTS.md` map + Claude-Code-only skills, subagents, and settings                           |
+| ADR                                                                  | Decision                                                                                     |
+| -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| [0001](adr/0001-use-google-apps-script.md)                           | Platform: Google Apps Script web app                                                         |
+| [0002](adr/0002-watch-later-as-real-youtube-playlist.md)             | Watch Later is a real YouTube playlist (write scope)                                         |
+| [0003](adr/0003-expose-server-functions-via-top-level-wrappers.md)   | Expose server functions via generated top-level wrappers                                     |
+| [0004](adr/0004-component-reuse-model.md)                            | One `Video` type, one `VideoListView`, one `PlayerView`                                      |
+| [0005](adr/0005-store-history-in-properties.md)                      | Store watch history in PropertiesService, not a Sheet                                        |
+| [0006](adr/0006-test-first-with-faked-apps-script.md)                | Test-first (TDD) on Node/Vitest with faked Apps Script globals; green tests gate every merge |
+| [0007](adr/0007-agent-docs-structure.md)                             | `AGENTS.md` map + Claude-Code-only skills, subagents, and settings                           |
+| [0008](adr/0008-single-kept-feed-page-via-shared-object-identity.md) | Feed keeps ONE loaded page, kept correct by sharing `Video` object identity                  |
 
 ## Gotchas
 

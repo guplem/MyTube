@@ -26,6 +26,17 @@ export interface VideoAction {
   onClick: (video: Video, button: HTMLButtonElement) => void;
 }
 
+/** Where the list opens, and a way to report where it moved to. Pass it when
+ *  the caller wants the shown page to outlive the DOM (the feed reopens on the
+ *  page the user left); omit it to start at page 0 and the default size. */
+export interface ListPaging {
+  /** 0-based page to open on. */
+  page: number;
+  pageSize: number;
+  /** Called with the page and size actually shown, after every load. */
+  onChange: (page: number, pageSize: number) => void;
+}
+
 export interface VideoListOptions {
   onPlay: (index: number, queue: Video[]) => void;
   actions?: VideoAction[];
@@ -34,6 +45,7 @@ export interface VideoListOptions {
   /** Called after each page load with the loader's result, e.g. to surface a
    *  feed load-health warning. */
   onPageLoaded?: (result: VideoPage) => void;
+  paging?: ListPaging;
 }
 
 interface VideoPage {
@@ -48,9 +60,17 @@ interface VideoPage {
 type PageLoader = (page: number, pageSize: number) => Promise<VideoPage>;
 
 const PAGE_SIZE_OPTIONS = [24, 48, 96];
-/** Exported so the feed warm-up (feedPrefetch) requests the same first page. */
+/** Exported so the feed's remembered page size starts on the same default, and
+ *  the background warm-up therefore requests the page the list will show. */
 export const DEFAULT_PAGE_SIZE = 24;
 const SKELETON_COUNT = 12; // placeholder cards shown while a page loads
+
+// Bumped by every renderList call. Only one list is on screen at a time, so a
+// list whose generation is no longer the latest was thrown away (a filter change
+// rebuilds the whole feed screen). Its load can still be in flight — an Apps
+// Script call takes seconds — and must then report nothing: its grid is detached
+// from the page, and its onChange would overwrite the new list's remembered page.
+let listGeneration = 0;
 
 function fillWithSkeletons(grid: HTMLElement, count: number): void {
   grid.innerHTML = "";
@@ -95,11 +115,21 @@ function renderList(
   fullQueue: Video[] | null,
 ): HTMLElement {
   const actions = options.actions ?? [];
+  listGeneration += 1;
+  const generation = listGeneration;
+  const isDiscarded = (): boolean => generation !== listGeneration;
+  // Bumped by every load THIS list starts. listGeneration only guards across
+  // lists; two loads can be in flight inside one, because the size select stays
+  // usable while Prev/Next loads. Without this, the older one arriving last
+  // fills the grid with its videos while page/pageSize already hold the newer
+  // values (they are closure variables, read after the await), so the count
+  // line, the remembered page and the cards on screen all disagree.
+  let requestId = 0;
   const root = document.createElement("div");
   root.className = "list-view";
 
-  let pageSize = DEFAULT_PAGE_SIZE;
-  let page = 0;
+  let pageSize = options.paging?.pageSize ?? DEFAULT_PAGE_SIZE;
+  let page = options.paging?.page ?? 0;
 
   const controls = document.createElement("div");
   controls.className = "list-controls";
@@ -124,7 +154,7 @@ function renderList(
     const option = document.createElement("option");
     option.value = String(size);
     option.textContent = String(size);
-    if (size === DEFAULT_PAGE_SIZE) option.selected = true;
+    if (size === pageSize) option.selected = true;
     sizeSelect.appendChild(option);
   }
   sizeSelect.addEventListener("change", (): void => {
@@ -146,16 +176,27 @@ function renderList(
   }
 
   async function render(): Promise<void> {
+    const request = (requestId += 1);
+    const isSuperseded = (): boolean => isDiscarded() || request !== requestId;
+    // What THIS load asked for. Everything after the await reads these, never
+    // page/pageSize: those hold whatever the newest request set.
+    const loadedPage = page;
+    const loadedPageSize = pageSize;
     prevButton.disabled = true;
     nextButton.disabled = true;
+    // Disabled with the paging buttons: changing the size mid-load would start a
+    // second load in this same list, and the two would race.
+    sizeSelect.disabled = true;
     // Replace the old page with placeholders right away so stale cards never
     // linger during the load. An in-memory load resolves on the same task, so
     // its skeletons never paint; only a real server fetch shows them.
-    fillWithSkeletons(grid, Math.min(pageSize, SKELETON_COUNT));
+    fillWithSkeletons(grid, Math.min(loadedPageSize, SKELETON_COUNT));
     let result: VideoPage;
     try {
-      result = await load(page, pageSize);
+      result = await load(loadedPage, loadedPageSize);
     } catch (error) {
+      if (isSuperseded()) return;
+      sizeSelect.disabled = false;
       grid.innerHTML = "";
       const failure = document.createElement("p");
       failure.className = "muted";
@@ -163,17 +204,22 @@ function renderList(
       grid.appendChild(failure);
       return;
     }
+    if (isSuperseded()) return;
+    sizeSelect.disabled = false;
 
     options.onPageLoaded?.(result);
 
     const { videos, total } = result;
-    const pageCount = Math.max(1, Math.ceil(total / pageSize));
-    if (page > pageCount - 1) {
+    const pageCount = Math.max(1, Math.ceil(total / loadedPageSize));
+    if (loadedPage > pageCount - 1) {
       // The page no longer exists (e.g. a filter shrank the list); clamp and reload.
       page = pageCount - 1;
       void render();
       return;
     }
+    // Report only the page actually shown, so a caller keeping it never stores
+    // a page number the clamp above just corrected.
+    options.paging?.onChange(loadedPage, loadedPageSize);
 
     grid.innerHTML = "";
     if (total === 0) {
@@ -188,7 +234,9 @@ function renderList(
 
     videos.forEach((video, indexInPage): void => {
       const queue = fullQueue ?? videos;
-      const index = fullQueue ? page * pageSize + indexInPage : indexInPage;
+      const index = fullQueue
+        ? loadedPage * loadedPageSize + indexInPage
+        : indexInPage;
       grid.appendChild(
         videoCard(
           video,
@@ -199,9 +247,9 @@ function renderList(
       );
     });
 
-    info.textContent = `Page ${page + 1} of ${pageCount} · ${total} videos`;
-    prevButton.disabled = page <= 0;
-    nextButton.disabled = page >= pageCount - 1;
+    info.textContent = `Page ${loadedPage + 1} of ${pageCount} · ${total} videos`;
+    prevButton.disabled = loadedPage <= 0;
+    nextButton.disabled = loadedPage >= pageCount - 1;
   }
 
   // Controls go below the grid so paging lives at the bottom of the list.
