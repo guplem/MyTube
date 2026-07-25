@@ -145,13 +145,16 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   so `PagedVideoListView`'s skeletons never paint. The warm call never passes
   `forceRefresh`; the server reuses live cache entries and refetches only
   expired channels. Do not add other feed-loading paths that bypass this cache.
-- **A mutation drops only the feed pages nobody has seen.** `optimistic()` and
-  the player's `saveProgress` call `dropUnservedFeedPages()`. A page the feed
-  already rendered keeps the very `Video` objects its cards and the player
-  mutate in place, so it updates itself and must survive; a page only warmed in
-  the background is a snapshot nobody holds, so it is stale and goes. Force
-  refresh clears everything (`forceReloadFeedPage`); a changed filter changes
-  the key and misses on its own.
+- **A mutation drops the feed pages it would leave wrong.** `optimistic()` and
+  the player's `saveProgress` call `dropStaleFeedPages()`. From the feed section
+  (the feed screen and a player opened from it) that spares the pages the feed
+  already rendered: their cards and the player mutate the very `Video` objects
+  the cache holds, so they update themselves. Pages only warmed in the
+  background still go. From any other screen every page goes, because Watch
+  Later, History and the playlist screens load their own `Video` objects and
+  changing one leaves the feed's copy stale. `render()` reports the active
+  section with `setFeedSectionActive`. Force refresh clears everything
+  (`forceReloadFeedPage`); a changed filter changes the key and misses on its own.
 - **The feed reopens on the page it last showed.** `feedPage`/`feedPageSize` in
   `src/ui/main.ts` seed `VideoListOptions.paging` and are updated from its
   `onChange`. The filters and Force refresh reset to page 0

@@ -32,6 +32,7 @@ import {
   warmFeedPage,
   loadFeedPage,
   forceReloadFeedPage,
+  setFeedSectionActive,
 } from "./feedPageCache";
 import { renderBuildStamp } from "./buildStamp";
 import {
@@ -854,7 +855,13 @@ function go(screen: Screen): void {
 }
 
 function render(screen: Screen): void {
-  setActiveNav(sectionOf(screen));
+  const section = sectionOf(screen);
+  setActiveNav(section);
+  // The feed section (the feed and a player opened from it) is the only place
+  // whose cards hold the kept feed pages' own Video objects, so it is the only
+  // place where a mutation may keep them. Anywhere else works on its own copies
+  // of the same videos, which would leave a kept page wrong.
+  setFeedSectionActive(section === "feed");
   // Any screen but the feed warms the page the feed would open on — the one it
   // last showed, not always the first (the feed's own loader is the fetch
   // there). Fire-and-forget: it runs as its own parallel server call, so it

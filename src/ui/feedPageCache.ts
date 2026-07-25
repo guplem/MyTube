@@ -12,8 +12,8 @@
 // objects the cache holds, and every toggle — on a card or in the player —
 // mutates those same objects in place, so the entry updates itself. A page that
 // was only warmed was never handed to anyone, so a flag change anywhere DOES
-// make it stale: that is why a mutation calls dropUnservedFeedPages() and not a
-// full clear.
+// make it stale: that is why a mutation from the feed calls dropStaleFeedPages()
+// and keeps the pages it already showed.
 //
 // The warm call NEVER passes forceRefresh — it reuses every live cache entry and
 // fetches only the channels whose 30-minute entry expired, so it adds no
@@ -63,8 +63,24 @@ export function forceReloadFeedPage(
   return cache.use(options);
 }
 
-/** Drops the pages nobody has seen yet. Called on every server mutation: their
- *  seen/dismissed/Watch Later/progress flags may no longer match the server. */
-export function dropUnservedFeedPages(): void {
-  cache.dropUnserved();
+// True while the screen on show is the feed or a player opened from it — the
+// only screens whose cards hold the kept pages' own Video objects. Watch Later,
+// History and the playlist screens load their own Video objects, so a toggle
+// there changes a DIFFERENT object for the same video and leaves a kept feed
+// page wrong.
+let feedObjectsAreLive = false;
+
+/** Routing reports which section is on show; see render() in src/ui/main.ts. */
+export function setFeedSectionActive(active: boolean): void {
+  feedObjectsAreLive = active;
+}
+
+/** Drops the pages a server mutation may have made wrong: their
+ *  seen/dismissed/Watch Later/progress flags may no longer match the server.
+ *  From the feed that is only the pages nobody has seen, because the mutation
+ *  just updated the shown page's own objects in place. From any other screen it
+ *  is every page. */
+export function dropStaleFeedPages(): void {
+  if (feedObjectsAreLive) cache.dropUnserved();
+  else cache.clear();
 }
