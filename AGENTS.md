@@ -125,8 +125,8 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   finished videos from the top. The player saves on a 20s interval, on pause, on prev/next, and on
   unmount — never on tab close, which the Apps Script iframe can't observe
   reliably; saves are fire-and-forget (not `optimistic()` — there is no UI
-  state to roll back) but still invalidate the feed prefetch stash, whose
-  snapshot carries `progressSeconds` like the other flags. Lists get the flag
+  state to roll back) but still drop the unserved feed pages, whose snapshot
+  carries `progressSeconds` like the other flags. Lists get the flag
   via `flagProgress` in `src/server/main.ts`; the player resumes from
   `video.progressSeconds`, and cards show it as a red bar on the thumbnail
   (`progressFraction` picks the width; no bar when the position or the
@@ -136,15 +136,26 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   feed-only "Hide dismissed" toggle filters on it. The dismiss control is the
   top-right corner cross on feed cards (`VideoListOptions.cornerAction`), never
   shown on the other lists; dismissed feed cards are dimmed like seen ones.
-- **The feed is prefetched from every other screen.** The app lands on Watch
-  Later, so any non-feed `render()` warms one background `getFeedPage` call for
-  page 1 with the current filters (`src/ui/feedPrefetch.ts`, policy in
-  `src/shared/prefetchStore.ts`: single slot, 90s fresh window, single use).
-  Opening the feed consumes the stash and renders instantly. The warm call
-  never passes `forceRefresh` — the server reuses live cache entries and
-  refetches only expired channels — and every `optimistic()` mutation
-  invalidates the stash because the snapshot carries seen/dismissed/Watch Later
-  flags. Do not add other prefetch paths that bypass this store.
+- **Feed pages are warmed and then kept in memory.** `src/ui/feedPageCache.ts`
+  is the one path to `getFeedPage`; policy in `src/shared/pageCache.ts` (keyed
+  on the page options, at most 8 entries with oldest-first eviction, 30-minute
+  fresh window matching the server's RSS cache). The app lands on Watch Later,
+  so any non-feed `render()` warms one background load of the page the feed
+  will open on. A hit is served again and again and resolves on the same task,
+  so `PagedVideoListView`'s skeletons never paint. The warm call never passes
+  `forceRefresh`; the server reuses live cache entries and refetches only
+  expired channels. Do not add other feed-loading paths that bypass this cache.
+- **A mutation drops only the feed pages nobody has seen.** `optimistic()` and
+  the player's `saveProgress` call `dropUnservedFeedPages()`. A page the feed
+  already rendered keeps the very `Video` objects its cards and the player
+  mutate in place, so it updates itself and must survive; a page only warmed in
+  the background is a snapshot nobody holds, so it is stale and goes. Force
+  refresh clears everything (`forceReloadFeedPage`); a changed filter changes
+  the key and misses on its own.
+- **The feed reopens on the page it last showed.** `feedPage`/`feedPageSize` in
+  `src/ui/main.ts` seed `VideoListOptions.paging` and are updated from its
+  `onChange`. The filters and Force refresh reset to page 0
+  (`reloadFeedFromStart`). Scroll position is not restored.
 - UI toggles persist in `localStorage` via `src/ui/preferences.ts` (works inside
   the Apps Script iframe; no server round-trip).
 - **Optimistic UI updates for every server mutation.** Any button that writes to

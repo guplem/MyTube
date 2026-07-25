@@ -118,9 +118,12 @@ the latest ~15 videos per channel, which is exactly what a "what's new" feed
 wants. In GAS we fetch many RSS feeds in parallel with `UrlFetchApp.fetchAll`.
 Because each channel's parsed videos are cached for 30 minutes and a plain load
 only refetches expired channels, the UI also warms the feed in the background
-from every non-feed screen (the app lands on Watch Later): it prefetches page 1
-so opening the feed is instant. This moves the same fetches earlier rather than
-adding volume, and RSS costs no API quota either way.
+from every non-feed screen (the app lands on Watch Later): it loads the page the
+feed will open on so opening the feed is instant. That page, and every other one
+the feed shows, is then kept in browser memory for the length of the server's
+own 30-minute cache, so leaving the feed and coming back costs nothing. This
+moves the same fetches earlier rather than adding volume, and RSS costs no API
+quota either way.
 
 ---
 
