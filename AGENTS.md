@@ -173,6 +173,10 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   URL via `src/ui/urlState.ts` (`google.script.history`/`google.script.url`,
   with a no-op fallback). Add a screen to the `Screen` type plus `paramsFor`,
   `screenFromParams`, and `sectionOf`; never render a screen without routing it.
+  **A screen that paints after an `await` must capture `navigationMovedOn()`
+  before its load and return early when it fires.** Otherwise it paints over the
+  screen the user moved to, and its cards then act under that screen's feed
+  mutation policy (ADR 0008).
 
 ## Testing & development protocol (TDD)
 
