@@ -13,6 +13,13 @@ describe("feedNavState", () => {
     expect(feedNavState(5)).toBe("waiting");
   });
 
+  // The boundary between waiting and empty. Without this, tightening the rule to
+  // "more than one" would pass every other test while the last video in an inbox
+  // silently lost its dot.
+  it("still waits on the last remaining video", () => {
+    expect(feedNavState(1)).toBe("waiting");
+  });
+
   // The dim says "nothing has loaded yet", never "the feed is empty". An emptied
   // inbox is a loaded feed, so it must look loaded and carry no dot.
   it("is empty once a loaded page has no videos left", () => {
