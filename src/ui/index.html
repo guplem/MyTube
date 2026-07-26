@@ -77,9 +77,11 @@
       /* Feed button states, both driven by feedNavState in
          src/shared/feedNavState.ts. Dimmed until the session has loaded a feed
          page: the tab still works, the dim only warns that opening it may sit
-         on skeletons. */
+         on skeletons. Not lower than 0.7: an inactive tab is #aaa on #0f0f0f,
+         which composites to 4.6:1 here and 2.9:1 at 0.5 — below the 4.5:1 the
+         label needs, and this is the landing screen of every cold session. */
       .app-nav button.nav-pending {
-        opacity: 0.5;
+        opacity: 0.7;
       }
       /* A dot once the loaded page has videos waiting. Blue, the same
          chapter-strip blue as an ON card toggle — deliberately NOT the red
