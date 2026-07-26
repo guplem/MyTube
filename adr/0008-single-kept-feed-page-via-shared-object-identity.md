@@ -44,7 +44,7 @@ in-player navigation warms the feed, and that warm reloads once the fresh
 window passes or the key moves — and the old array would still look like the
 kept page.
 
-The single-slot cache mechanics (fresh window, warm, replace) live in
+The single-slot cache mechanics (fresh window, replace) live in
 `src/shared/pageCache.ts`, generic and independent of the feed. `src/ui/feedPageCache.ts`
 wires that generic cache to the feed: it is the only path to `getFeedPage`.
 

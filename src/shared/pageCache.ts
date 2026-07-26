@@ -1,8 +1,12 @@
-// In-memory cache of ONE loaded page, plus a background warm-up path. Built for
-// the feed — a non-feed screen warms the page the feed will open on, and the
-// feed keeps the page it is showing so returning to it costs no server call —
-// but generic and dependency-injected (clock + loader) so the policy is testable
-// on Node without a browser or Apps Script.
+// In-memory cache of ONE loaded page. Built for the feed — a non-feed screen
+// starts the load for the page the feed will open on, and the feed keeps the
+// page it is showing so returning to it costs no server call — but generic and
+// dependency-injected (clock + loader) so the policy is testable on Node without
+// a browser or Apps Script.
+//
+// Warming and reading are the same call. use() starts the load on a miss and
+// hands back the promise either way, so a caller that only wants the load going
+// ignores it. A separate warm() would be the same code with the promise dropped.
 //
 // Policies, chosen for the feed:
 // - ONE entry, ever. Serving a different key replaces the kept page. Two
@@ -33,11 +37,9 @@ export interface PageCacheConfig<O, T> {
 }
 
 export interface PageCache<O, T> {
-  /** Starts a background load for these options; no-op when the kept page
-   *  already matches and is fresh. */
-  warm: (options: O) => void;
   /** The kept page for these options, loading it on a miss. A different key
-   *  replaces the kept page, so only one is ever held. */
+   *  replaces the kept page, so only one is ever held. Also the warm-up call: a
+   *  caller that only wants the load started ignores the promise. */
   use: (options: O) => Promise<T>;
   /** The value the kept page loaded to, or null when nothing is held, the held
    *  load is still in flight, or it failed. */
@@ -89,11 +91,6 @@ export function createPageCache<O, T>(
   }
 
   return {
-    warm: (options: O): void => {
-      const key = config.key(options);
-      if (fresh(key)) return;
-      start(key, options);
-    },
     use: (options: O): Promise<T> => {
       const key = config.key(options);
       return (fresh(key) ?? start(key, options)).promise;

@@ -154,6 +154,13 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   `src/ui/main.ts` seed `VideoListOptions.paging` and follow its `onChange`. The
   filters and Force refresh reset to page 0 (`reloadFeedFromStart`). Scroll
   position is not restored.
+- **The Feed nav button reports the feed's state**: dimmed (still clickable)
+  until the session's first page loads, from the warm-up or from opening the
+  feed, then a blue dot while that page's post-filter `total` is above 0 —
+  deliberately not the red `toggle-nudge`, which asks for a tap. The rule is
+  `feedNavState` in `src/shared/feedNavState.ts`: one value, so the dim and the
+  dot can never show together. Dropping the kept page does not reset the total;
+  the dot says "something is waiting", it is not a live counter.
 - UI toggles persist in `localStorage` via `src/ui/preferences.ts` (works inside
   the Apps Script iframe; no server round-trip).
 - **Optimistic UI updates for every server mutation.** Any button that writes to
@@ -310,7 +317,7 @@ Each kind of knowledge has one home. Write a change in the home that matches it;
 ## GitHub issues, PRs, and other artifacts
 
 - **Always self-assign PRs** when you create them.
-- **Always link PRs to issues** with `Closes #N` in the PR body, so the issue auto-closes on merge.
+- **Always link PRs to issues** in the PR body: `Closes #N` on the PR that finishes the issue so it auto-closes on merge, `Refs #N` on every earlier PR when one issue takes several.
 - **Always add the `waiting-for-human-check` label** when you create a GitHub issue, PR, or any other reviewable artifact. It means no human has verified the content yet; a human removes it after reviewing. The label marks state (unreviewed), not origin.
 
 If the repo has no `waiting-for-human-check` label, create it first:

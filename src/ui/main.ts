@@ -8,6 +8,7 @@ import type { Video } from "../shared/video";
 import type { FeedPageOptions } from "../shared/feed";
 import { defaultFeedBeforeDate } from "../shared/feed";
 import { shouldSuggestWatched } from "../shared/videoProgress";
+import { feedNavState, type FeedNavState } from "../shared/feedNavState";
 import {
   getHistory,
   getPlaylists,
@@ -29,7 +30,6 @@ import {
   type VideoAction,
 } from "./videoListView";
 import {
-  warmFeedPage,
   loadFeedPage,
   forceReloadFeedPage,
   setFeedMutationScreen,
@@ -489,7 +489,10 @@ function showFeed(forceFirstLoad: boolean = false): void {
           playFromList(queue, index, { source: "feed" }),
         actions: [feedWatchLaterAction, feedSeenAction],
         cornerAction: dismissAction,
-        onPageLoaded: (result): void => updateFeedNotice(notice, result),
+        onPageLoaded: (result): void => {
+          updateFeedNotice(notice, result);
+          recordLoadedFeedTotal(result.total);
+        },
         paging: {
           page: feedPage,
           pageSize: feedPageSize,
@@ -922,6 +925,10 @@ function render(screen: Screen): void {
   if (screen.view !== "player") clearActivePlayer();
   const section = sectionOf(screen);
   setActiveNav(section);
+  // The Feed button's dimmed/badge look is painted next to its active look, in
+  // one place. The first render is what puts the dim on screen; later renders
+  // repaint the same state.
+  applyFeedNavState();
   // A player records its own screen in showPlayer(), which knows whether its
   // queue is the kept feed page's own array.
   if (screen.view !== "player")
@@ -933,11 +940,17 @@ function render(screen: Screen): void {
   // Any screen but the feed warms the page the feed would open on — the one it
   // last showed, not always the first (the feed's own loader is the fetch
   // there). Fire-and-forget: it runs as its own parallel server call, so it
-  // never delays the screen being rendered. It is a no-op when that page is
-  // already held, and the server only refetches the channels whose RSS cache
-  // expired — never a forced refresh.
+  // never delays the screen being rendered. It costs no server call when that
+  // page is already held, and the server only refetches the channels whose RSS
+  // cache expired — never a forced refresh. Its result is what clears the Feed
+  // button's dim before the user ever opens the feed.
   if (screen.view !== "feed")
-    warmFeedPage(feedPageOptions(feedPage, feedPageSize, false));
+    loadFeedPage(feedPageOptions(feedPage, feedPageSize, false))
+      .then((page): void => recordLoadedFeedTotal(page.total))
+      // A failed load leaves the button exactly as it is: nothing loaded, so
+      // the dim is still true. Catching after the then, not as its second
+      // argument, so a throw from the repaint is caught too.
+      .catch((): void => undefined);
   switch (screen.view) {
     case "watchlater":
       showWatchLater();
@@ -1072,6 +1085,58 @@ function sectionOf(screen: Screen): Section {
     default:
       return "feed";
   }
+}
+
+// The post-filter total of the last feed page that loaded, or null while none
+// has loaded this session. Module state, not URL state: it describes what this
+// session has loaded, not what any screen shows, so it must survive every
+// navigation and belongs in no shared link.
+//
+// Only a successful load writes it, and nothing ever writes it back to null.
+// Dropping the kept page (dropStaleFeedPage) deliberately leaves it alone: the
+// badge is a low-attention "something is waiting" dot, not a live counter, so
+// clearing it on every card toggle would make it blink on and off all session.
+let lastLoadedFeedTotal: number | null = null;
+
+// What the Feed tab is called in each state, for screen readers.
+const FEED_NAV_LABELS: Record<FeedNavState, string> = {
+  pending: "Feed, still loading",
+  waiting: "Feed, new videos waiting",
+  empty: "Feed",
+};
+
+// Records a loaded feed page's total and repaints the Feed nav button. Both load
+// paths call it: the background load a non-feed screen starts (see render) and
+// the feed screen's own page loads (onPageLoaded in showFeed). Neither covers
+// the other — the background load does not run while the feed is open, and
+// onPageLoaded only fires while the feed screen is mounted.
+function recordLoadedFeedTotal(total: number): void {
+  lastLoadedFeedTotal = total;
+  applyFeedNavState();
+}
+
+// Paints the Feed button's two states from the single value that decides them,
+// so the dim and the badge can never both show.
+//
+// Not guarded on navigationGeneration, unlike a screen paint. That counter drops
+// the paint of a screen the user has left, and it bumps on EVERY navigation; the
+// nav button belongs to no screen, so guarding it would strand the dim whenever
+// the user changes tab while the background load is in flight — the exact case
+// the dim exists for. The cost is that a load started under the old filters can
+// report its total after a filter change. That is acceptable for a dot that only
+// says "something is waiting", and the next load corrects it.
+function applyFeedNavState(): void {
+  const feedButton = document.querySelector<HTMLButtonElement>(
+    '.app-nav button[data-view="feed"]',
+  );
+  if (!feedButton) return;
+  const state = feedNavState(lastLoadedFeedTotal);
+  feedButton.classList.toggle("nav-pending", state === "pending");
+  feedButton.classList.toggle("nav-waiting", state === "waiting");
+  // The dim is opacity and the dot is an empty ::after, so neither reaches a
+  // screen reader. Name the state from the same value that draws it, so the two
+  // can never disagree.
+  feedButton.setAttribute("aria-label", FEED_NAV_LABELS[state]);
 }
 
 function setActiveNav(section: Section): void {

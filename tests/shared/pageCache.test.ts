@@ -84,18 +84,13 @@ describe("createPageCache", () => {
     expect(loads).toHaveLength(1);
   });
 
-  it("warm then use serves the warmed load without starting another", () => {
-    const { cache, loads } = makeHarness();
-    cache.warm({ filter: "a" });
-    cache.use({ filter: "a" });
-    expect(loads).toHaveLength(1);
-  });
-
-  it("warm is a no-op while the kept page has the same key and is fresh", () => {
+  // Pins the "still fresh" side of the window; the test below pins the other
+  // side, so together they fix the boundary at exactly maxAgeMs.
+  it("use starts no second load while the kept page is still fresh", () => {
     const { cache, loads, clock } = makeHarness();
-    cache.warm({ filter: "a" });
+    cache.use({ filter: "a" });
     clock.now += MAX_AGE_MS - 1;
-    cache.warm({ filter: "a" });
+    cache.use({ filter: "a" });
     expect(loads).toHaveLength(1);
   });
 
@@ -113,14 +108,6 @@ describe("createPageCache", () => {
     const { cache, loads } = makeHarness();
     cache.use({ filter: "a" });
     cache.use({ filter: "b" });
-    cache.use({ filter: "a" });
-    expect(loads).toEqual([{ filter: "a" }, { filter: "b" }, { filter: "a" }]);
-  });
-
-  it("warm with a different key replaces the kept page", () => {
-    const { cache, loads } = makeHarness();
-    cache.use({ filter: "a" });
-    cache.warm({ filter: "b" });
     cache.use({ filter: "a" });
     expect(loads).toEqual([{ filter: "a" }, { filter: "b" }, { filter: "a" }]);
   });
@@ -192,14 +179,14 @@ describe("createPageCache resolved", () => {
     expect(cache.resolved()).toBeNull();
   });
 
-  // The hole this closes: a warm-up replaces the kept page while another screen
-  // still holds the old one. The old page must stop being recognised the instant
-  // it is replaced, not when the replacement finishes loading.
-  it("is null again the moment a warm-up replaces the kept page", async () => {
+  // The hole this closes: a background load replaces the kept page while another
+  // screen still holds the old one. The old page must stop being recognised the
+  // instant it is replaced, not when the replacement finishes loading.
+  it("is null again the moment a replacement load starts", async () => {
     const { cache, resolveAll } = makeHarness();
     cache.use({ filter: "a" });
     await resolveAll();
-    cache.warm({ filter: "b" });
+    cache.use({ filter: "b" });
     expect(cache.resolved()).toBeNull();
   });
 

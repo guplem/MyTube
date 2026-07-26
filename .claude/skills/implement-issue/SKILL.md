@@ -98,6 +98,8 @@ For each step (or the single unit):
 
    **`--draft` is mandatory.** `auto-merge.yml` queues GitHub auto-merge on `opened`, so a ready PR merges itself the moment CI turns green, which is faster than the review cycle below can finish. The workflow skips drafts, so a draft is the only thing holding the PR open long enough to review it. Section 7 marks it ready at the end.
 
+   In multi-step mode the template's `Closes #N` belongs only on the step that finishes the issue; every earlier step uses `Refs #N`.
+
 ```bash
 gh label create "waiting-for-human-check" --description "No human has verified this yet -- direct AI output" --color "D93F0B" 2>/dev/null || true
 gh pr create \
