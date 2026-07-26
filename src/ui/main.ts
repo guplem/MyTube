@@ -8,7 +8,7 @@ import type { Video } from "../shared/video";
 import type { FeedPageOptions } from "../shared/feed";
 import { defaultFeedBeforeDate } from "../shared/feed";
 import { shouldSuggestWatched } from "../shared/videoProgress";
-import { feedNavState } from "../shared/feedNavState";
+import { feedNavState, type FeedNavState } from "../shared/feedNavState";
 import {
   getHistory,
   getPlaylists,
@@ -945,12 +945,12 @@ function render(screen: Screen): void {
   // cache expired — never a forced refresh. Its result is what clears the Feed
   // button's dim before the user ever opens the feed.
   if (screen.view !== "feed")
-    loadFeedPage(feedPageOptions(feedPage, feedPageSize, false)).then(
-      (page): void => recordLoadedFeedTotal(page.total),
+    loadFeedPage(feedPageOptions(feedPage, feedPageSize, false))
+      .then((page): void => recordLoadedFeedTotal(page.total))
       // A failed load leaves the button exactly as it is: nothing loaded, so
-      // the dim is still true. Handled here so a rejection is never unhandled.
-      (): void => undefined,
-    );
+      // the dim is still true. Catching after the then, not as its second
+      // argument, so a throw from the repaint is caught too.
+      .catch((): void => undefined);
   switch (screen.view) {
     case "watchlater":
       showWatchLater();
@@ -1098,6 +1098,13 @@ function sectionOf(screen: Screen): Section {
 // clearing it on every card toggle would make it blink on and off all session.
 let lastLoadedFeedTotal: number | null = null;
 
+// What the Feed tab is called in each state, for screen readers.
+const FEED_NAV_LABELS: Record<FeedNavState, string> = {
+  pending: "Feed, still loading",
+  waiting: "Feed, new videos waiting",
+  empty: "Feed",
+};
+
 // Records a loaded feed page's total and repaints the Feed nav button. Both load
 // paths call it: the background load a non-feed screen starts (see render) and
 // the feed screen's own page loads (onPageLoaded in showFeed). Neither covers
@@ -1126,6 +1133,10 @@ function applyFeedNavState(): void {
   const state = feedNavState(lastLoadedFeedTotal);
   feedButton.classList.toggle("nav-pending", state === "pending");
   feedButton.classList.toggle("nav-waiting", state === "waiting");
+  // The dim is opacity and the dot is an empty ::after, so neither reaches a
+  // screen reader. Name the state from the same value that draws it, so the two
+  // can never disagree.
+  feedButton.setAttribute("aria-label", FEED_NAV_LABELS[state]);
 }
 
 function setActiveNav(section: Section): void {
