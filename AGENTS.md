@@ -317,7 +317,7 @@ Each kind of knowledge has one home. Write a change in the home that matches it;
 ## GitHub issues, PRs, and other artifacts
 
 - **Always self-assign PRs** when you create them.
-- **Always link PRs to issues** with `Closes #N` in the PR body, so the issue auto-closes on merge.
+- **Always link PRs to issues** in the PR body: `Closes #N` on the PR that finishes the issue so it auto-closes on merge, `Refs #N` on every earlier PR when one issue takes several.
 - **Always add the `waiting-for-human-check` label** when you create a GitHub issue, PR, or any other reviewable artifact. It means no human has verified the content yet; a human removes it after reviewing. The label marks state (unreviewed), not origin.
 
 If the repo has no `waiting-for-human-check` label, create it first:
