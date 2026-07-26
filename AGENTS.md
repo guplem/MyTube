@@ -154,6 +154,13 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   `src/ui/main.ts` seed `VideoListOptions.paging` and follow its `onChange`. The
   filters and Force refresh reset to page 0 (`reloadFeedFromStart`). Scroll
   position is not restored.
+- **The Feed nav button reports the feed's state**: dimmed (still clickable)
+  until the session's first page loads, from the warm-up or from opening the
+  feed, then a blue dot while that page's post-filter `total` is above 0 —
+  deliberately not the red `toggle-nudge`, which asks for a tap. The rule is
+  `feedNavState` in `src/shared/feedNavState.ts`: one value, so the dim and the
+  dot can never show together. Dropping the kept page does not reset the total;
+  the dot says "something is waiting", it is not a live counter.
 - UI toggles persist in `localStorage` via `src/ui/preferences.ts` (works inside
   the Apps Script iframe; no server round-trip).
 - **Optimistic UI updates for every server mutation.** Any button that writes to

@@ -74,6 +74,31 @@
         color: #fff;
         background: #272727;
       }
+      /* Feed button states, both driven by feedNavState in
+         src/shared/feedNavState.ts. Dimmed until the session has loaded a feed
+         page: the tab still works, the dim only warns that opening it may sit
+         on skeletons. */
+      .app-nav button.nav-pending {
+        opacity: 0.5;
+      }
+      /* A dot once the loaded page has videos waiting. Blue, the same
+         chapter-strip blue as an ON card toggle — deliberately NOT the red
+         .toggle-nudge dot, which asks for a tap; this one only reports. It sits
+         over the button's own padding so the nav's horizontal scroll can never
+         clip it. */
+      .app-nav button.nav-waiting {
+        position: relative;
+      }
+      .app-nav button.nav-waiting::after {
+        content: "";
+        position: absolute;
+        top: 0.18rem;
+        right: 0.2rem;
+        width: 0.4rem;
+        height: 0.4rem;
+        border-radius: 50%;
+        background: #3ea6ff;
+      }
       .app-search {
         margin-left: auto;
         display: flex;

@@ -4,7 +4,9 @@
 // 1. Warm-up. The app lands on Watch Later, and a cold feed load can take a long
 //    time (RSS for every expired channel), so every non-feed screen starts one
 //    background getFeedPage call for the page the feed will open on. Opening the
-//    feed then serves that load instead of starting its own.
+//    feed then serves that load instead of starting its own, and the page's
+//    `total` is what tells the Feed nav button the feed is ready (see
+//    applyFeedNavState in src/ui/main.ts).
 // 2. Keeping ONE page. The page the feed is showing is kept, so leaving the feed
 //    for another tab or the player and coming back re-renders it instantly.
 //
@@ -21,7 +23,7 @@
 // under the finger. A mutation made anywhere else works on a different copy of
 // the same video, so it drops the page (see dropStaleFeedPage below).
 //
-// The warm call NEVER passes forceRefresh — it reuses every live cache entry and
+// The warm-up NEVER passes forceRefresh — it reuses every live cache entry and
 // fetches only the channels whose 30-minute entry expired, so it adds no
 // steady-state fetch volume (and RSS costs no API quota; see PLAN.md section 5).
 
@@ -52,14 +54,10 @@ const cache = createPageCache<FeedPageOptions, FeedPage>({
   maxAgeMs: FRESH_WINDOW_MS,
 });
 
-/** Loads a feed page in the background; no-op if that page is already held. */
-export function warmFeedPage(options: FeedPageOptions): void {
-  cache.warm(options);
-}
-
 /** The kept page for these options, loading it on a miss. A hit that already
  *  resolved renders with no skeletons; a hit on a load still in flight shows
- *  them, like any other load. */
+ *  them, like any other load. Also the warm-up call: a non-feed screen asks for
+ *  the page in the background and reads its `total` for the Feed nav badge. */
 export function loadFeedPage(options: FeedPageOptions): Promise<FeedPage> {
   return cache.use(options);
 }
