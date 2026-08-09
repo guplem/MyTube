@@ -162,9 +162,20 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   asks for a tap. All three are opacity or a pseudo-element, so the button never
   changes size between states. The rule is
   `feedNavState` in `src/shared/feedNavState.ts`: one value, so the pulse, the dim
-  and the dot can never show together; `trackFeedLoad` in `src/ui/main.ts` counts
-  the in-flight loads that feed it. Dropping the kept page does not reset the total;
-  the dot says "something is waiting", it is not a live counter.
+  and the dot can never show together. `src/ui/feedNavButton.ts` owns the two
+  numbers it reads and paints the result; it sits outside `main.ts` so
+  `optimistic()` can repaint after every mutation without a cycle.
+- **The dot's count is re-derived on every paint, never counted in deltas.**
+  `applyFeedNavState` takes the kept page's server `total` and subtracts the
+  videos on that page that no longer pass the flag filters
+  (`remainingFeedTotal` in `src/shared/feedInclusion.ts`, the browser-side mirror
+  of `getFeedPage`'s flag filters). So dealing with the last waiting video turns
+  the dot off at once, and a rolled-back mutation takes its count back with it.
+  Only the three flag filters live there: the date and Shorts filters read fields
+  no action changes. `optimistic()` triggers the repaint, so it covers cards,
+  the player and every screen. With no page kept, the last derived value stands.
+  Filter defaults live in `src/ui/feedFilters.ts` so the request and the recount
+  can never read a toggle differently.
 - UI toggles persist in `localStorage` via `src/ui/preferences.ts` (works inside
   the Apps Script iframe; no server round-trip).
 - **Optimistic UI updates for every server mutation.** Any button that writes to

@@ -5,10 +5,9 @@
 // screen is the shared VideoListView; every video plays through PlayerView.
 
 import type { Video } from "../shared/video";
-import type { FeedPage, FeedPageOptions } from "../shared/feed";
+import type { FeedPageOptions } from "../shared/feed";
 import { defaultFeedBeforeDate } from "../shared/feed";
 import { shouldSuggestWatched } from "../shared/videoProgress";
-import { feedNavState, type FeedNavState } from "../shared/feedNavState";
 import {
   getHistory,
   getPlaylists,
@@ -35,6 +34,23 @@ import {
   setFeedMutationScreen,
   isKeptFeedPage,
 } from "./feedPageCache";
+import {
+  trackFeedLoad,
+  recordLoadedFeedTotal,
+  applyFeedNavState,
+} from "./feedNavButton";
+import {
+  HIDE_SHORTS_PREF,
+  HIDE_VIEWED_PREF,
+  HIDE_DISMISSED_PREF,
+  HIDE_SAVED_PREF,
+  BEFORE_DATE_PREF,
+  HIDE_SHORTS_DEFAULT,
+  HIDE_VIEWED_DEFAULT,
+  HIDE_DISMISSED_DEFAULT,
+  HIDE_SAVED_DEFAULT,
+  feedFlagFilters,
+} from "./feedFilters";
 import { renderBuildStamp } from "./buildStamp";
 import {
   skeletonPlaylistList,
@@ -56,12 +72,6 @@ import {
   readInitialParams,
   type UrlParams,
 } from "./urlState";
-
-const HIDE_SHORTS_PREF = "mytube.hideShorts";
-const HIDE_VIEWED_PREF = "mytube.hideViewed";
-const HIDE_DISMISSED_PREF = "mytube.hideDismissed";
-const HIDE_SAVED_PREF = "mytube.hideSaved";
-const BEFORE_DATE_PREF = "mytube.beforeDate";
 
 // A navigable screen. The player carries its queue/index in memory when opened
 // from a list; on a shared link or forward-nav the queue is rebuilt from context.
@@ -381,10 +391,10 @@ function feedPageOptions(
     page,
     pageSize,
     forceRefresh,
-    hideShorts: getBoolPreference(HIDE_SHORTS_PREF, true),
-    hideViewed: getBoolPreference(HIDE_VIEWED_PREF, false),
-    hideDismissed: getBoolPreference(HIDE_DISMISSED_PREF, true),
-    hideSaved: getBoolPreference(HIDE_SAVED_PREF, true),
+    hideShorts: getBoolPreference(HIDE_SHORTS_PREF, HIDE_SHORTS_DEFAULT),
+    // The same three filters the Feed nav button recounts with, read from one
+    // place so the request and the recount can never disagree.
+    ...feedFlagFilters(),
     beforeDate: getStringPreference(
       BEFORE_DATE_PREF,
       defaultFeedBeforeDate(new Date()),
@@ -423,14 +433,14 @@ function showFeed(forceFirstLoad: boolean = false): void {
   const filters = document.createElement("div");
   filters.className = "feed-filters";
   filters.append(
-    feedToggle("Hide Shorts", HIDE_SHORTS_PREF, true),
+    feedToggle("Hide Shorts", HIDE_SHORTS_PREF, HIDE_SHORTS_DEFAULT),
     // "watched" is the UI word for the seen flag (matching the History tab);
     // the preference key keeps its old name so stored settings survive.
-    feedToggle("Hide watched", HIDE_VIEWED_PREF, false),
-    feedToggle("Hide dismissed", HIDE_DISMISSED_PREF, true),
+    feedToggle("Hide watched", HIDE_VIEWED_PREF, HIDE_VIEWED_DEFAULT),
+    feedToggle("Hide dismissed", HIDE_DISMISSED_PREF, HIDE_DISMISSED_DEFAULT),
     // On by default: a saved video is already dealt with, so keeping it out
     // makes the feed an inbox of videos still waiting for a decision.
-    feedToggle("Hide saved", HIDE_SAVED_PREF, true),
+    feedToggle("Hide saved", HIDE_SAVED_PREF, HIDE_SAVED_DEFAULT),
     beforeDateControl(),
   );
 
@@ -461,7 +471,7 @@ function showFeed(forceFirstLoad: boolean = false): void {
   // shared local, so the two actions can never disagree on the value.
   const feedVanishesWhen: boolean | null = getBoolPreference(
     HIDE_SAVED_PREF,
-    true,
+    HIDE_SAVED_DEFAULT,
   )
     ? true
     : null;
@@ -1085,80 +1095,6 @@ function sectionOf(screen: Screen): Section {
     default:
       return "feed";
   }
-}
-
-// The post-filter total of the last feed page that loaded, or null while none
-// has loaded this session. Module state, not URL state: it describes what this
-// session has loaded, not what any screen shows, so it must survive every
-// navigation and belongs in no shared link.
-//
-// Only a successful load writes it, and nothing ever writes it back to null.
-// Dropping the kept page (dropStaleFeedPage) deliberately leaves it alone: the
-// badge is a low-attention "something is waiting" dot, not a live counter, so
-// clearing it on every card toggle would make it blink on and off all session.
-let lastLoadedFeedTotal: number | null = null;
-
-// Feed page requests in flight right now, counted because two can overlap (a
-// background warm-up and the feed screen's own load). Only the count decides the
-// pulse, so the pulse stops exactly when the app stops waiting on the server —
-// including when the load FAILS, which is what keeps the still dim honest.
-let feedLoadsInFlight = 0;
-
-// Wraps a feed page load so the Feed nav button pulses for as long as it runs.
-// Returns the same promise, so the caller's own then/catch is untouched: the
-// tracking chain here handles both outcomes only to count them down.
-function trackFeedLoad(load: Promise<FeedPage>): Promise<FeedPage> {
-  feedLoadsInFlight += 1;
-  applyFeedNavState();
-  const finish = (): void => {
-    feedLoadsInFlight -= 1;
-    applyFeedNavState();
-  };
-  load.then(finish, finish);
-  return load;
-}
-
-// What the Feed tab is called in each state, for screen readers.
-const FEED_NAV_LABELS: Record<FeedNavState, string> = {
-  loading: "Feed, loading",
-  pending: "Feed, not loaded yet",
-  waiting: "Feed, new videos waiting",
-  empty: "Feed",
-};
-
-// Records a loaded feed page's total and repaints the Feed nav button. Both load
-// paths call it: the background load a non-feed screen starts (see render) and
-// the feed screen's own page loads (onPageLoaded in showFeed). Neither covers
-// the other — the background load does not run while the feed is open, and
-// onPageLoaded only fires while the feed screen is mounted.
-function recordLoadedFeedTotal(total: number): void {
-  lastLoadedFeedTotal = total;
-  applyFeedNavState();
-}
-
-// Paints the Feed button's states from the single value that decides them, so the
-// pulse, the dim and the badge can never show together.
-//
-// Not guarded on navigationGeneration, unlike a screen paint. That counter drops
-// the paint of a screen the user has left, and it bumps on EVERY navigation; the
-// nav button belongs to no screen, so guarding it would strand the dim whenever
-// the user changes tab while the background load is in flight — the exact case
-// the dim exists for. The cost is that a load started under the old filters can
-// report its total after a filter change. That is acceptable for a dot that only
-// says "something is waiting", and the next load corrects it.
-function applyFeedNavState(): void {
-  const feedButton = document.querySelector<HTMLButtonElement>(
-    '.app-nav button[data-view="feed"]',
-  );
-  if (!feedButton) return;
-  const state = feedNavState(lastLoadedFeedTotal, feedLoadsInFlight > 0);
-  feedButton.classList.toggle("nav-loading", state === "loading");
-  feedButton.classList.toggle("nav-pending", state === "pending");
-  feedButton.classList.toggle("nav-waiting", state === "waiting");
-  // The pulse and the dim are opacity and the dot is an empty ::after, so none of
-  // them reaches a screen reader. Name the state from the same value that draws
-  // it, so the two can never disagree.
-  feedButton.setAttribute("aria-label", FEED_NAV_LABELS[state]);
 }
 
 function setActiveNav(section: Section): void {

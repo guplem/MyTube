@@ -12,6 +12,7 @@
 
 import { showToast } from "./toast";
 import { dropStaleFeedPage } from "./feedPageCache";
+import { applyFeedNavState } from "./feedNavButton";
 
 // Per-key tap counter: when a control is tapped repeatedly before its requests
 // settle, only the LATEST tap owns the rollback. A stale request that fails
@@ -49,6 +50,11 @@ export function optimistic(options: OptimisticOptions): void {
   // decides whether that page survives this one.
   dropStaleFeedPage();
   options.apply();
+  // The mutation may have changed whether the video still belongs in the feed
+  // (dismissed, saved, marked watched), so the Feed nav button recounts. It runs
+  // after apply AND after revert, and on every screen: the button is not the
+  // feed screen's, and a rolled-back change must take its count back with it.
+  applyFeedNavState();
   options
     .send()
     .then((): void => {
@@ -57,6 +63,7 @@ export function optimistic(options: OptimisticOptions): void {
     .catch((): void => {
       if (latestOp.get(key) !== op) return; // superseded by a newer tap
       options.revert();
+      applyFeedNavState();
       showToast(options.failMessage);
     });
 }
