@@ -1,15 +1,20 @@
-// What the Feed nav button shows, decided by the one thing it depends on: the
-// total of the last feed page that loaded this session, counted after every
-// filter. Kept out of src/ui/ so the rule is pinned by tests.
+// What the Feed nav button shows, decided by two things: the total of the last
+// feed page that loaded this session (counted after every filter) and whether a
+// page is in flight right now. Kept out of src/ui/ so the rule is pinned by
+// tests.
 //
-// One value, not a pair of flags. The dimmed look and the badge are two looks of
+// One value, not a set of flags. The pulse, the dim and the badge are looks of
 // the same state, and the acceptance criterion is that they never show together;
-// returning a single value makes "both at once" impossible to express.
+// returning a single value makes "two at once" impossible to express.
 
 export type FeedNavState =
-  /** No feed page has loaded yet this session, so opening the feed may sit on
-   *  skeletons while the server fetches RSS. The button is dimmed to say so,
-   *  and stays clickable. */
+  /** Nothing has loaded yet AND a page is in flight right now. The button
+   *  pulses: opening the feed would sit on skeletons, and the wait is going to
+   *  end on its own. It stays clickable. */
+  | "loading"
+  /** No feed page has loaded yet this session and none is in flight — the load
+   *  failed, or has not started. The button is dimmed, still, to say the feed
+   *  is not ready without promising a page that is coming. Still clickable. */
   | "pending"
   /** The last loaded page still has videos: something is waiting. */
   | "waiting"
@@ -20,9 +25,16 @@ export type FeedNavState =
  * The Feed nav button's state. `lastLoadedTotal` is the post-filter total of the
  * last feed page that loaded, or null when none has loaded this session. Only a
  * successful load moves it off null: a failed load has loaded nothing, and an
- * emptied feed is still a loaded feed, so it leaves "pending" for good.
+ * emptied feed is still a loaded feed, so it never goes back to null.
+ *
+ * `isLoading` is whether a feed page request is in flight right now. It only
+ * decides between the two not-loaded-yet looks; once a page has loaded, the
+ * loaded state wins, because the last total is still what the feed will show.
  */
-export function feedNavState(lastLoadedTotal: number | null): FeedNavState {
-  if (lastLoadedTotal === null) return "pending";
+export function feedNavState(
+  lastLoadedTotal: number | null,
+  isLoading: boolean,
+): FeedNavState {
+  if (lastLoadedTotal === null) return isLoading ? "loading" : "pending";
   return lastLoadedTotal > 0 ? "waiting" : "empty";
 }

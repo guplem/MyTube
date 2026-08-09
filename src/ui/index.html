@@ -74,7 +74,7 @@
         color: #fff;
         background: #272727;
       }
-      /* Feed button states, both driven by feedNavState in
+      /* Feed button states, all driven by feedNavState in
          src/shared/feedNavState.ts. Dimmed until the session has loaded a feed
          page: the tab still works, the dim only warns that opening it may sit
          on skeletons. Not lower than 0.7: an inactive tab is #aaa on #0f0f0f,
@@ -82,6 +82,31 @@
          label needs, and this is the landing screen of every cold session. */
       .app-nav button.nav-pending {
         opacity: 0.7;
+      }
+      /* While a first page is actually in flight, the same dim breathes instead
+         of sitting still, so "not ready yet" reads as "still working" without
+         adding anything that could change the button's size — opacity only, no
+         border, no pseudo-element, no font change. Same 1.2s ease-in-out loop as
+         the .skeleton blocks it is reporting on, so loading looks like one thing
+         across the app. The floor stays at the 0.7 the contrast note above pins;
+         only the bright half of the loop is new. */
+      .app-nav button.nav-loading {
+        animation: nav-loading-pulse 1.2s ease-in-out infinite;
+      }
+      @keyframes nav-loading-pulse {
+        0%,
+        100% {
+          opacity: 0.7;
+        }
+        50% {
+          opacity: 1;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .app-nav button.nav-loading {
+          animation: none;
+          opacity: 0.7;
+        }
       }
       /* A dot once the loaded page has videos waiting. Blue, the same
          chapter-strip blue as an ON card toggle — deliberately NOT the red

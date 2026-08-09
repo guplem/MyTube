@@ -5,7 +5,7 @@
 // screen is the shared VideoListView; every video plays through PlayerView.
 
 import type { Video } from "../shared/video";
-import type { FeedPageOptions } from "../shared/feed";
+import type { FeedPage, FeedPageOptions } from "../shared/feed";
 import { defaultFeedBeforeDate } from "../shared/feed";
 import { shouldSuggestWatched } from "../shared/videoProgress";
 import { feedNavState, type FeedNavState } from "../shared/feedNavState";
@@ -480,9 +480,9 @@ function showFeed(forceFirstLoad: boolean = false): void {
         // while the user was on another screen, or shown earlier this session
         // (see feedPageCache.ts). Force refresh throws every kept page away
         // and fetches this one from the server.
-        return forceRefresh
-          ? forceReloadFeedPage(options)
-          : loadFeedPage(options);
+        return trackFeedLoad(
+          forceRefresh ? forceReloadFeedPage(options) : loadFeedPage(options),
+        );
       },
       {
         onPlay: (index, queue): void =>
@@ -945,11 +945,11 @@ function render(screen: Screen): void {
   // cache expired — never a forced refresh. Its result is what clears the Feed
   // button's dim before the user ever opens the feed.
   if (screen.view !== "feed")
-    loadFeedPage(feedPageOptions(feedPage, feedPageSize, false))
+    trackFeedLoad(loadFeedPage(feedPageOptions(feedPage, feedPageSize, false)))
       .then((page): void => recordLoadedFeedTotal(page.total))
-      // A failed load leaves the button exactly as it is: nothing loaded, so
-      // the dim is still true. Catching after the then, not as its second
-      // argument, so a throw from the repaint is caught too.
+      // A failed load leaves the button not-loaded: trackFeedLoad ends the pulse,
+      // and the still dim is the truth. Catching after the then, not as its
+      // second argument, so a throw from the repaint is caught too.
       .catch((): void => undefined);
   switch (screen.view) {
     case "watchlater":
@@ -1098,9 +1098,30 @@ function sectionOf(screen: Screen): Section {
 // clearing it on every card toggle would make it blink on and off all session.
 let lastLoadedFeedTotal: number | null = null;
 
+// Feed page requests in flight right now, counted because two can overlap (a
+// background warm-up and the feed screen's own load). Only the count decides the
+// pulse, so the pulse stops exactly when the app stops waiting on the server —
+// including when the load FAILS, which is what keeps the still dim honest.
+let feedLoadsInFlight = 0;
+
+// Wraps a feed page load so the Feed nav button pulses for as long as it runs.
+// Returns the same promise, so the caller's own then/catch is untouched: the
+// tracking chain here handles both outcomes only to count them down.
+function trackFeedLoad(load: Promise<FeedPage>): Promise<FeedPage> {
+  feedLoadsInFlight += 1;
+  applyFeedNavState();
+  const finish = (): void => {
+    feedLoadsInFlight -= 1;
+    applyFeedNavState();
+  };
+  load.then(finish, finish);
+  return load;
+}
+
 // What the Feed tab is called in each state, for screen readers.
 const FEED_NAV_LABELS: Record<FeedNavState, string> = {
-  pending: "Feed, still loading",
+  loading: "Feed, loading",
+  pending: "Feed, not loaded yet",
   waiting: "Feed, new videos waiting",
   empty: "Feed",
 };
@@ -1115,8 +1136,8 @@ function recordLoadedFeedTotal(total: number): void {
   applyFeedNavState();
 }
 
-// Paints the Feed button's two states from the single value that decides them,
-// so the dim and the badge can never both show.
+// Paints the Feed button's states from the single value that decides them, so the
+// pulse, the dim and the badge can never show together.
 //
 // Not guarded on navigationGeneration, unlike a screen paint. That counter drops
 // the paint of a screen the user has left, and it bumps on EVERY navigation; the
@@ -1130,12 +1151,13 @@ function applyFeedNavState(): void {
     '.app-nav button[data-view="feed"]',
   );
   if (!feedButton) return;
-  const state = feedNavState(lastLoadedFeedTotal);
+  const state = feedNavState(lastLoadedFeedTotal, feedLoadsInFlight > 0);
+  feedButton.classList.toggle("nav-loading", state === "loading");
   feedButton.classList.toggle("nav-pending", state === "pending");
   feedButton.classList.toggle("nav-waiting", state === "waiting");
-  // The dim is opacity and the dot is an empty ::after, so neither reaches a
-  // screen reader. Name the state from the same value that draws it, so the two
-  // can never disagree.
+  // The pulse and the dim are opacity and the dot is an empty ::after, so none of
+  // them reaches a screen reader. Name the state from the same value that draws
+  // it, so the two can never disagree.
   feedButton.setAttribute("aria-label", FEED_NAV_LABELS[state]);
 }
 
