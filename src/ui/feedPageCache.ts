@@ -85,6 +85,14 @@ export function isKeptFeedPage(videos: Video[]): boolean {
   return cache.resolved()?.videos === videos;
 }
 
+/** The page held right now, or null when none is (nothing kept, still loading,
+ *  or the load failed). Read by the Feed nav button, which re-derives its count
+ *  from this page's own Video objects on every paint — the same objects the
+ *  user's toggles change, so a video just dealt with stops counting at once. */
+export function keptFeedPage(): FeedPage | null {
+  return cache.resolved();
+}
+
 // The screen a mutation would be made on right now. Reported by the router; see
 // render() and showPlayer() in src/ui/main.ts.
 let currentScreen: FeedMutationScreen = {
