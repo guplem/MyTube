@@ -94,7 +94,7 @@ For each step (or the single unit):
    >
    > Implement only what the step describes. Do not touch code outside that scope.
 
-4. **Create the PR as a draft** (always label and self-assign). Write the PR description in the repo's **Communicating with users** style (`AGENTS.md`): a reviewer skims it, so lead with what changed and why, in short plain sentences.
+4. **Create the PR as a draft** (always label and self-assign). Write the PR description under the **Writing style** section of `AGENTS.md`: a reviewer skims it, so lead with what changed and why.
 
    **`--draft` is mandatory.** `auto-merge.yml` queues GitHub auto-merge on `opened`, so a ready PR merges itself the moment CI turns green, which is faster than the review cycle below can finish. The workflow skips drafts, so a draft is the only thing holding the PR open long enough to review it. Section 7 marks it ready at the end.
 
