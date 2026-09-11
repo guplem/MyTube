@@ -95,10 +95,15 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   YouTube.** `getSponsorSegments` (`src/server/sponsorBlock.ts`) asks by hash
   prefix (first 4 hex chars of `sha256(videoId)`), so the plain video id never
   leaves the server, and caches the answer — empty lists included — in the
-  shared script cache for 6h, like `getVideoDurationsSeconds`. The cleaning
-  rules (`normalizeSponsorSegments`, `sponsorSegmentToSkip` in
-  `src/shared/sponsorBlock.ts`) are shared so the player's skip decision
-  matches the server's cache. A failed lookup returns `[]` and is never
+  shared script cache for 6h, like `getVideoDurationsSeconds`. A 404 is the
+  service's "nothing here" answer and is cached like any empty list. The
+  policy (`normalizeSponsorSegments`, `sponsorSkipDecision`,
+  `sponsorCategoryLabel` in `src/shared/sponsorBlock.ts`) is shared, so the
+  player's skip decision matches the server's cache and tests can pin it
+  without a browser. `sponsorSkipDecision` also owns the memory of the last
+  jump, which stops a second jump on the same segment. The player passes the
+  video's `durationSeconds` when it knows one, which drops a crowd entry that
+  ends past the end of the video. A failed lookup returns `[]` and is never
   cached, matching the "skip nothing" default. Segments are not stored on
   `Video`, so the kept feed page (ADR 0008) is untouched.
 - **Seen = watch history only.** `flagSeen` sets it from the history ids;

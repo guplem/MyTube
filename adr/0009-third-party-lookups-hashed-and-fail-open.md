@@ -30,13 +30,17 @@ follows three rules, established by `src/server/sponsorBlock.ts`:
    locally.
 2. **Cache in the shared script cache, empty answers included.** The answer
    is the same for every viewer, so it goes in `CacheService.getScriptCache()`
-   (see ADR 5 for the per-user vs. shared cache split), keyed by video id, for
-   the service's own TTL ceiling. Caching the empty case matters: "nothing
-   found" is the common case and must not be looked up on every request.
-3. **Fail open.** Any error (network failure, non-200, malformed body) turns
-   into "no data", never an exception or a UI-visible failure, and a failed
-   lookup is not cached so the next request retries. The feature always
-   degrades to its pre-feature behavior.
+   (see ADR 0005 for the per-user vs. shared cache split), keyed by video id,
+   for the `CacheService` maximum TTL. Caching the empty case matters:
+   "nothing found" is the common case and must not be looked up on every
+   request. An answer that says "nothing here" is cached whatever shape it
+   takes, including a status code the service uses for it (SponsorBlock
+   answers 404 for an empty bucket).
+3. **Fail open.** Any error (network failure, an unexpected status code, a
+   malformed or unexpectedly shaped body) turns into "no data", never an
+   exception or a UI-visible failure, and a failed lookup is not cached so the
+   next request retries. The feature always degrades to its pre-feature
+   behavior.
 
 No new OAuth scope is needed: `script.external_request` (already in
 `appsscript.json` for other fetches) covers any HTTPS URL, not only Google's.
