@@ -231,6 +231,12 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   before its load and return early when it fires.** Otherwise it paints over the
   screen the user moved to, and its cards then act under that screen's feed
   mutation policy (ADR 0008).
+- **Anything that starts a timer or builds a player after an `await` must check
+  that its owner is still alive.** `PlayerView` keeps a per-instance `destroyed`
+  flag, sets it in `destroy()`, and returns on it after every `await` (see
+  `playAt` and `loadSponsorSegments` in `src/ui/playerView.ts`). A late answer
+  otherwise installs an interval that `destroy()` already ran past, so nothing
+  can ever clear it, and each visit to the screen leaks another one.
 
 ## Testing & development protocol (TDD)
 
@@ -239,6 +245,14 @@ server logic, write a failing test that pins the behaviour you want (**red**),
 make it pass with the smallest change (**green**), then clean up
 (**refactor**) with the test as your safety net. Bug fixes start with a test
 that reproduces the bug.
+
+**A test pins a rule only when its input reaches that rule.** Pick the input
+that forces the branch, and prove it: break the line on purpose and watch the
+test go red. A test written after the code passes for the wrong reason and
+reads like coverage the code does not have. Example: the sponsor hash test used
+a video id whose first two digest bytes were under 128, so the signed-byte
+conversion could be deleted with every test still green (see the
+`Utilities.computeDigest` gotcha).
 
 - **Tests live in `tests/`** (mirroring `src/server/`) and run on Node via
   **Vitest** (`npm test`). There is no Apps Script in CI, so the runtime globals
