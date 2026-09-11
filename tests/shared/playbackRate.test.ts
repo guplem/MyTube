@@ -15,6 +15,13 @@ describe("parsePlaybackRate", () => {
     expect(parsePlaybackRate("1.5")).toBe(1.5);
   });
 
+  // The fallback is normal speed, not merely "some default": a different value
+  // would make every first visit and every unreadable value play too fast or
+  // too slow. The other tests read the constant, so only this one pins it.
+  it("falls back to exactly normal speed", () => {
+    expect(DEFAULT_PLAYBACK_RATE).toBe(1);
+  });
+
   // Nothing stored yet is the first-visit case: play at normal speed.
   it("falls back to normal speed when nothing is stored", () => {
     expect(parsePlaybackRate("")).toBe(DEFAULT_PLAYBACK_RATE);
@@ -51,9 +58,12 @@ describe("playbackRateChoices", () => {
     ]);
   });
 
+  // A two-digit rate on purpose: string order puts "10" before "2", so this
+  // input separates a numeric sort from the default sort, which compares the
+  // numbers as text.
   it("keeps the list sorted when the current speed is the fastest", () => {
-    expect(playbackRateChoices(3)).toEqual([
-      0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 3,
+    expect(playbackRateChoices(10)).toEqual([
+      0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 10,
     ]);
   });
 });
