@@ -228,33 +228,67 @@ function reflectSeen(video: Video, button: HTMLButtonElement): void {
     ?.classList.toggle("video-card--seen", video.seen);
 }
 
+// The un-toggle half of the watched button, which differs by screen. `unmark` is
+// the server call — the default just removes the view; the Watch Later screen
+// passes undoMarkVideoSeen, which also restores the playlist entry, and sets
+// `restoresWatchLater` so the card mirrors that restore. Everywhere else
+// un-marking never re-adds the video.
+interface SeenUndo {
+  unmark: (videoId: string) => Promise<void>;
+  restoresWatchLater: boolean;
+}
+
+const DEFAULT_SEEN_UNDO: SeenUndo = {
+  unmark: removeVideoSeen,
+  restoresWatchLater: false,
+};
+
 // Toggles a video in/out of the watch history. The card stays in place and only
 // its seen styling changes; flips the state immediately and rolls back if the
-// request fails. `unmark` is the un-toggle server call — the default just
-// removes the view; Watch Later passes undoMarkVideoSeen, which also restores
-// the video to the playlist.
+// request fails.
+//
+// Marking watched also drops the video from Watch Later server-side, so the
+// membership flag moves in the SAME `set` callback as the seen flag. That is
+// what makes the rollback whole: optimistic() reverts by calling `set` with the
+// other value, so a failed call has to put BOTH fields back. `wasSaved` is read
+// before the first mutation, so the revert restores the real pre-tap membership
+// instead of assuming the opposite of the seen target. The Video object is
+// shared with the kept feed page (ADR 0008), so a stale flag here leaks to every
+// other screen holding the same instance.
 function toggleSeen(
   video: Video,
   button: HTMLButtonElement,
-  unmark: (videoId: string) => Promise<void> = removeVideoSeen,
+  vanishesWhen: boolean | null,
+  undo: SeenUndo = DEFAULT_SEEN_UNDO,
 ): void {
+  const target = !video.seen;
+  const wasSaved = Boolean(video.inWatchLater);
+  // Membership once the toggle reaches its target state: marking watched always
+  // un-saves; un-marking re-saves only on the Watch Later screen, and leaves
+  // membership alone anywhere else.
+  const savedAtTarget = target
+    ? false
+    : undo.restoresWatchLater
+      ? true
+      : wasSaved;
   optimisticToggle(
     button,
     (): boolean => video.seen,
     (value): void => {
       video.seen = value;
       reflectSeen(video, button);
+      video.inWatchLater = value === target ? savedAtTarget : wasSaved;
+      syncWatchLaterButtons(video, button, vanishesWhen);
     },
     (next): Promise<void> =>
-      next ? markVideoSeen(video) : unmark(video.videoId),
+      next ? markVideoSeen(video) : undo.unmark(video.videoId),
     (next): string =>
       next ? "Couldn't mark as watched" : "Couldn't mark as not watched",
   );
 }
 
-// Marking watched also drops the video from Watch Later server-side (and the
-// Watch Later screen's watched undo restores it), so mirror a membership change
-// on the Watch Later toggle sitting in the same action row. The button is found
+// Repaints the Watch Later toggle sitting in the same action row as the watched
+// button, after toggleSeen has mirrored membership on the Video. The button is found
 // by its data-action tag (set from VideoAction.name), never by label text, so
 // relabeling can't silently break this sync. `vanishesWhen` is the caller
 // screen's own value (see makeWatchLaterToggle) — passing the wrong one here
@@ -276,20 +310,15 @@ function syncWatchLaterButtons(
 // watched also un-saves the video, so the membership button next to it has to
 // be re-reflected with THIS screen's `vanishesWhen` — the same value its
 // Watch Later toggle uses.
-function makeSeenAction(vanishesWhen: boolean | null): VideoAction {
+function makeSeenAction(
+  vanishesWhen: boolean | null,
+  undo: SeenUndo = DEFAULT_SEEN_UNDO,
+): VideoAction {
   return {
     name: "seen",
     reflect: reflectSeen,
-    onClick: (video, button): void => {
-      const wasSeen = video.seen;
-      toggleSeen(video, button);
-      // Only the unseen→seen direction drops it from Watch Later; un-marking
-      // seen never re-adds it.
-      if (!wasSeen && video.inWatchLater) {
-        video.inWatchLater = false;
-        syncWatchLaterButtons(video, button, vanishesWhen);
-      }
-    },
+    onClick: (video, button): void =>
+      toggleSeen(video, button, vanishesWhen, undo),
   };
 }
 
@@ -303,16 +332,10 @@ const markSeenAction: VideoAction = makeSeenAction(null);
 // next to it mirrors both directions, and the removal dim follows via
 // reflectWatchLater with the Watch Later screen's own vanishesWhen (false, the
 // same value watchLaterRemoveAction uses).
-const watchLaterSeenAction: VideoAction = {
-  name: "seen",
-  reflect: reflectSeen,
-  onClick: (video, button): void => {
-    toggleSeen(video, button, undoMarkVideoSeen);
-    // toggleSeen applied optimistically, so video.seen is already the new state.
-    video.inWatchLater = !video.seen;
-    syncWatchLaterButtons(video, button, false);
-  },
-};
+const watchLaterSeenAction: VideoAction = makeSeenAction(false, {
+  unmark: undoMarkVideoSeen,
+  restoresWatchLater: true,
+});
 
 // Reflects the current dismissed state on the corner button and dims the card.
 // The button is a top-right cross (✕ to dismiss, ↩ to undo); feed only. Runs at

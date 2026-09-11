@@ -246,14 +246,25 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     const video = queue[currentIndex];
     if (!video) return;
     const target = !video.seen;
+    // Marking watched drops the video from Watch Later server-side; mirror it
+    // on the in-memory queue like the card toggle does. One-directional —
+    // un-marking never re-adds (see toggleSeen in src/ui/main.ts). The mirror
+    // lives INSIDE apply/revert: the player has no Watch Later button, but the
+    // Video object is shared with the kept feed page (ADR 0008), so a failed
+    // call must put membership back or the cards show a stale flag. `wasSaved`
+    // is read before the first mutation, so the revert restores the real
+    // pre-tap value.
+    const wasSaved = Boolean(video.inWatchLater);
     optimistic({
       key: seenButton,
       apply: (): void => {
         video.seen = target;
+        if (target) video.inWatchLater = false;
         updateSeenButton();
       },
       revert: (): void => {
         video.seen = !target;
+        video.inWatchLater = wasSaved;
         updateSeenButton();
       },
       send: (): Promise<void> =>
@@ -262,10 +273,6 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
         ? "Couldn't mark as watched"
         : "Couldn't mark as not watched",
     });
-    // Marking watched drops the video from Watch Later server-side; mirror it
-    // on the in-memory queue like the card toggle does. One-directional —
-    // un-marking never re-adds (see markSeenAction in src/ui/main.ts).
-    if (target && video.inWatchLater) video.inWatchLater = false;
   });
 
   // Sponsor-skip toggle. Turning it on mid-video loads the segments for the
