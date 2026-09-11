@@ -11,8 +11,10 @@
 //    bucket, and this file picks ours out.
 // 2. COST. The segments of a video are the same for every viewer, so they go in
 //    the SHARED script cache, exactly like the durations in
-//    src/server/youtube.ts. The empty answer is cached too: a video with no
-//    segments is by far the common case and must not be asked twice.
+//    src/server/youtube.ts. The empty answer is cached too, including the 404
+//    the service sends for a bucket with nothing in it: a video with no
+//    segments is by far the common case and must not be asked twice. A failed
+//    lookup is never cached.
 //
 // Every failure returns an empty list. A missing answer means "skip nothing",
 // which is the pre-feature behaviour, and playback must never depend on a
@@ -52,8 +54,18 @@ export function getSponsorSegments(videoId: string): SponsorSegment[] {
 
   const fetched = fetchSponsorSegments(videoId);
   if (fetched === null) return []; // failed lookup: retry on the next request
-  cache.put(key, JSON.stringify(fetched), SPONSOR_CACHE_TTL_SECONDS);
+  try {
+    cache.put(key, JSON.stringify(fetched), SPONSOR_CACHE_TTL_SECONDS);
+  } catch {
+    // A cache write failure must not throw away an answer already fetched.
+  }
   return fetched;
+}
+
+// One entry of the bucket answer: the segments of one video in it.
+interface SponsorBucketEntry {
+  videoID?: string;
+  segments?: unknown;
 }
 
 // Asks SponsorBlock for the video's hash bucket and picks this video out of
@@ -68,16 +80,28 @@ function fetchSponsorSegments(videoId: string): SponsorSegment[] | null {
   } catch {
     return null;
   }
-  if (response.getResponseCode() !== 200) return null;
+  const code = response.getResponseCode();
+  // SponsorBlock answers 404 when the prefix holds no segment in the requested
+  // categories. That is a definitive "nothing here", not a failure, so it is an
+  // empty answer the caller caches. Every other non-200 is a failure.
+  if (code === 404) return [];
+  if (code !== 200) return null;
   try {
-    const bucket = JSON.parse(response.getContentText()) as {
-      videoID?: string;
-      segments?: unknown;
-    }[];
-    if (!Array.isArray(bucket)) return [];
-    const mine = bucket.filter((entry) => entry && entry.videoID === videoId);
-    if (mine.length === 0) return [];
-    return normalizeSponsorSegments(mine[0].segments);
+    const bucket: unknown = JSON.parse(response.getContentText());
+    // A body that parses but is not the bucket array is the same class of
+    // failure as one that does not parse at all, so it must not be cached.
+    if (!Array.isArray(bucket)) return null;
+    const mine = (bucket as SponsorBucketEntry[]).filter(
+      (entry: SponsorBucketEntry): boolean =>
+        Boolean(entry) && entry.videoID === videoId,
+    );
+    // The bucket can hold the video more than once. normalizeSponsorSegments
+    // sorts and merges, so every match goes in.
+    let raw: unknown[] = [];
+    for (const entry of mine) {
+      if (Array.isArray(entry.segments)) raw = raw.concat(entry.segments);
+    }
+    return normalizeSponsorSegments(raw);
   } catch {
     return null;
   }
