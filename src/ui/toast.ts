@@ -40,11 +40,11 @@ export function showToast(message: string, action?: ToastAction): void {
   text.className = "toast-text";
   text.textContent = message;
 
-  const refresh = document.createElement("button");
-  refresh.type = "button";
-  refresh.className = "toast-refresh";
-  refresh.textContent = action ? action.label : "Refresh";
-  refresh.addEventListener("click", (): void => {
+  const actionButton = document.createElement("button");
+  actionButton.type = "button";
+  actionButton.className = "toast-action";
+  actionButton.textContent = action ? action.label : "Refresh";
+  actionButton.addEventListener("click", (): void => {
     if (!action) {
       window.location.reload();
       return;
@@ -62,7 +62,7 @@ export function showToast(message: string, action?: ToastAction): void {
   dismiss.textContent = "✕";
   dismiss.addEventListener("click", (): void => toast.remove());
 
-  toast.append(text, refresh, dismiss);
+  toast.append(text, actionButton, dismiss);
   host.appendChild(toast);
 
   window.setTimeout((): void => toast.remove(), 6000);

@@ -169,8 +169,8 @@
       .app-footer a {
         color: inherit;
       }
-      /* Each footer line sits on its own row on a phone and shares the row on
-         a wide screen. */
+      /* Footer lines sit side by side and wrap to the next row only when they
+         do not fit, which puts each one on its own row on a phone. */
       .footer-line {
         display: inline-block;
         margin: 0 0.5rem;
@@ -555,7 +555,7 @@
       .toast-text {
         flex: 1;
       }
-      .toast-refresh {
+      .toast-action {
         flex-shrink: 0;
         background: #272727;
         color: #f1f1f1;
@@ -566,7 +566,7 @@
         font-size: 0.85rem;
         cursor: pointer;
       }
-      .toast-refresh:hover {
+      .toast-action:hover {
         background: #333;
       }
       .toast-dismiss {
