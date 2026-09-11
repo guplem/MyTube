@@ -1022,6 +1022,9 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     } catch {
       return; // player not ready yet
     }
+    // A position the player cannot report is not a position outside every
+    // segment, so return instead of clearing the last-jump guard below.
+    if (typeof now !== "number" || Number.isNaN(now)) return;
     const segment = sponsorSegmentToSkip(
       sponsorSegments,
       now,
