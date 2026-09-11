@@ -343,7 +343,10 @@ export function installAppsScriptMocks(): AppsScriptMocks {
 
   g.UrlFetchApp = {
     fetchAll: (requests: FetchRequest[]) => mocks.fetchAll(requests),
-    fetch: (url: string) => mocks.fetchAll([{ url }])[0],
+    // Forward the options: production passes muteHttpExceptions, and a test
+    // must be able to see it. Real Apps Script throws on a 404 without it.
+    fetch: (url: string, options?: Omit<FetchRequest, "url">) =>
+      mocks.fetchAll([{ url, ...(options ?? {}) }])[0],
   };
 
   g.Utilities = {
