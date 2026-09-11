@@ -1162,6 +1162,10 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     void loadSponsorSegments(video.videoId);
 
     const api = await loadYouTubeApi();
+    // The viewer left the player mid-load. destroy() already cleared every
+    // timer, so a player built here would restart them with nothing left to
+    // clear them, and the leaked interval keeps saving progress forever.
+    if (destroyed) return;
     if (!player) {
       player = new api.Player(mount, {
         videoId: video.videoId,
