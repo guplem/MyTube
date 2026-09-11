@@ -9,6 +9,7 @@
 // a handle to seed state and inspect/override behaviour. Call it in beforeEach.
 
 import { DOMParser } from "@xmldom/xmldom";
+import { createHash } from "node:crypto";
 
 // Real Apps Script quotas the fakes enforce so an oversized write fails in
 // tests the same way it fails in production. Sizes are measured in UTF-8
@@ -348,6 +349,17 @@ export function installAppsScriptMocks(): AppsScriptMocks {
   g.Utilities = {
     sleep: (ms: number) => {
       mocks.sleeps.push(ms);
+    },
+    DigestAlgorithm: { SHA_256: "SHA_256" },
+    // Real Apps Script returns SIGNED bytes (-128..127), so the fake converts
+    // Node's unsigned bytes the same way. Production code must undo that sign
+    // before it builds hex, and this keeps that conversion under test.
+    computeDigest: (algorithm: string, value: string) => {
+      if (algorithm !== "SHA_256") {
+        throw new Error(`FakeUtilities: unsupported digest ${algorithm}`);
+      }
+      const digest = createHash("sha256").update(value, "utf8").digest();
+      return Array.from(digest, (byte) => (byte > 127 ? byte - 256 : byte));
     },
   };
 
