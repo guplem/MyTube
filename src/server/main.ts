@@ -126,10 +126,15 @@ export function getVideoDescription(videoId: string): string {
 /**
  * Sponsor and self-promotion time ranges to jump past in a video, from the
  * public SponsorBlock database. Empty when nothing is known or the lookup
- * failed, so playback never depends on it.
+ * failed, so playback never depends on it. `durationSeconds` is the video
+ * length when the caller knows it, which bounds a bad crowd entry that would
+ * otherwise seek past the end of the video.
  */
-export function getSponsorSegments(videoId: string): SponsorSegment[] {
-  return sponsorBlock.getSponsorSegments(videoId);
+export function getSponsorSegments(
+  videoId: string,
+  durationSeconds?: number,
+): SponsorSegment[] {
+  return sponsorBlock.getSponsorSegments(videoId, durationSeconds);
 }
 
 /** One page of a video's top-level comments, sorted by order ("relevance"/"time"). */

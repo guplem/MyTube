@@ -32,14 +32,33 @@ interface RawSponsorSegment {
   segment?: unknown;
 }
 
+/** The label the player shows for a skipped category. */
+export function sponsorCategoryLabel(category: SponsorCategory): string {
+  return category === "selfpromo" ? "self-promotion" : "sponsor";
+}
+
 /**
  * Cleans one video's raw SponsorBlock entries into segments the player can
  * act on: only skip actions in a skipped category, only finite ranges with a
  * real length, sorted by start time, and with overlapping or touching ranges
  * merged into one. Returns an empty list for anything unexpected, so a broken
  * answer can never move playback.
+ *
+ * `durationSeconds` is the video length when the caller knows it. A bad crowd
+ * entry such as [0, 99999] would otherwise seek past the end, which ends the
+ * video and autoplays the next one, and the viewer cannot undo that. Without a
+ * duration no upper bound applies.
  */
-export function normalizeSponsorSegments(raw: unknown): SponsorSegment[] {
+export function normalizeSponsorSegments(
+  raw: unknown,
+  durationSeconds?: number,
+): SponsorSegment[] {
+  const limitSeconds =
+    typeof durationSeconds === "number" &&
+    Number.isFinite(durationSeconds) &&
+    durationSeconds > 0
+      ? durationSeconds
+      : null;
   if (!Array.isArray(raw)) return [];
 
   const usable: SponsorSegment[] = [];
@@ -55,6 +74,7 @@ export function normalizeSponsorSegments(raw: unknown): SponsorSegment[] {
     if (!Number.isFinite(startSeconds) || !Number.isFinite(endSeconds))
       continue;
     if (startSeconds < 0 || endSeconds <= startSeconds) continue;
+    if (limitSeconds !== null && endSeconds > limitSeconds) continue;
     usable.push({ category, startSeconds, endSeconds });
   }
 
@@ -77,24 +97,47 @@ export function normalizeSponsorSegments(raw: unknown): SponsorSegment[] {
   return merged;
 }
 
+/** What the player must do at one playback position. */
+export interface SponsorSkipDecision {
+  /** The segment to jump past now, or null when nothing must move. */
+  segment: SponsorSegment | null;
+  /** The value the caller must keep as its last-jumped memory. */
+  lastSkippedStartSeconds: number | null;
+}
+
 /**
- * The segment the player must jump past right now, or null when the position
- * is outside every segment. `ignoredStartSeconds` holds the start times of the
- * segments the viewer undid, which stay ignored for the rest of the video.
- * Segments never overlap after normalizeSponsorSegments, so the start time is
- * a stable id.
+ * Decides whether the player must jump past a segment at this position, and
+ * what the last-jumped memory becomes.
+ *
+ * Three rules, all here so a browser is not needed to test them:
+ *
+ * 1. `ignoredStartSeconds` holds the start times of the segments the viewer
+ *    undid. They stay ignored for the rest of the video. Segments never
+ *    overlap after normalizeSponsorSegments, so the start time is a stable id.
+ * 2. `lastSkippedStartSeconds` is the segment the player jumped past last. The
+ *    same segment is never jumped twice in a row, so a viewer who rewinds into
+ *    it keeps the rewind.
+ * 3. The memory clears when the position is outside every segment. An
+ *    unreadable position is not a position outside every segment, so it keeps
+ *    the memory.
  */
-export function sponsorSegmentToSkip(
+export function sponsorSkipDecision(
   segments: SponsorSegment[],
   positionSeconds: number,
   ignoredStartSeconds: number[],
-): SponsorSegment | null {
-  if (!Number.isFinite(positionSeconds)) return null;
+  lastSkippedStartSeconds: number | null,
+): SponsorSkipDecision {
+  if (!Number.isFinite(positionSeconds)) {
+    return { segment: null, lastSkippedStartSeconds };
+  }
   for (const segment of segments) {
     if (positionSeconds < segment.startSeconds) break; // sorted: no later match
     if (positionSeconds >= segment.endSeconds) continue;
     if (ignoredStartSeconds.indexOf(segment.startSeconds) >= 0) continue;
-    return segment;
+    if (segment.startSeconds === lastSkippedStartSeconds) {
+      return { segment: null, lastSkippedStartSeconds };
+    }
+    return { segment, lastSkippedStartSeconds: segment.startSeconds };
   }
-  return null;
+  return { segment: null, lastSkippedStartSeconds: null };
 }

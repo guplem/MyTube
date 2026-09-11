@@ -37,8 +37,15 @@ const SPONSOR_CACHE_TTL_SECONDS = 21600; // 6h, the CacheService maximum
 // characters; 4 is the shortest and therefore the largest crowd to hide in.
 const HASH_PREFIX_LENGTH = 4;
 
-/** One video's segments to jump past, cleaned and merged. Empty on any failure. */
-export function getSponsorSegments(videoId: string): SponsorSegment[] {
+/**
+ * One video's segments to jump past, cleaned and merged. Empty on any failure.
+ * `durationSeconds` is the video length when the caller knows it; it drops an
+ * entry that ends past the end of the video.
+ */
+export function getSponsorSegments(
+  videoId: string,
+  durationSeconds?: number,
+): SponsorSegment[] {
   if (!videoId) return [];
 
   const cache = CacheService.getScriptCache();
@@ -52,7 +59,7 @@ export function getSponsorSegments(videoId: string): SponsorSegment[] {
     }
   }
 
-  const fetched = fetchSponsorSegments(videoId);
+  const fetched = fetchSponsorSegments(videoId, durationSeconds);
   if (fetched === null) return []; // failed lookup: retry on the next request
   try {
     cache.put(key, JSON.stringify(fetched), SPONSOR_CACHE_TTL_SECONDS);
@@ -71,7 +78,10 @@ interface SponsorBucketEntry {
 // Asks SponsorBlock for the video's hash bucket and picks this video out of
 // the answer. Returns null when the lookup failed, which the caller must not
 // cache, and a (possibly empty) list when the service answered.
-function fetchSponsorSegments(videoId: string): SponsorSegment[] | null {
+function fetchSponsorSegments(
+  videoId: string,
+  durationSeconds?: number,
+): SponsorSegment[] | null {
   const url =
     SPONSOR_API_BASE + videoIdHashPrefix(videoId) + SPONSOR_API_CATEGORIES;
   let response: GoogleAppsScript.URL_Fetch.HTTPResponse;
@@ -101,7 +111,7 @@ function fetchSponsorSegments(videoId: string): SponsorSegment[] | null {
     for (const entry of mine) {
       if (Array.isArray(entry.segments)) raw = raw.concat(entry.segments);
     }
-    return normalizeSponsorSegments(raw);
+    return normalizeSponsorSegments(raw, durationSeconds);
   } catch {
     return null;
   }

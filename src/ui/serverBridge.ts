@@ -16,7 +16,7 @@ interface ScriptRunner {
   getFeedPage(options: FeedPageOptions): void;
   getVideoDescription(videoId: string): void;
   getComments(videoId: string, order: CommentOrder, pageToken: string): void;
-  getSponsorSegments(videoId: string): void;
+  getSponsorSegments(videoId: string, durationSeconds?: number): void;
   markVideoSeen(video: Video): void;
   removeVideoSeen(videoId: string): void;
   undoMarkVideoSeen(videoId: string): void;
@@ -58,8 +58,13 @@ export function getComments(
   );
 }
 
-export function getSponsorSegments(videoId: string): Promise<SponsorSegment[]> {
-  return call<SponsorSegment[]>((runner) => runner.getSponsorSegments(videoId));
+export function getSponsorSegments(
+  videoId: string,
+  durationSeconds?: number,
+): Promise<SponsorSegment[]> {
+  return call<SponsorSegment[]>((runner) =>
+    runner.getSponsorSegments(videoId, durationSeconds),
+  );
 }
 
 export function markVideoSeen(video: Video): Promise<void> {
