@@ -51,6 +51,7 @@ import {
   HIDE_SAVED_DEFAULT,
   feedFlagFilters,
 } from "./feedFilters";
+import { SettingsView } from "./settingsView";
 import { renderBuildStamp } from "./buildStamp";
 import { renderSponsorBlockCredit } from "./sponsorBlockCredit";
 import {
@@ -97,9 +98,12 @@ type Screen =
   | { view: "playlists" }
   | { view: "history" }
   | { view: "playlist"; playlistId: string; title: string }
+  | { view: "settings" }
   | PlayerScreen;
 
-// Which nav tab a screen belongs to (for highlighting the active button).
+// Which nav tab a screen belongs to (for highlighting the active button). A
+// screen can belong to none: Settings opens from the footer, so no tab owns it
+// and none must light up while it shows.
 type Section = "feed" | "watchlater" | "playlists" | "history";
 
 // The screen shown on a fresh launch (no view param) and as the fallback for an
@@ -418,6 +422,22 @@ function reloadFeedFromStart(forceRefresh: boolean): void {
   showFeed(forceRefresh);
 }
 
+// The one path for "a feed filter changed", used by the feed toolbar AND by the
+// Settings screen, which writes the very same preference keys. Two writers with
+// two update paths is how the kept feed page (ADR 0008) and the Feed nav button
+// go stale, so both come through here.
+//
+// Off the feed there is nothing to re-render: the warm-up fetches the page under
+// the new filters, which replaces the kept page and corrects the nav button.
+function feedFilterChanged(): void {
+  if (currentView === "feed") {
+    reloadFeedFromStart(false);
+    return;
+  }
+  feedPage = 0;
+  warmFeedPage();
+}
+
 function showFeed(forceFirstLoad: boolean = false): void {
   const app = appContainer();
   if (!app) return;
@@ -554,7 +574,7 @@ function feedToggle(
   checkbox.checked = getBoolPreference(prefKey, defaultValue);
   checkbox.addEventListener("change", (): void => {
     setBoolPreference(prefKey, checkbox.checked);
-    reloadFeedFromStart(false);
+    feedFilterChanged();
   });
   label.append(checkbox, document.createTextNode(labelText));
   return label;
@@ -578,7 +598,7 @@ function beforeDateControl(): HTMLElement {
   );
   input.addEventListener("change", (): void => {
     setStringPreference(BEFORE_DATE_PREF, input.value);
-    reloadFeedFromStart(false);
+    feedFilterChanged();
   });
   label.append(document.createTextNode("Hide older than "), input);
   return label;
@@ -650,6 +670,16 @@ function showPlaylists(): void {
       if (movedOn()) return;
       app.textContent = `Could not load your playlists: ${error.message}`;
     });
+}
+
+// Every preference in one place (src/ui/settingsView.ts). It reads only
+// localStorage, which answers at once, so it paints synchronously: there is no
+// load to await and so no navigationMovedOn() guard to keep.
+function showSettings(): void {
+  const app = appContainer();
+  if (!app) return;
+  app.innerHTML = "";
+  app.appendChild(SettingsView(feedFilterChanged));
 }
 
 // Loads a Video[] and renders it with VideoListView. Shows placeholder cards
@@ -912,6 +942,10 @@ function minimalVideo(videoId: string): Video {
 
 // --- Routing ---------------------------------------------------------------
 
+// The screen on show right now. Read by feedFilterChanged, which must know
+// whether the feed is the screen to re-render or the screen to warm up.
+let currentView: Screen["view"] = DEFAULT_SCREEN.view;
+
 function go(screen: Screen): void {
   // Push BEFORE render. The player calls onVideoChange during render, which
   // replaceUrlState()s the current history entry. If we rendered first, that
@@ -929,6 +963,7 @@ function go(screen: Screen): void {
 function render(screen: Screen): void {
   // Retires every screen still loading: from here on their paint is dropped.
   navigationGeneration += 1;
+  currentView = screen.view;
   // Leaving the player: tear down the YouTube iframe so it stops playing. This
   // runs FIRST, before the incoming screen is recorded below and before the
   // warm-up, because destroy() saves the playback position: that mutation
@@ -948,20 +983,8 @@ function render(screen: Screen): void {
       isPlayer: false,
       playerQueueIsFeedPage: false,
     });
-  // Any screen but the feed warms the page the feed would open on — the one it
-  // last showed, not always the first (the feed's own loader is the fetch
-  // there). Fire-and-forget: it runs as its own parallel server call, so it
-  // never delays the screen being rendered. It costs no server call when that
-  // page is already held, and the server only refetches the channels whose RSS
-  // cache expired — never a forced refresh. Its result is what clears the Feed
-  // button's dim before the user ever opens the feed.
-  if (screen.view !== "feed")
-    trackFeedLoad(loadFeedPage(feedPageOptions(feedPage, feedPageSize, false)))
-      .then((page): void => recordLoadedFeedTotal(page.total))
-      // A failed load leaves the button not-loaded: trackFeedLoad ends the pulse,
-      // and the still dim is the truth. Catching after the then, not as its
-      // second argument, so a throw from the repaint is caught too.
-      .catch((): void => undefined);
+  // Any screen but the feed warms the page the feed would open on.
+  if (screen.view !== "feed") warmFeedPage();
   switch (screen.view) {
     case "watchlater":
       showWatchLater();
@@ -975,12 +998,32 @@ function render(screen: Screen): void {
     case "playlist":
       showPlaylist(screen.playlistId, screen.title);
       break;
+    case "settings":
+      showSettings();
+      break;
     case "player":
       renderPlayer(screen);
       break;
     default:
       showFeed();
   }
+}
+
+// Warms the page the feed would open on — the one it last showed, not always
+// the first (the feed's own loader is the fetch there). Fire-and-forget: it runs
+// as its own parallel server call, so it never delays the screen being rendered.
+// It costs no server call when that page is already held, and the server only
+// refetches the channels whose RSS cache expired — never a forced refresh. Its
+// result is what clears the Feed button's dim before the user ever opens the
+// feed. Every non-feed render() calls it, and so does a feed filter changed from
+// the Settings screen, whose new filters make a new page the one to hold.
+function warmFeedPage(): void {
+  trackFeedLoad(loadFeedPage(feedPageOptions(feedPage, feedPageSize, false)))
+    .then((page): void => recordLoadedFeedTotal(page.total))
+    // A failed load leaves the button not-loaded: trackFeedLoad ends the pulse,
+    // and the still dim is the truth. Catching after the then, not as its
+    // second argument, so a throw from the repaint is caught too.
+    .catch((): void => undefined);
 }
 
 function paramsFor(screen: Screen): UrlParams {
@@ -1014,6 +1057,8 @@ function screenFromParams(params: UrlParams): Screen {
       return { view: "history" };
     case "feed":
       return { view: "feed" };
+    case "settings":
+      return { view: "settings" };
     case "playlist":
       return params.pl
         ? { view: "playlist", playlistId: params.pl, title: params.title ?? "" }
@@ -1082,8 +1127,11 @@ function screenForContext(context: PlayerContext): Screen {
   }
 }
 
-function sectionOf(screen: Screen): Section {
+// Null for a screen that no nav tab owns, so no tab lights up while it shows.
+function sectionOf(screen: Screen): Section | null {
   switch (screen.view) {
+    case "settings":
+      return null;
     case "watchlater":
       return "watchlater";
     case "playlists":
@@ -1098,7 +1146,7 @@ function sectionOf(screen: Screen): Section {
   }
 }
 
-function setActiveNav(section: Section): void {
+function setActiveNav(section: Section | null): void {
   document
     .querySelectorAll<HTMLButtonElement>(".app-nav button")
     .forEach((button): void => {
@@ -1128,6 +1176,15 @@ function setupNav(): void {
     });
 }
 
+// Settings opens from the footer, which is static chrome outside #app. The app
+// is one page, so a plain link would never reach the router. Route the click the
+// way a nav button routes its own.
+function setupSettingsLink(): void {
+  document
+    .getElementById("settings-link")
+    ?.addEventListener("click", (): void => go({ view: "settings" }));
+}
+
 // The search box redirects to YouTube's results page (PLAN.md section 4); we do
 // not run in-app search, which would cost 100 quota units per query.
 function setupSearch(): void {
@@ -1153,6 +1210,7 @@ function start(): void {
   if (!app) return;
   setupNav();
   setupSearch();
+  setupSettingsLink();
   onUrlStateChange((state, params): void => {
     render((state as Screen | null) ?? screenFromParams(params));
   });
