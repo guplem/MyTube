@@ -35,7 +35,14 @@ follows three rules, established by `src/server/sponsorBlock.ts`:
    "nothing found" is the common case and must not be looked up on every
    request. An answer that says "nothing here" is cached whatever shape it
    takes, including a status code the service uses for it (SponsorBlock
-   answers 404 for an empty bucket).
+   answers 404 for an empty bucket). **Cache only what the key describes.**
+   The entry holds the answer for that video and nothing else. Apply every
+   rule that depends on the caller after the cache read, never before the
+   write. SponsorBlock shows why: the video length drops a crowd entry that
+   ends past the end of the video, but the caller knows the length only
+   sometimes, so `boundSponsorSegments` runs on the way out and the cached
+   list stays unbounded. A per-caller rule baked into a shared entry gives
+   every later viewer the first caller's answer, for the whole TTL.
 3. **Fail open.** Any error (network failure, an unexpected status code, a
    malformed or unexpectedly shaped body) turns into "no data", never an
    exception or a UI-visible failure, and a failed lookup is not cached so the
@@ -60,3 +67,5 @@ promises.
   filtering on every cache miss; negligible next to the network round trip.
 - A third-party API that offers no hash-based lookup would need its own
   privacy review before this pattern applies as-is.
+- A shared cache entry must stay true for every caller, so a per-caller filter
+  costs a small amount of work on every call, not once per fetch.

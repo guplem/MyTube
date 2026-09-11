@@ -97,13 +97,17 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   leaves the server, and caches the answer — empty lists included — in the
   shared script cache for 6h, like `getVideoDurationsSeconds`. A 404 is the
   service's "nothing here" answer and is cached like any empty list. The
-  policy (`normalizeSponsorSegments`, `sponsorSkipDecision`,
-  `sponsorCategoryLabel` in `src/shared/sponsorBlock.ts`) is shared, so the
+  policy (`normalizeSponsorSegments`, `boundSponsorSegments`,
+  `sponsorSkipDecision`, `sponsorCategoryLabel` in
+  `src/shared/sponsorBlock.ts`) is shared, so the
   player's skip decision matches the server's cache and tests can pin it
   without a browser. `sponsorSkipDecision` also owns the memory of the last
-  jump, which stops a second jump on the same segment. The player passes the
-  video's `durationSeconds` when it knows one, which drops a crowd entry that
-  ends past the end of the video. A failed lookup returns `[]` and is never
+  jump, which stops a second jump on the same segment. **The cache entry holds
+  the UNBOUNDED list, and `boundSponsorSegments` drops a crowd entry that ends
+  past the video length AFTER the cache read, on every call.** The player
+  passes `durationSeconds` only when it knows one, so a bound written into the
+  shared entry would fix one caller's length for every later viewer, in both
+  directions. A failed lookup returns `[]` and is never
   cached, matching the "skip nothing" default. Segments are not stored on
   `Video`, so the kept feed page (ADR 0008) is untouched.
 - **Seen = watch history only.** `flagSeen` sets it from the history ids;

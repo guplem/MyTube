@@ -44,21 +44,11 @@ export function sponsorCategoryLabel(category: SponsorCategory): string {
  * merged into one. Returns an empty list for anything unexpected, so a broken
  * answer can never move playback.
  *
- * `durationSeconds` is the video length when the caller knows it. A bad crowd
- * entry such as [0, 99999] would otherwise seek past the end, which ends the
- * video and autoplays the next one, and the viewer cannot undo that. Without a
- * duration no upper bound applies.
+ * The result holds no video length bound. The bound is per viewer, because
+ * the caller may or may not know the length, so it is a separate step:
+ * boundSponsorSegments.
  */
-export function normalizeSponsorSegments(
-  raw: unknown,
-  durationSeconds?: number,
-): SponsorSegment[] {
-  const limitSeconds =
-    typeof durationSeconds === "number" &&
-    Number.isFinite(durationSeconds) &&
-    durationSeconds > 0
-      ? durationSeconds
-      : null;
+export function normalizeSponsorSegments(raw: unknown): SponsorSegment[] {
   if (!Array.isArray(raw)) return [];
 
   const usable: SponsorSegment[] = [];
@@ -74,7 +64,6 @@ export function normalizeSponsorSegments(
     if (!Number.isFinite(startSeconds) || !Number.isFinite(endSeconds))
       continue;
     if (startSeconds < 0 || endSeconds <= startSeconds) continue;
-    if (limitSeconds !== null && endSeconds > limitSeconds) continue;
     usable.push({ category, startSeconds, endSeconds });
   }
 
@@ -95,6 +84,32 @@ export function normalizeSponsorSegments(
     merged.push({ ...segment });
   }
   return merged;
+}
+
+/**
+ * Drops every segment that ends past the video length. A bad crowd entry such
+ * as [0, 99999] would otherwise seek past the end, which ends the video and
+ * autoplays the next one, and the viewer cannot undo that.
+ *
+ * This is a separate step from normalizeSponsorSegments because the cleaned
+ * list is cached for every viewer, but the length is per call: the caller
+ * knows it only when the length lookup worked. So the cache holds the
+ * unbounded list, and each caller bounds it with the length that it has.
+ * Without a length no upper bound applies.
+ */
+export function boundSponsorSegments(
+  segments: SponsorSegment[],
+  durationSeconds?: number,
+): SponsorSegment[] {
+  const hasLimit =
+    typeof durationSeconds === "number" &&
+    Number.isFinite(durationSeconds) &&
+    durationSeconds > 0;
+  if (!hasLimit) return segments;
+  return segments.filter(
+    (segment: SponsorSegment): boolean =>
+      segment.endSeconds <= (durationSeconds as number),
+  );
 }
 
 /** What the player must do at one playback position. */

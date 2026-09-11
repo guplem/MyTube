@@ -4,6 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  boundSponsorSegments,
   normalizeSponsorSegments,
   sponsorCategoryLabel,
   sponsorSkipDecision,
@@ -80,34 +81,42 @@ describe("normalizeSponsorSegments", () => {
     expect(normalizeSponsorSegments({})).toEqual([]);
   });
 
+  it("applies no upper bound: the duration bound is a separate step", () => {
+    const segments = normalizeSponsorSegments([
+      { category: "sponsor", actionType: "skip", segment: [0, 99999] },
+    ]);
+    expect(segments).toHaveLength(1);
+  });
+});
+
+describe("boundSponsorSegments", () => {
+  const overlong: SponsorSegment[] = [
+    { category: "sponsor", startSeconds: 0, endSeconds: 99999 },
+    { category: "sponsor", startSeconds: 10, endSeconds: 20 },
+  ];
+
   it("drops a segment that ends past the video duration", () => {
-    const segments = normalizeSponsorSegments(
-      [
-        { category: "sponsor", actionType: "skip", segment: [0, 99999] },
-        { category: "sponsor", actionType: "skip", segment: [10, 20] },
-      ],
-      600,
-    );
-    expect(segments).toEqual([
+    expect(boundSponsorSegments(overlong, 600)).toEqual([
       { category: "sponsor", startSeconds: 10, endSeconds: 20 },
     ]);
   });
 
   it("keeps a segment that ends exactly at the video duration", () => {
-    const segments = normalizeSponsorSegments(
-      [{ category: "sponsor", actionType: "skip", segment: [10, 600] }],
-      600,
-    );
-    expect(segments).toHaveLength(1);
+    const segments: SponsorSegment[] = [
+      { category: "sponsor", startSeconds: 10, endSeconds: 600 },
+    ];
+    expect(boundSponsorSegments(segments, 600)).toEqual(segments);
   });
 
   it("applies no upper bound when the duration is unknown", () => {
-    const raw = [
-      { category: "sponsor", actionType: "skip", segment: [0, 99999] },
-    ];
-    expect(normalizeSponsorSegments(raw)).toHaveLength(1);
-    expect(normalizeSponsorSegments(raw, undefined)).toHaveLength(1);
-    expect(normalizeSponsorSegments(raw, 0)).toHaveLength(1);
+    expect(boundSponsorSegments(overlong)).toEqual(overlong);
+    expect(boundSponsorSegments(overlong, undefined)).toEqual(overlong);
+    expect(boundSponsorSegments(overlong, 0)).toEqual(overlong);
+  });
+
+  it("keeps the caller's list unchanged", () => {
+    boundSponsorSegments(overlong, 600);
+    expect(overlong).toHaveLength(2);
   });
 });
 

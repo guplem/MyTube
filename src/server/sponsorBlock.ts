@@ -23,6 +23,7 @@
 // Data is CC BY-NC-SA 4.0; the app footer credits SponsorBlock.
 
 import {
+  boundSponsorSegments,
   normalizeSponsorSegments,
   type SponsorSegment,
 } from "../shared/sponsorBlock";
@@ -40,7 +41,11 @@ const HASH_PREFIX_LENGTH = 4;
 /**
  * One video's segments to jump past, cleaned and merged. Empty on any failure.
  * `durationSeconds` is the video length when the caller knows it; it drops an
- * entry that ends past the end of the video.
+ * entry that ends past the end of the video. The cache holds the UNBOUNDED
+ * list, and the bound applies after the read: the cache is shared by every
+ * viewer, but one caller can know the length and the next one cannot, so a
+ * bound written into the cache entry would reach viewers that never asked for
+ * it.
  */
 export function getSponsorSegments(
   videoId: string,
@@ -53,20 +58,23 @@ export function getSponsorSegments(
   const cached = cache.get(key);
   if (cached) {
     try {
-      return JSON.parse(cached) as SponsorSegment[];
+      return boundSponsorSegments(
+        JSON.parse(cached) as SponsorSegment[],
+        durationSeconds,
+      );
     } catch {
       // Unreadable cache entry; fetch a fresh answer below.
     }
   }
 
-  const fetched = fetchSponsorSegments(videoId, durationSeconds);
+  const fetched = fetchSponsorSegments(videoId);
   if (fetched === null) return []; // failed lookup: retry on the next request
   try {
     cache.put(key, JSON.stringify(fetched), SPONSOR_CACHE_TTL_SECONDS);
   } catch {
     // A cache write failure must not throw away an answer already fetched.
   }
-  return fetched;
+  return boundSponsorSegments(fetched, durationSeconds);
 }
 
 // One entry of the bucket answer: the segments of one video in it.
@@ -78,10 +86,7 @@ interface SponsorBucketEntry {
 // Asks SponsorBlock for the video's hash bucket and picks this video out of
 // the answer. Returns null when the lookup failed, which the caller must not
 // cache, and a (possibly empty) list when the service answered.
-function fetchSponsorSegments(
-  videoId: string,
-  durationSeconds?: number,
-): SponsorSegment[] | null {
+function fetchSponsorSegments(videoId: string): SponsorSegment[] | null {
   const url =
     SPONSOR_API_BASE + videoIdHashPrefix(videoId) + SPONSOR_API_CATEGORIES;
   let response: GoogleAppsScript.URL_Fetch.HTTPResponse;
@@ -111,7 +116,7 @@ function fetchSponsorSegments(
     for (const entry of mine) {
       if (Array.isArray(entry.segments)) raw = raw.concat(entry.segments);
     }
-    return normalizeSponsorSegments(raw, durationSeconds);
+    return normalizeSponsorSegments(raw);
   } catch {
     return null;
   }

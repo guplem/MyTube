@@ -263,6 +263,36 @@ describe("getSponsorSegments", () => {
     expect(calls).toBe(2);
   });
 
+  // The cache entry is the UNBOUNDED list, and each caller bounds it by its
+  // own duration after the read. The first caller must not fix the bound for
+  // everyone: the player passes an undefined duration whenever the length
+  // lookup failed, and a wrong bound would reach every viewer for 6 hours.
+  it("bounds a cached list by each caller's own duration", () => {
+    mocks.fetchAll = () => [
+      apiBody([
+        { videoID: VIDEO_ID, segments: [skipSegment("sponsor", 0, 99999)] },
+      ]),
+    ];
+
+    getSponsorSegments(VIDEO_ID); // no duration: caches the unbounded list
+
+    expect(getSponsorSegments(VIDEO_ID, 600)).toEqual([]);
+  });
+
+  it("keeps the full list for a later caller after a bounded first call", () => {
+    mocks.fetchAll = () => [
+      apiBody([
+        { videoID: VIDEO_ID, segments: [skipSegment("sponsor", 0, 99999)] },
+      ]),
+    ];
+    const full = [{ category: "sponsor", startSeconds: 0, endSeconds: 99999 }];
+
+    expect(getSponsorSegments(VIDEO_ID, 600)).toEqual([]);
+
+    expect(getSponsorSegments(VIDEO_ID, 200000)).toEqual(full);
+    expect(getSponsorSegments(VIDEO_ID)).toEqual(full);
+  });
+
   it("returns an empty list for an empty video id, without a request", () => {
     let calls = 0;
     mocks.fetchAll = () => {
