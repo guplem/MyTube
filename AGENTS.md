@@ -234,7 +234,11 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   through `optimistic()` in `src/ui/optimistic.ts` — it applies the expected
   result immediately (`apply`), fires the request (`send`), and on failure rolls
   the change back (`revert`) and shows a `showToast` with a one-tap refresh. Pass
-  the button as `key` so a rapid re-tap lets only the latest tap own the rollback.
+  as `key` the thing that the tap changes: the button when one button serves one
+  item, the video when one button serves a whole queue (`src/ui/playerView.ts`).
+  Only the latest tap on a key owns the rollback. Change every field the mutation
+  touches inside `apply`. Restore each field in `revert` from the value that you
+  read before this tap, and only while the value that `apply` wrote still stands.
   `optimisticToggle` in `src/ui/main.ts` is the card-level wrapper built on it.
   This is **not** for reads (loading comments, a feed page, refreshing) — there is
   no result to assume, so those keep their own loading/skeleton state.

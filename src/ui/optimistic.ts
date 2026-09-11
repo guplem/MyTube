@@ -18,9 +18,11 @@ import { applyFeedNavState } from "./feedNavButton";
 // settle, only the LATEST tap owns the rollback. A stale request that fails
 // later is ignored, because the newer tap already decided the UI and fired its
 // own request; reverting the old one would diverge from both the user's last
-// intent and the server's last write. Keyed on the button (a WeakMap so detached
-// buttons are collected); callers that never re-tap (e.g. a one-shot remove) can
-// omit the key and get a fresh, un-deduplicated slot.
+// intent and the server's last write. The key is the object that owns the
+// pending change (a WeakMap, so a detached key is collected): the button where
+// one button serves one item, the Video in src/ui/playerView.ts, where one
+// button serves the whole queue. Callers that never re-tap (e.g. a one-shot
+// remove) can omit the key and get a fresh, un-deduplicated slot.
 const latestOp = new WeakMap<object, number>();
 
 export interface OptimisticOptions {
@@ -34,7 +36,10 @@ export interface OptimisticOptions {
   failMessage: string;
   /** Optional: run when the request succeeds (e.g. finalize a removal). */
   onSuccess?: () => void;
-  /** Dedup key for rapid re-taps (usually the button). Omit for no dedup. */
+  /**
+   * Dedup key for rapid re-taps: the object that owns the pending change, which
+   * is the button, or the Video in the player. Omit for no dedup.
+   */
   key?: object;
 }
 

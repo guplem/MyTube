@@ -28,6 +28,7 @@ import {
   saveVideoProgress,
 } from "./serverBridge";
 import { progressToStore, shouldSuggestWatched } from "../shared/videoProgress";
+import { watchLaterAfterSeenToggle } from "../shared/watchLaterAfterSeen";
 import { dropStaleFeedPage } from "./feedPageCache";
 import { getBoolPreference, setBoolPreference } from "./preferences";
 import {
@@ -246,14 +247,41 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     const video = queue[currentIndex];
     if (!video) return;
     const target = !video.seen;
+    // Marking watched drops the video from Watch Later server-side; mirror it
+    // on the in-memory queue like the card toggle does. The player un-marks
+    // with removeVideoSeen, which never re-adds, so it passes
+    // restoresWatchLater: false — only the Watch Later screen's card toggle
+    // restores the entry (see toggleSeen in src/ui/main.ts). The mirror lives
+    // INSIDE apply/revert: the player has no Watch Later button, but the Video
+    // object is shared with the kept feed page (ADR 0008), so a failed call
+    // must put membership back or the cards show a stale flag. `wasSaved` is
+    // membership as of this tap, so the revert restores that; an earlier tap
+    // that has not settled yet makes it that tap's assumed value.
+    const wasSaved = Boolean(video.inWatchLater);
+    const savedAtTarget = watchLaterAfterSeenToggle({
+      seenTarget: target,
+      wasSaved,
+      restoresWatchLater: false,
+    });
     optimistic({
-      key: seenButton,
+      // Keyed on the video, not the button: one button serves the whole queue,
+      // so a tap on the next video would otherwise supersede the previous
+      // video's rollback and strand a stale flag on a shared Video (ADR 0008).
+      key: video,
       apply: (): void => {
         video.seen = target;
+        video.inWatchLater = savedAtTarget;
         updateSeenButton();
       },
       revert: (): void => {
         video.seen = !target;
+        // A card one screen away can have changed membership since this tap
+        // applied. Roll back only while the value this tap wrote still stands.
+        // The same guard sits in toggleSeen in src/ui/main.ts, which states what
+        // a value comparison cannot tell apart.
+        if (Boolean(video.inWatchLater) === savedAtTarget) {
+          video.inWatchLater = wasSaved;
+        }
         updateSeenButton();
       },
       send: (): Promise<void> =>
@@ -262,10 +290,6 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
         ? "Couldn't mark as watched"
         : "Couldn't mark as not watched",
     });
-    // Marking watched drops the video from Watch Later server-side; mirror it
-    // on the in-memory queue like the card toggle does. One-directional —
-    // un-marking never re-adds (see markSeenAction in src/ui/main.ts).
-    if (target && video.inWatchLater) video.inWatchLater = false;
   });
 
   // Sponsor-skip toggle. Turning it on mid-video loads the segments for the
