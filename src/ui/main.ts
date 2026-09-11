@@ -41,16 +41,13 @@ import {
 } from "./feedNavButton";
 import {
   HIDE_SHORTS_PREF,
-  HIDE_VIEWED_PREF,
-  HIDE_DISMISSED_PREF,
   HIDE_SAVED_PREF,
   BEFORE_DATE_PREF,
   HIDE_SHORTS_DEFAULT,
-  HIDE_VIEWED_DEFAULT,
-  HIDE_DISMISSED_DEFAULT,
   HIDE_SAVED_DEFAULT,
   feedFlagFilters,
 } from "./feedFilters";
+import { feedFilterControls } from "./feedFilterControls";
 import { SettingsView } from "./settingsView";
 import { renderBuildStamp } from "./buildStamp";
 import { renderSponsorBlockCredit } from "./sponsorBlockCredit";
@@ -61,12 +58,7 @@ import {
 } from "./skeleton";
 import { PlayerView, type PlayerController } from "./playerView";
 import { optimistic } from "./optimistic";
-import {
-  getBoolPreference,
-  setBoolPreference,
-  getStringPreference,
-  setStringPreference,
-} from "./preferences";
+import { getBoolPreference, getStringPreference } from "./preferences";
 import {
   pushUrlState,
   replaceUrlState,
@@ -414,9 +406,9 @@ function feedPageOptions(
 let feedPage = 0;
 let feedPageSize = DEFAULT_PAGE_SIZE;
 
-// Re-renders the feed from its first page. Used by the filters and by Force
-// refresh: both change what the feed holds, so the remembered page number
-// belongs to the old contents and would land the user in the wrong place.
+// Re-renders the feed from its first page. Used by Force refresh, which changes
+// what the feed holds, so the remembered page number belongs to the old contents
+// and would land the user in the wrong place.
 function reloadFeedFromStart(forceRefresh: boolean): void {
   feedPage = 0;
   showFeed(forceRefresh);
@@ -430,12 +422,30 @@ function reloadFeedFromStart(forceRefresh: boolean): void {
 // Off the feed there is nothing to re-render: the warm-up fetches the page under
 // the new filters, which replaces the kept page and corrects the nav button.
 function feedFilterChanged(): void {
+  // Page 0 either way: the remembered page number belongs to the old filters.
+  feedPage = 0;
   if (currentView === "feed") {
-    reloadFeedFromStart(false);
+    showFeed(false);
     return;
   }
-  feedPage = 0;
-  warmFeedPage();
+  warmFeedPageSoon();
+}
+
+// The off-feed warm-up, delayed. On Settings the user often flips several
+// toggles in a row, and every flip changes the cache key, so each one would
+// start its own getFeedPage and the earlier answers would be thrown away
+// (start() in src/shared/pageCache.ts hands the single slot to the newest call).
+// One timer collapses the run into a single request. The feed branch is NOT
+// delayed: there the user watches the list reload and must see it start at once.
+let warmFeedTimer: number | null = null;
+const WARM_FEED_DELAY_MS = 400;
+
+function warmFeedPageSoon(): void {
+  if (warmFeedTimer !== null) clearTimeout(warmFeedTimer);
+  warmFeedTimer = window.setTimeout((): void => {
+    warmFeedTimer = null;
+    warmFeedPage();
+  }, WARM_FEED_DELAY_MS);
 }
 
 function showFeed(forceFirstLoad: boolean = false): void {
@@ -453,17 +463,7 @@ function showFeed(forceFirstLoad: boolean = false): void {
   // on every page request.
   const filters = document.createElement("div");
   filters.className = "feed-filters";
-  filters.append(
-    feedToggle("Hide Shorts", HIDE_SHORTS_PREF, HIDE_SHORTS_DEFAULT),
-    // "watched" is the UI word for the seen flag (matching the History tab);
-    // the preference key keeps its old name so stored settings survive.
-    feedToggle("Hide watched", HIDE_VIEWED_PREF, HIDE_VIEWED_DEFAULT),
-    feedToggle("Hide dismissed", HIDE_DISMISSED_PREF, HIDE_DISMISSED_DEFAULT),
-    // On by default: a saved video is already dealt with, so keeping it out
-    // makes the feed an inbox of videos still waiting for a decision.
-    feedToggle("Hide saved", HIDE_SAVED_PREF, HIDE_SAVED_DEFAULT),
-    beforeDateControl(),
-  );
+  filters.append(...feedFilterControls(feedFilterChanged));
 
   // The cache refresh sits apart on the right: it force-fetches fresh RSS for
   // every channel (bypassing the 30-minute cache), unlike the filters. The
@@ -558,50 +558,6 @@ function updateFeedNotice(
     " channels couldn't be loaded right now (YouTube may be rate-limiting). " +
     "Showing cached videos where available — try refreshing in a moment.";
   notice.style.display = "";
-}
-
-// A persisted checkbox toggle for the feed toolbar. Saves to localStorage and
-// re-renders the feed so the change takes effect immediately.
-function feedToggle(
-  labelText: string,
-  prefKey: string,
-  defaultValue: boolean,
-): HTMLElement {
-  const label = document.createElement("label");
-  label.className = "feed-toggle";
-  const checkbox = document.createElement("input");
-  checkbox.type = "checkbox";
-  checkbox.checked = getBoolPreference(prefKey, defaultValue);
-  checkbox.addEventListener("change", (): void => {
-    setBoolPreference(prefKey, checkbox.checked);
-    feedFilterChanged();
-  });
-  label.append(checkbox, document.createTextNode(labelText));
-  return label;
-}
-
-// Feed-only date filter: hide videos published before the chosen date. Auto-
-// applies on change. The feed is always bounded — with nothing stored (first
-// login, or after clearing the field) it defaults to defaultFeedBeforeDate;
-// the user can pick an older date to widen it, but there is no "show all"
-// state, which keeps the Shorts-duration lookups small. Stored in localStorage;
-// it does not mark anything as seen, so playlists and Watch Later are unaffected.
-function beforeDateControl(): HTMLElement {
-  const label = document.createElement("label");
-  label.className = "feed-toggle";
-  const input = document.createElement("input");
-  input.type = "date";
-  input.className = "feed-date";
-  input.value = getStringPreference(
-    BEFORE_DATE_PREF,
-    defaultFeedBeforeDate(new Date()),
-  );
-  input.addEventListener("change", (): void => {
-    setStringPreference(BEFORE_DATE_PREF, input.value);
-    feedFilterChanged();
-  });
-  label.append(document.createTextNode("Hide older than "), input);
-  return label;
 }
 
 // "Hide watched" is intentionally absent here: the history list is entirely
@@ -756,7 +712,7 @@ function renderPlaylistScreen(
       const toolbar = document.createElement("div");
       toolbar.className = "feed-toolbar";
       const label = document.createElement("label");
-      label.className = "feed-toggle";
+      label.className = "toggle-label";
       const select = document.createElement("select");
       select.className = "sort-select";
       for (const option of SORT_OPTIONS) {

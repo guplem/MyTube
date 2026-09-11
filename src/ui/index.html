@@ -191,6 +191,29 @@
         color: #f1f1f1;
       }
 
+      /* Shared controls: the same inline label and the same field look on
+         the feed toolbar, the sort toolbars and the Settings rows. */
+      .toggle-label {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        color: #ccc;
+        cursor: pointer;
+      }
+      .toggle-label input {
+        cursor: pointer;
+      }
+      .feed-date,
+      .sort-select,
+      .settings-select {
+        background: #1c1c1c;
+        border: 1px solid #3a3a3a;
+        border-radius: 6px;
+        padding: 0.25rem 0.4rem;
+        color: #f1f1f1;
+        font: inherit;
+      }
+
       /* Settings */
       .settings {
         max-width: 34rem;
@@ -511,30 +534,11 @@
         flex-wrap: wrap;
         margin-bottom: 1rem;
       }
-      .feed-toggle {
-        display: flex;
-        align-items: center;
-        gap: 0.35rem;
-        color: #ccc;
-        cursor: pointer;
-      }
-      .feed-toggle input {
-        cursor: pointer;
-      }
       .feed-filters {
         display: flex;
         align-items: center;
         gap: 1rem;
         flex-wrap: wrap;
-      }
-      .feed-date,
-      .sort-select {
-        background: #1c1c1c;
-        border: 1px solid #3a3a3a;
-        border-radius: 6px;
-        padding: 0.25rem 0.4rem;
-        color: #f1f1f1;
-        font: inherit;
       }
       .refresh-button {
         background: #272727;

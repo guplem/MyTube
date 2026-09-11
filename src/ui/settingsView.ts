@@ -6,26 +6,12 @@
 //
 // The feed filters need more than a write: the feed remembers which page it
 // showed, and that page number belongs to the old filters. The caller passes
-// onFeedFilterChange for that (feedFilterChanged in src/ui/main.ts).
+// onFeedFilterChange for that (feedFilterChanged in src/ui/main.ts), and the
+// controls themselves come from src/ui/feedFilterControls.ts, the one copy the
+// feed toolbar uses too.
 
-import {
-  getBoolPreference,
-  setBoolPreference,
-  getStringPreference,
-  setStringPreference,
-} from "./preferences";
-import { defaultFeedBeforeDate } from "../shared/feed";
-import {
-  HIDE_SHORTS_PREF,
-  HIDE_VIEWED_PREF,
-  HIDE_DISMISSED_PREF,
-  HIDE_SAVED_PREF,
-  BEFORE_DATE_PREF,
-  HIDE_SHORTS_DEFAULT,
-  HIDE_VIEWED_DEFAULT,
-  HIDE_DISMISSED_DEFAULT,
-  HIDE_SAVED_DEFAULT,
-} from "./feedFilters";
+import { getBoolPreference, setBoolPreference } from "./preferences";
+import { feedFilterControls } from "./feedFilterControls";
 import {
   THEATER_PREF,
   THEATER_DEFAULT,
@@ -34,7 +20,11 @@ import {
   readStoredPlaybackRate,
   storePlaybackRate,
 } from "./playerPreferences";
-import { playbackRateChoices } from "../shared/playbackRate";
+import {
+  DEFAULT_PLAYBACK_RATE,
+  playbackRateChoices,
+  parsePlaybackRate,
+} from "../shared/playbackRate";
 
 /** Builds the Settings screen. onFeedFilterChange runs after a feed filter
  *  changes, so the feed picks the change up. */
@@ -51,53 +41,20 @@ export function SettingsView(onFeedFilterChange: () => void): HTMLElement {
     settingsSection(
       "Feed",
       "The same filters as the feed toolbar. A change here shows there too.",
-      [
-        booleanSetting(
-          "Hide Shorts",
-          HIDE_SHORTS_PREF,
-          HIDE_SHORTS_DEFAULT,
-          onFeedFilterChange,
-        ),
-        // "watched" is the UI word for the seen flag (matching the History
-        // tab); the preference key keeps its old name so stored settings
-        // survive.
-        booleanSetting(
-          "Hide watched",
-          HIDE_VIEWED_PREF,
-          HIDE_VIEWED_DEFAULT,
-          onFeedFilterChange,
-        ),
-        booleanSetting(
-          "Hide dismissed",
-          HIDE_DISMISSED_PREF,
-          HIDE_DISMISSED_DEFAULT,
-          onFeedFilterChange,
-        ),
-        booleanSetting(
-          "Hide saved",
-          HIDE_SAVED_PREF,
-          HIDE_SAVED_DEFAULT,
-          onFeedFilterChange,
-        ),
-        beforeDateSetting(onFeedFilterChange),
-      ],
+      feedFilterControls(onFeedFilterChange).map(settingsRow),
     ),
   );
 
   root.appendChild(
-    settingsSection(
-      "Player",
-      "Applied to the next video you open, and to the one playing now where the player can.",
-      [
-        booleanSetting("Theater mode (desktop)", THEATER_PREF, THEATER_DEFAULT),
-        booleanSetting(
-          "Skip sponsor segments",
-          SPONSOR_SKIP_PREF,
-          SPONSOR_SKIP_DEFAULT,
-        ),
-        playbackRateSetting(),
-      ],
-    ),
+    settingsSection("Player", "Applied to the next video you open.", [
+      playerToggle("Theater mode (desktop)", THEATER_PREF, THEATER_DEFAULT),
+      playerToggle(
+        "Skip sponsor segments",
+        SPONSOR_SKIP_PREF,
+        SPONSOR_SKIP_DEFAULT,
+      ),
+      playbackRateSetting(),
+    ]),
   );
 
   return root;
@@ -124,76 +81,56 @@ function settingsSection(
   return section;
 }
 
-// A persisted checkbox. Saves on change; afterChange runs only for the settings
-// that another screen must react to.
-function booleanSetting(
+// Wraps one control in a Settings row (see .settings-row in src/ui/index.html).
+function settingsRow(control: HTMLElement): HTMLElement {
+  const row = document.createElement("div");
+  row.className = "settings-row";
+  row.appendChild(control);
+  return row;
+}
+
+// A persisted checkbox for one player preference. A write is all it takes: the
+// player reads the key when it builds the next video, and no other screen holds
+// state that the change makes wrong. Feed filters do need a follow-up, which is
+// why they have their own builder (src/ui/feedFilterControls.ts).
+function playerToggle(
   labelText: string,
   prefKey: string,
   defaultValue: boolean,
-  afterChange?: () => void,
 ): HTMLElement {
-  const row = document.createElement("div");
-  row.className = "settings-row";
   const label = document.createElement("label");
-  label.className = "feed-toggle";
+  label.className = "toggle-label";
   const checkbox = document.createElement("input");
   checkbox.type = "checkbox";
   checkbox.checked = getBoolPreference(prefKey, defaultValue);
   checkbox.addEventListener("change", (): void => {
     setBoolPreference(prefKey, checkbox.checked);
-    afterChange?.();
   });
   label.append(checkbox, document.createTextNode(labelText));
-  row.appendChild(label);
-  return row;
-}
-
-// The feed's date filter: hide videos published before the chosen date. The
-// feed is always bounded, so an empty field falls back to defaultFeedBeforeDate
-// instead of showing everything (see beforeDateControl in src/ui/main.ts).
-function beforeDateSetting(afterChange: () => void): HTMLElement {
-  const row = document.createElement("div");
-  row.className = "settings-row";
-  const label = document.createElement("label");
-  label.className = "feed-toggle";
-  const input = document.createElement("input");
-  input.type = "date";
-  input.className = "feed-date";
-  input.value = getStringPreference(
-    BEFORE_DATE_PREF,
-    defaultFeedBeforeDate(new Date()),
-  );
-  input.addEventListener("change", (): void => {
-    setStringPreference(BEFORE_DATE_PREF, input.value);
-    afterChange();
-  });
-  label.append(document.createTextNode("Hide older than "), input);
-  row.appendChild(label);
-  return row;
+  return settingsRow(label);
 }
 
 // The remembered playback speed. The player writes this key whenever the viewer
 // changes speed from YouTube's own controls, so the list must carry the stored
 // rate even when it is not one of the standard ones (playbackRateChoices).
 function playbackRateSetting(): HTMLElement {
-  const row = document.createElement("div");
-  row.className = "settings-row";
   const label = document.createElement("label");
-  label.className = "feed-toggle";
+  label.className = "toggle-label";
   const select = document.createElement("select");
-  select.className = "sort-select";
+  select.className = "settings-select";
   const current = readStoredPlaybackRate();
   for (const rate of playbackRateChoices(current)) {
     const option = document.createElement("option");
     option.value = String(rate);
-    option.textContent = rate === 1 ? "Normal" : `${rate}×`;
+    option.textContent = rate === DEFAULT_PLAYBACK_RATE ? "Normal" : `${rate}×`;
     option.selected = rate === current;
     select.appendChild(option);
   }
+  // parsePlaybackRate, not a bare parse: it owns what an unreadable value means,
+  // so a broken option can never be stored as the string "NaN".
   select.addEventListener("change", (): void => {
-    storePlaybackRate(Number.parseFloat(select.value));
+    storePlaybackRate(parsePlaybackRate(select.value));
   });
   label.append(document.createTextNode("Playback speed "), select);
-  row.appendChild(label);
-  return row;
+  return settingsRow(label);
 }

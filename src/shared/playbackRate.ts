@@ -1,10 +1,10 @@
-// The playback speed the viewer last chose, as it is stored and as a picker
-// offers it. Shared because two places read the same value: the player, which
-// applies it to every video, and the Settings screen, which shows and changes
-// it. One rule here keeps them from disagreeing on what a stored value means.
+// The playback speed the viewer last chose: what a stored value means, and
+// which speeds a picker offers. Kept out of src/ui/ so the rules are pinned by
+// tests. The player reaches them through readStoredPlaybackRate
+// (src/ui/playerPreferences.ts); the Settings screen calls them directly.
 
 /** Normal speed. Also the answer for anything unreadable. */
-export const DEFAULT_PLAYBACK_RATE = 1;
+export const DEFAULT_PLAYBACK_RATE: number = 1;
 
 /** The speeds a picker offers, the same set YouTube's own speed menu offers. */
 export const PLAYBACK_RATE_CHOICES: number[] = [
@@ -24,5 +24,7 @@ export function parsePlaybackRate(stored: string): number {
  *  another, then save the wrong one on the next change. */
 export function playbackRateChoices(current: number): number[] {
   if (PLAYBACK_RATE_CHOICES.includes(current)) return PLAYBACK_RATE_CHOICES;
+  // Sort by value, not the default sort: the default compares the numbers as
+  // text, which puts a two-digit rate before "2".
   return PLAYBACK_RATE_CHOICES.concat(current).sort((a, b) => a - b);
 }
