@@ -184,14 +184,16 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   mutation does not touch (ADR 0008).
 - **The feed reopens on the page it last showed.** `feedPage`/`feedPageSize` in
   `src/ui/main.ts` seed `VideoListOptions.paging` and follow its `onChange`. The
-  filters and Force refresh reset to page 0 (`reloadFeedFromStart`). Scroll
-  position is not restored.
+  filters (`feedFilterChanged`) and Force refresh (`reloadFeedFromStart`) reset
+  to page 0. Scroll position is not restored.
 - **One path for a changed feed filter: `feedFilterChanged` in `src/ui/main.ts`.**
-  The feed toolbar and the Settings screen write the same preference keys, so
-  both call it. On the feed it reloads from page 0; on any other screen it
-  forgets the page number and calls `warmFeedPage()`, whose load replaces the
-  kept page (ADR 0008) and corrects the Feed nav button. Never write a feed
-  filter key without it.
+  It sets the page back to 0, then either redraws the feed or, off the feed,
+  warms the page on a short timer, whose load replaces the kept page (ADR 0008)
+  and corrects the Feed nav button. The timer collapses a run of Settings
+  toggles into one request. **Build every feed filter control with
+  `feedFilterControls` in `src/ui/feedFilterControls.ts`**, the one copy the feed
+  toolbar and the Settings screen both show. Its after-change callback is a
+  required parameter, so a new filter cannot skip `feedFilterChanged`.
 - **The Feed nav button reports the feed's state**: pulsing (opacity 0.7↔1, the
   `skeleton-pulse` loop) while the session's first page is in flight, a still dim
   once nothing is in flight and nothing loaded (a failed load, so no pulse
@@ -222,8 +224,9 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   (`src/ui/settingsView.ts`, routed as `{ view: "settings" }`, opened from the
   footer link). It owns no preference: it reads and writes the same keys as the
   feed toolbar and the player buttons, so the views can never disagree. Add a new
-  global preference here as well as where it acts. The playback speed rule
-  (`src/shared/playbackRate.ts`) is shared for the same reason.
+  global preference here as well as where it acts. Its feed rows come from
+  `feedFilterControls`; its player rows are built here, because a player
+  preference needs no follow-up beyond the write.
 - **Optimistic UI updates for every server mutation.** Any button that writes to
   the server (mark seen, dismiss, add/remove Watch Later — on cards _and_ in the
   player) must feel instant: the Apps Script bridge round-trips to Google and can
@@ -268,7 +271,7 @@ a video id whose first two digest bytes were under 128, so the signed-byte
 conversion could be deleted with every test still green (see the
 `Utilities.computeDigest` gotcha).
 
-- **Tests live in `tests/`** (mirroring `src/server/`) and run on Node via
+- **Tests live in `tests/`** (mirroring `src/server/` and `src/shared/`) and run on Node via
   **Vitest** (`npm test`). There is no Apps Script in CI, so the runtime globals
   (`PropertiesService`, `CacheService`, `UrlFetchApp`, `XmlService`, `YouTube`,
   `Utilities`) are replaced by in-memory fakes in

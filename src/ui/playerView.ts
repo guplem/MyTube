@@ -176,8 +176,8 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   let player: YouTubePlayer | null = null;
 
   // The remembered playback speed (see src/ui/playerPreferences.ts), applied to
-  // every video when
-  // it loads, and updated whenever the viewer changes it from YouTube's controls.
+  // every video when it loads, and updated whenever the viewer changes it from
+  // YouTube's controls.
   let playbackRate = readStoredPlaybackRate();
 
   // Chapters parsed from the description (see src/shared/chapters.ts). The strip
