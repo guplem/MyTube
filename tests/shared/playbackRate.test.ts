@@ -31,6 +31,13 @@ describe("parsePlaybackRate", () => {
     expect(parsePlaybackRate("fast")).toBe(DEFAULT_PLAYBACK_RATE);
   });
 
+  // A number with trailing text is not a value we wrote: storePlaybackRate
+  // always writes String(rate). This input separates Number from
+  // Number.parseFloat, which would read "1.5x" as 1.5 and play at that speed.
+  it("falls back to normal speed on a number with trailing text", () => {
+    expect(parsePlaybackRate("1.5x")).toBe(DEFAULT_PLAYBACK_RATE);
+  });
+
   // A zero or negative rate would freeze or reverse the player, and YouTube
   // rejects it anyway, so it can never become the stored speed.
   it("rejects a rate that is not above zero", () => {
