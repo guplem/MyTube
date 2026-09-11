@@ -276,24 +276,28 @@ function syncWatchLaterButtons(
 // Marking watched also drops the video from Watch Later server-side, so the
 // membership flag moves in the SAME `set` callback as the seen flag. That is
 // what makes the rollback whole: optimisticToggle calls `set` again with
-// isRevert, so a failed call has to put BOTH fields back. `wasSaved` is read
-// before this tap mutated anything, so the revert restores membership as of this
-// tap instead of assuming the opposite of the seen target. The Video object is
-// shared with the kept feed page (ADR 0008), so a stale flag here leaks to every
-// other screen holding the same instance.
+// isRevert, so a failed call puts the seen flag back, and membership too while
+// the value this tap wrote still stands (see the guard below). `wasSaved` is
+// membership as of this tap, so the revert restores that instead of assuming the
+// opposite of the seen target; an earlier tap that has not settled yet makes it
+// that tap's assumed value. The Video object is shared with the kept feed page
+// (ADR 0008), so a stale flag here leaks to every other screen holding the same
+// instance.
 function toggleSeen(
   video: Video,
   button: HTMLButtonElement,
   vanishesWhen: boolean | null,
   undo: SeenUndo,
 ): void {
+  // optimisticToggle derives the same target from video.seen through `get`.
+  // The two agree because both run in the same tick, before any await.
   const target = !video.seen;
   const wasSaved = Boolean(video.inWatchLater);
-  const savedAtTarget = watchLaterAfterSeenToggle(
-    target,
+  const savedAtTarget = watchLaterAfterSeenToggle({
+    seenTarget: target,
     wasSaved,
-    undo.restoresWatchLater,
-  );
+    restoresWatchLater: undo.restoresWatchLater,
+  });
   optimisticToggle(
     button,
     (): boolean => video.seen,
@@ -307,6 +311,13 @@ function toggleSeen(
         // so the user can have changed membership after this tap applied. Roll
         // back only while the value this tap wrote still stands: a newer,
         // successful decision must survive this failure.
+        //
+        // The guard compares the VALUE, not who wrote it. A newer decision that
+        // lands back on the same value reads as "my write still stands", so this
+        // revert overwrites it and the last write wins. Example: an add and a
+        // remove, both while the mark is in flight, return membership to the
+        // value apply wrote. A revision counter would fix it, and costs more
+        // than the rare triple tap it saves.
         video.inWatchLater = wasSaved;
       }
       syncWatchLaterButtons(video, button, vanishesWhen);

@@ -255,10 +255,14 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     // INSIDE apply/revert: the player has no Watch Later button, but the Video
     // object is shared with the kept feed page (ADR 0008), so a failed call
     // must put membership back or the cards show a stale flag. `wasSaved` is
-    // read before this tap mutated anything, so the revert restores membership
-    // as of this tap.
+    // membership as of this tap, so the revert restores that; an earlier tap
+    // that has not settled yet makes it that tap's assumed value.
     const wasSaved = Boolean(video.inWatchLater);
-    const savedAtTarget = watchLaterAfterSeenToggle(target, wasSaved, false);
+    const savedAtTarget = watchLaterAfterSeenToggle({
+      seenTarget: target,
+      wasSaved,
+      restoresWatchLater: false,
+    });
     optimistic({
       // Keyed on the video, not the button: one button serves the whole queue,
       // so a tap on the next video would otherwise supersede the previous
@@ -273,6 +277,8 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
         video.seen = !target;
         // A card one screen away can have changed membership since this tap
         // applied. Roll back only while the value this tap wrote still stands.
+        // The same guard sits in toggleSeen in src/ui/main.ts, which states what
+        // a value comparison cannot tell apart.
         if (Boolean(video.inWatchLater) === savedAtTarget) {
           video.inWatchLater = wasSaved;
         }

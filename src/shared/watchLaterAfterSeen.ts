@@ -11,18 +11,26 @@
 // must also UNDO it when the request fails, and the Video object is shared with
 // the kept feed page (ADR 0008), so one wrong answer leaks to every screen.
 
-/**
- * Membership once the watched toggle reaches `seenTarget`.
- *
- * `wasSaved` is the membership read before this tap mutated anything.
- * `restoresWatchLater` is the screen's own answer: true only where un-marking
- * restores the playlist entry (the Watch Later screen).
- */
+/** One watched-toggle tap, as the call site sees it. */
+export interface WatchLaterAfterSeenInput {
+  /** The seen value this tap moves the video to. */
+  seenTarget: boolean;
+  /**
+   * Membership as of this tap. An earlier tap that has not settled yet makes
+   * this that tap's assumed value, not the server's.
+   */
+  wasSaved: boolean;
+  /**
+   * True only where the screen's un-mark restores the playlist entry, which is
+   * the Watch Later screen alone.
+   */
+  restoresWatchLater: boolean;
+}
+
+/** Membership once the watched toggle reaches `seenTarget`. */
 export function watchLaterAfterSeenToggle(
-  seenTarget: boolean,
-  wasSaved: boolean,
-  restoresWatchLater: boolean,
+  tap: WatchLaterAfterSeenInput,
 ): boolean {
-  if (seenTarget) return false;
-  return restoresWatchLater || wasSaved;
+  if (tap.seenTarget) return false;
+  return tap.restoresWatchLater || tap.wasSaved;
 }
