@@ -48,6 +48,10 @@ quota. See [One-time Google setup](#one-time-google-setup) below.
 - **Sponsor skip** — jumps past the sponsor and self-promotion parts of a video
   using the community SponsorBlock database, with a one-tap Undo. On by
   default; toggle next to the theater button.
+- **Settings** — a link in the footer of every screen opens one page with every
+  preference: the feed filters and the player settings (theater mode, sponsor
+  skip, playback speed). The feed toolbar keeps its own toggles, and both views
+  show the same values.
 - **Duration badge** on every thumbnail.
 - **Search** — the search box opens YouTube's results page in a new tab.
 - **Shareable URLs** — the open tab and video are stored in the URL, so browser

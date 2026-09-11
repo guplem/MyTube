@@ -186,6 +186,12 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   `src/ui/main.ts` seed `VideoListOptions.paging` and follow its `onChange`. The
   filters and Force refresh reset to page 0 (`reloadFeedFromStart`). Scroll
   position is not restored.
+- **One path for a changed feed filter: `feedFilterChanged` in `src/ui/main.ts`.**
+  The feed toolbar and the Settings screen write the same preference keys, so
+  both call it. On the feed it reloads from page 0; on any other screen it
+  forgets the page number and calls `warmFeedPage()`, whose load replaces the
+  kept page (ADR 0008) and corrects the Feed nav button. Never write a feed
+  filter key without it.
 - **The Feed nav button reports the feed's state**: pulsing (opacity 0.7↔1, the
   `skeleton-pulse` loop) while the session's first page is in flight, a still dim
   once nothing is in flight and nothing loaded (a failed load, so no pulse
@@ -209,7 +215,15 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   Filter defaults live in `src/ui/feedFilters.ts` so the request and the recount
   can never read a toggle differently.
 - UI toggles persist in `localStorage` via `src/ui/preferences.ts` (works inside
-  the Apps Script iframe; no server round-trip).
+  the Apps Script iframe; no server round-trip). Each key and its default lives
+  in one module, never in the screen that shows it: `src/ui/feedFilters.ts` for
+  the feed filters, `src/ui/playerPreferences.ts` for the player ones.
+- **Settings is the one screen that lists every preference**
+  (`src/ui/settingsView.ts`, routed as `{ view: "settings" }`, opened from the
+  footer link). It owns no preference: it reads and writes the same keys as the
+  feed toolbar and the player buttons, so the views can never disagree. Add a new
+  global preference here as well as where it acts. The playback speed rule
+  (`src/shared/playbackRate.ts`) is shared for the same reason.
 - **Optimistic UI updates for every server mutation.** Any button that writes to
   the server (mark seen, dismiss, add/remove Watch Later — on cards _and_ in the
   player) must feel instant: the Apps Script bridge round-trips to Google and can
