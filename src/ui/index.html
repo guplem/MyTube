@@ -192,7 +192,10 @@
       }
 
       /* Shared controls: the same inline label and the same field look on
-         the feed toolbar, the sort toolbars and the Settings rows. */
+         the feed toolbar, the sort toolbars and the Settings rows.
+         .settings-select carries no rule of its own on purpose. It is the
+         Settings screen's own hook, so a later tweak that one toolbar needs
+         can change .sort-select alone and never reach the Settings picker. */
       .toggle-label {
         display: flex;
         align-items: center;
