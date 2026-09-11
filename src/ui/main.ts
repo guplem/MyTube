@@ -402,7 +402,8 @@ function feedPageOptions(
 // The page and page size the feed last showed. Module state, not URL state: it
 // is a scroll-like position, so it should survive leaving the feed and coming
 // back within a session but not be part of a shared link. Anything that changes
-// what the feed contains resets it (see reloadFeedFromStart).
+// what the feed contains resets it: feedFilterChanged on every filter change,
+// and reloadFeedFromStart on Force refresh.
 let feedPage = 0;
 let feedPageSize = DEFAULT_PAGE_SIZE;
 
@@ -456,11 +457,11 @@ function showFeed(forceFirstLoad: boolean = false): void {
   const toolbar = document.createElement("div");
   toolbar.className = "feed-toolbar";
 
-  // Filters on the left; changing any of them re-renders the feed
-  // (reloadFeedFromStart), which goes back to page 0 and loads with the new
-  // state. A changed filter also changes the feed page cache's key, so the new
-  // state always comes from the server. The loader reads each preference fresh
-  // on every page request.
+  // Filters on the left; a change to any of them calls feedFilterChanged, which
+  // goes back to page 0 and, on the feed branch, re-renders the feed with the
+  // new state. A changed filter also changes the feed page cache's key, so the
+  // new state always comes from the server. The loader reads each preference
+  // fresh on every page request.
   const filters = document.createElement("div");
   filters.className = "feed-filters";
   filters.append(...feedFilterControls(feedFilterChanged));
