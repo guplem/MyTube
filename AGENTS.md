@@ -91,6 +91,16 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   the shared script cache since length is the same for everyone), hidden when
   `<= 180s`. A toggle re-shows them because the length heuristic has false
   positives.
+- **Sponsor segments come from SponsorBlock, a public crowd database, not
+  YouTube.** `getSponsorSegments` (`src/server/sponsorBlock.ts`) asks by hash
+  prefix (first 4 hex chars of `sha256(videoId)`), so the plain video id never
+  leaves the server, and caches the answer — empty lists included — in the
+  shared script cache for 6h, like `getVideoDurationsSeconds`. The cleaning
+  rules (`normalizeSponsorSegments`, `sponsorSegmentToSkip` in
+  `src/shared/sponsorBlock.ts`) are shared so the player's skip decision
+  matches the server's cache. A failed lookup returns `[]` and is never
+  cached, matching the "skip nothing" default. Segments are not stored on
+  `Video`, so the kept feed page (ADR 0008) is untouched.
 - **Seen = watch history only.** `flagSeen` sets it from the history ids;
   "Hide watched" filters on it. In UI copy the flag is always called
   **watched** (matching the History tab); `seen` stays the name in code and
@@ -275,6 +285,7 @@ records.
 | [0006](adr/0006-test-first-with-faked-apps-script.md)                | Test-first (TDD) on Node/Vitest with faked Apps Script globals; green tests gate every merge |
 | [0007](adr/0007-agent-docs-structure.md)                             | `AGENTS.md` map + Claude-Code-only skills, subagents, and settings                           |
 | [0008](adr/0008-single-kept-feed-page-via-shared-object-identity.md) | Feed keeps ONE loaded page, kept correct by sharing `Video` object identity                  |
+| [0009](adr/0009-third-party-lookups-hashed-and-fail-open.md)         | Third-party lookups: privacy-preserving id hash, shared cache, fail open on any error        |
 
 ## Gotchas
 
@@ -313,6 +324,10 @@ records.
 - **Watch Later and History are not readable via the YouTube API.** Never call
   the API for them. Watch Later is our own playlist; history is per-user script
   properties (PLAN.md sections 2 and 6, ADR 0005).
+- **`Utilities.computeDigest` returns signed bytes (-128..127).** Convert each
+  byte with `(byte + 256) % 256` before turning it into hex, or the hash is
+  wrong for every byte above 127. See `videoIdHashPrefix` in
+  `src/server/sponsorBlock.ts`.
 - `dist/`, `.clasp.json`, and `.clasprc.json` are gitignored. Never commit them.
 
 ## Git Workflow

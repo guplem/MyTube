@@ -45,6 +45,9 @@ quota. See [One-time Google setup](#one-time-google-setup) below.
   "✓ Watch Later" button.
 - **Player** — embedded YouTube player with previous/next, an autoplay toggle,
   the description and comments, and no end-screen recommendations.
+- **Sponsor skip** — jumps past the sponsor and self-promotion parts of a video
+  using the community SponsorBlock database, with a one-tap Undo. On by
+  default; toggle next to the theater button.
 - **Duration badge** on every thumbnail.
 - **Search** — the search box opens YouTube's results page in a new tab.
 - **Shareable URLs** — the open tab and video are stored in the URL, so browser
@@ -97,7 +100,8 @@ You do these once. They need your Google login and cannot be scripted.
        Watch Later playlist).
      - `youtube.force-ssl` — read video comments (the comment endpoints require
        this scope).
-     - `script.external_request` — fetch channel RSS feeds.
+     - `script.external_request` — fetch channel RSS feeds and SponsorBlock
+       sponsor-segment data.
    - Set publishing status to **In production** so anyone can log in. PLAN.md
      section 4 explains the unverified-app warning and the user cap.
 3. **Enable the YouTube advanced service** in the Apps Script editor (Services,
@@ -179,3 +183,8 @@ use the **Run workflow** button on _Deploy to Apps Script_ in the Actions tab
 ## License
 
 [MIT](LICENSE)
+
+The sponsor-skip feature uses segment data from
+[SponsorBlock](https://sponsor.ajay.app/), licensed
+[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) and
+credited in the app footer.
