@@ -175,6 +175,74 @@
         display: inline-block;
         margin: 0 0.5rem;
       }
+      /* The Settings entry is a button, not a link: the app is one page, so the
+         click must reach the router (setupSettingsLink in src/ui/main.ts). It
+         is painted as a link so the footer reads as one line of chrome. */
+      .footer-link {
+        background: none;
+        border: none;
+        padding: 0;
+        font: inherit;
+        color: inherit;
+        text-decoration: underline;
+        cursor: pointer;
+      }
+      .footer-link:hover {
+        color: #f1f1f1;
+      }
+
+      /* Shared controls: the same inline label and the same field look on
+         the feed toolbar, the sort toolbars and the Settings rows.
+         .settings-select carries no rule of its own on purpose. It is the
+         Settings screen's own hook, so a later tweak that one toolbar needs
+         can change .sort-select alone and never reach the Settings picker. */
+      .toggle-label {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        color: #ccc;
+        cursor: pointer;
+      }
+      .toggle-label input {
+        cursor: pointer;
+      }
+      .feed-date,
+      .sort-select,
+      .settings-select {
+        background: #1c1c1c;
+        border: 1px solid #3a3a3a;
+        border-radius: 6px;
+        padding: 0.25rem 0.4rem;
+        color: #f1f1f1;
+        font: inherit;
+      }
+
+      /* Settings */
+      .settings {
+        max-width: 34rem;
+      }
+      .settings-title {
+        margin: 0 0 1rem;
+        font-size: 1.3rem;
+      }
+      .settings-section {
+        margin-bottom: 1.75rem;
+      }
+      .settings-heading {
+        margin: 0 0 0.25rem;
+        font-size: 1rem;
+      }
+      .settings-note {
+        margin: 0 0 0.75rem;
+        color: #aaa;
+        font-size: 0.85rem;
+        line-height: 1.4;
+      }
+      /* One setting per row: a settings list is read down the page, unlike the
+         feed toolbar, whose toggles sit in one line. */
+      .settings-row {
+        padding: 0.4rem 0;
+      }
 
       /* Feed */
       .video-list {
@@ -469,30 +537,11 @@
         flex-wrap: wrap;
         margin-bottom: 1rem;
       }
-      .feed-toggle {
-        display: flex;
-        align-items: center;
-        gap: 0.35rem;
-        color: #ccc;
-        cursor: pointer;
-      }
-      .feed-toggle input {
-        cursor: pointer;
-      }
       .feed-filters {
         display: flex;
         align-items: center;
         gap: 1rem;
         flex-wrap: wrap;
-      }
-      .feed-date,
-      .sort-select {
-        background: #1c1c1c;
-        border: 1px solid #3a3a3a;
-        border-radius: 6px;
-        padding: 0.25rem 0.4rem;
-        color: #f1f1f1;
-        font: inherit;
       }
       .refresh-button {
         background: #272727;
@@ -1149,7 +1198,9 @@
          licensed CC BY-NC-SA 4.0 (renderSponsorBlockCredit in
          src/ui/sponsorBlockCredit.ts). -->
     <footer class="app-footer">
-      <span id="build-stamp" class="footer-line"></span
+      <button type="button" id="settings-link" class="footer-line footer-link">
+        Settings</button
+      ><span id="build-stamp" class="footer-line"></span
       ><span id="sponsorblock-credit" class="footer-line"></span>
     </footer>
 

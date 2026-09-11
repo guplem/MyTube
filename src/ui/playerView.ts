@@ -29,38 +29,18 @@ import {
 } from "./serverBridge";
 import { progressToStore, shouldSuggestWatched } from "../shared/videoProgress";
 import { dropStaleFeedPage } from "./feedPageCache";
+import { getBoolPreference, setBoolPreference } from "./preferences";
 import {
-  getBoolPreference,
-  setBoolPreference,
-  getStringPreference,
-  setStringPreference,
-} from "./preferences";
+  THEATER_PREF,
+  THEATER_DEFAULT,
+  SPONSOR_SKIP_PREF,
+  SPONSOR_SKIP_DEFAULT,
+  readStoredPlaybackRate,
+  storePlaybackRate,
+} from "./playerPreferences";
 import { optimistic } from "./optimistic";
 import { showToast } from "./toast";
 import { skeletonComments, skeletonDescription } from "./skeleton";
-
-// Theater mode (desktop): the player breaks out of the centered column and
-// fills the window. Persisted so it stays on across videos and visits.
-const THEATER_PREF = "mytube.player.theater";
-
-// Playback speed: the rate the viewer last chose from YouTube's own speed menu,
-// remembered per device (localStorage, like theater mode) and reapplied to every
-// video. It is a viewing preference, not a per-video fact, so it lives here rather
-// than in the server-side progress store.
-const SPEED_PREF = "mytube.player.speed";
-
-// Reads the saved playback speed, guarding against a missing or malformed value.
-// Anything unparseable (or non-positive) falls back to 1 (normal speed).
-function readStoredPlaybackRate(): number {
-  const stored = Number.parseFloat(getStringPreference(SPEED_PREF, ""));
-  return Number.isFinite(stored) && stored > 0 ? stored : 1;
-}
-
-// Sponsor skip: jump past the sponsor and self-promotion parts of a video,
-// using the SponsorBlock crowd database (src/server/sponsorBlock.ts). It is a
-// per-device viewing preference like theater mode, so it lives in
-// localStorage. Default on: a viewer who does not want it turns it off once.
-const SPONSOR_SKIP_PREF = "mytube.player.sponsorSkip";
 
 // How often the live position is checked against the segment list. The check
 // is local getCurrentTime polling with no request, so it can be brisk; it has
@@ -195,8 +175,9 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   let autoplayNext = false;
   let player: YouTubePlayer | null = null;
 
-  // The remembered playback speed (see SPEED_PREF), applied to every video when
-  // it loads and updated whenever the viewer changes it from YouTube's controls.
+  // The remembered playback speed (see src/ui/playerPreferences.ts), applied to
+  // every video when it loads, and updated whenever the viewer changes it from
+  // YouTube's controls.
   let playbackRate = readStoredPlaybackRate();
 
   // Chapters parsed from the description (see src/shared/chapters.ts). The strip
@@ -290,7 +271,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   // Sponsor-skip toggle. Turning it on mid-video loads the segments for the
   // video already playing, so the next sponsor part is skipped without a
   // reload.
-  let sponsorSkip = getBoolPreference(SPONSOR_SKIP_PREF, true);
+  let sponsorSkip = getBoolPreference(SPONSOR_SKIP_PREF, SPONSOR_SKIP_DEFAULT);
   const sponsorButton = document.createElement("button");
   sponsorButton.type = "button";
   sponsorButton.className = "player-sponsor";
@@ -313,7 +294,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
 
   // Theater mode toggle. Hidden on mobile (where the player is already
   // full-width) via CSS; the class on the root drives the layout change.
-  let theaterMode = getBoolPreference(THEATER_PREF, false);
+  let theaterMode = getBoolPreference(THEATER_PREF, THEATER_DEFAULT);
   const theaterButton = document.createElement("button");
   theaterButton.type = "button";
   theaterButton.className = "player-theater";
@@ -1114,7 +1095,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     const rate = event.data;
     if (!Number.isFinite(rate) || rate <= 0) return;
     playbackRate = rate;
-    setStringPreference(SPEED_PREF, String(rate));
+    storePlaybackRate(rate);
   }
 
   function handleStateChange(event: YouTubePlayerEvent): void {
