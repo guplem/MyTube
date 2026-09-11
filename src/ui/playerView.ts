@@ -15,7 +15,10 @@ import type { VideoComment, CommentOrder } from "../shared/comment";
 import type { Chapter } from "../shared/chapters";
 import { parseChapters } from "../shared/chapters";
 import type { SponsorSegment } from "../shared/sponsorBlock";
-import { sponsorSegmentToSkip } from "../shared/sponsorBlock";
+import {
+  sponsorCategoryLabel,
+  sponsorSkipDecision,
+} from "../shared/sponsorBlock";
 import {
   getVideoDescription,
   getComments,
@@ -57,7 +60,7 @@ function readStoredPlaybackRate(): number {
 // using the SponsorBlock crowd database (src/server/sponsorBlock.ts). It is a
 // per-device viewing preference like theater mode, so it lives in
 // localStorage. Default on: a viewer who does not want it turns it off once.
-const SPONSOR_SKIP_PREF = "mytube.sponsorSkip";
+const SPONSOR_SKIP_PREF = "mytube.player.sponsorSkip";
 
 // How often the live position is checked against the segment list. The check
 // is local getCurrentTime polling with no request, so it can be brisk; it has
@@ -231,6 +234,10 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   // second jump and a second toast. Cleared as soon as a poll finds the
   // position outside every segment.
   let lastSkippedSponsorStart: number | null = null;
+  // Set by destroy(). A sponsor lookup in flight when the viewer leaves the
+  // player answers into a gone controller, and must not install a poll timer
+  // that nothing can clear.
+  let destroyed = false;
 
   // Comment paging/sorting state. The description and comments live in two tabs;
   // the comments tab is unloaded until it is selected. activeTab persists across
@@ -293,6 +300,10 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     setBoolPreference(SPONSOR_SKIP_PREF, sponsorSkip);
     updateSponsorButton();
     if (!sponsorSkip) {
+      // Forget the last jump too. Otherwise the viewer can turn the skip off
+      // inside a segment, rewind, turn it back on, and never get the jump:
+      // only a poll clears the memory, and the poll is stopped.
+      lastSkippedSponsorStart = null;
       stopSponsorTracking();
       return;
     }
@@ -567,12 +578,15 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   // viewer did not ask for the jump, so yanking the page to the top would be
   // wrong. Guarded like applyPlaybackRate because a poll can fire before the
   // player is ready.
-  function seekSilently(seconds: number): void {
-    if (!player) return;
+  // Returns whether the seek ran, so the sponsor skip only commits its state
+  // once the jump really happened.
+  function seekSilently(seconds: number): boolean {
+    if (!player) return false;
     try {
       player.seekTo(seconds, true);
+      return true;
     } catch {
-      // player not ready yet
+      return false; // player not ready yet
     }
   }
 
@@ -993,17 +1007,21 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   // on purpose: playback already runs, and a slow or failed lookup must only
   // mean "skip nothing" (the server returns an empty list for every failure).
   async function loadSponsorSegments(videoId: string): Promise<void> {
-    if (!sponsorSkip) return;
-    if (sponsorSegmentsVideoId === videoId && sponsorSegments.length > 0) {
-      startSponsorTracking();
+    if (!sponsorSkip || destroyed) return;
+    if (sponsorSegmentsVideoId === videoId) {
+      startSponsorTracking(); // already looked up, empty list included
       return;
     }
     let segments: SponsorSegment[];
     try {
-      segments = await getSponsorSegments(videoId);
+      segments = await getSponsorSegments(
+        videoId,
+        queue[currentIndex]?.durationSeconds,
+      );
     } catch {
       return; // no segments: the video plays in full, as before this feature
     }
+    if (destroyed) return; // the viewer left the player mid-load
     if (queue[currentIndex]?.videoId !== videoId) return; // video changed mid-load
     sponsorSegments = segments;
     sponsorSegmentsVideoId = videoId;
@@ -1025,20 +1043,23 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     // A position the player cannot report is not a position outside every
     // segment, so return instead of clearing the last-jump guard below.
     if (typeof now !== "number" || Number.isNaN(now)) return;
-    const segment = sponsorSegmentToSkip(
+    const decision = sponsorSkipDecision(
       sponsorSegments,
       now,
       ignoredSponsorStarts,
+      lastSkippedSponsorStart,
     );
+    const segment = decision.segment;
     if (!segment) {
-      lastSkippedSponsorStart = null;
+      lastSkippedSponsorStart = decision.lastSkippedStartSeconds;
       return;
     }
-    if (segment.startSeconds === lastSkippedSponsorStart) return;
-    lastSkippedSponsorStart = segment.startSeconds;
-    seekSilently(segment.endSeconds);
+    // Commit the memory and the toast only once the jump ran: a failed seek
+    // leaves the viewer inside the sponsor, so the next poll must try again.
+    if (!seekSilently(segment.endSeconds)) return;
+    lastSkippedSponsorStart = decision.lastSkippedStartSeconds;
     const skipped = Math.round(segment.endSeconds - segment.startSeconds);
-    const label = segment.category === "sponsor" ? "sponsor" : "self-promotion";
+    const label = sponsorCategoryLabel(segment.category);
     showToast("Skipped " + label + " (" + String(skipped) + "s)", {
       label: "Undo",
       onAction: (): void => {
@@ -1049,7 +1070,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   }
 
   function startSponsorTracking(): void {
-    if (sponsorTimer !== null) return;
+    if (sponsorTimer !== null || destroyed) return;
     if (!sponsorSkip || sponsorSegments.length === 0) return;
     sponsorTimer = window.setInterval(checkSponsorSkip, SPONSOR_POLL_MS);
     checkSponsorSkip();
@@ -1183,6 +1204,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
       if (index >= 0) void playAt(index);
     },
     destroy: (): void => {
+      destroyed = true;
       document.removeEventListener("fullscreenchange", onFullscreenChange);
       stopChapterTracking();
       stopProgressSaving();
