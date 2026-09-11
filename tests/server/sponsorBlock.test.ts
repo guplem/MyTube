@@ -156,9 +156,17 @@ describe("getSponsorSegments", () => {
     expect(calls).toBe(1);
   });
 
-  it("returns an empty list on an unparseable body", () => {
-    mocks.fetchAll = () => [httpResponse(200, "<html>nope</html>")];
+  it("returns an empty list on an unparseable body, and does not cache it", () => {
+    let calls = 0;
+    mocks.fetchAll = () => {
+      calls++;
+      return [httpResponse(200, "<html>nope</html>")];
+    };
+
     expect(getSponsorSegments(VIDEO_ID)).toEqual([]);
+    getSponsorSegments(VIDEO_ID);
+
+    expect(calls).toBe(2);
   });
 
   it("does not cache a 200 whose body is not an array", () => {
