@@ -91,6 +91,25 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   the shared script cache since length is the same for everyone), hidden when
   `<= 180s`. A toggle re-shows them because the length heuristic has false
   positives.
+- **Sponsor segments come from SponsorBlock, a public crowd database, not
+  YouTube.** `getSponsorSegments` (`src/server/sponsorBlock.ts`) asks by hash
+  prefix (first 4 hex chars of `sha256(videoId)`), so the plain video id never
+  leaves the server, and caches the answer — empty lists included — in the
+  shared script cache for 6h, like `getVideoDurationsSeconds`. A 404 is the
+  service's "nothing here" answer and is cached like any empty list. The
+  policy (`normalizeSponsorSegments`, `boundSponsorSegments`,
+  `sponsorSkipDecision`, `sponsorCategoryLabel` in
+  `src/shared/sponsorBlock.ts`) is shared, so the
+  player's skip decision matches the server's cache and tests can pin it
+  without a browser. `sponsorSkipDecision` also owns the memory of the last
+  jump, which stops a second jump on the same segment. **The cache entry holds
+  the UNBOUNDED list, and `boundSponsorSegments` drops a crowd entry that ends
+  past the video length AFTER the cache read, on every call.** The player
+  passes `durationSeconds` only when it knows one, so a bound written into the
+  shared entry would fix one caller's length for every later viewer, in both
+  directions. A failed lookup returns `[]` and is never
+  cached, matching the "skip nothing" default. Segments are not stored on
+  `Video`, so the kept feed page (ADR 0008) is untouched.
 - **Seen = watch history only.** `flagSeen` sets it from the history ids;
   "Hide watched" filters on it. In UI copy the flag is always called
   **watched** (matching the History tab); `seen` stays the name in code and
@@ -212,6 +231,12 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   before its load and return early when it fires.** Otherwise it paints over the
   screen the user moved to, and its cards then act under that screen's feed
   mutation policy (ADR 0008).
+- **Anything that starts a timer or builds a player after an `await` must check
+  that its owner is still alive.** `PlayerView` keeps a per-instance `destroyed`
+  flag, sets it in `destroy()`, and returns on it after every `await` (see
+  `playAt` and `loadSponsorSegments` in `src/ui/playerView.ts`). A late answer
+  otherwise installs an interval that `destroy()` already ran past, so nothing
+  can ever clear it, and each visit to the screen leaks another one.
 
 ## Testing & development protocol (TDD)
 
@@ -220,6 +245,14 @@ server logic, write a failing test that pins the behaviour you want (**red**),
 make it pass with the smallest change (**green**), then clean up
 (**refactor**) with the test as your safety net. Bug fixes start with a test
 that reproduces the bug.
+
+**A test pins a rule only when its input reaches that rule.** Pick the input
+that forces the branch, and prove it: break the line on purpose and watch the
+test go red. A test written after the code passes for the wrong reason and
+reads like coverage the code does not have. Example: the sponsor hash test used
+a video id whose first two digest bytes were under 128, so the signed-byte
+conversion could be deleted with every test still green (see the
+`Utilities.computeDigest` gotcha).
 
 - **Tests live in `tests/`** (mirroring `src/server/`) and run on Node via
   **Vitest** (`npm test`). There is no Apps Script in CI, so the runtime globals
@@ -275,6 +308,7 @@ records.
 | [0006](adr/0006-test-first-with-faked-apps-script.md)                | Test-first (TDD) on Node/Vitest with faked Apps Script globals; green tests gate every merge |
 | [0007](adr/0007-agent-docs-structure.md)                             | `AGENTS.md` map + Claude-Code-only skills, subagents, and settings                           |
 | [0008](adr/0008-single-kept-feed-page-via-shared-object-identity.md) | Feed keeps ONE loaded page, kept correct by sharing `Video` object identity                  |
+| [0009](adr/0009-third-party-lookups-hashed-and-fail-open.md)         | Third-party lookups: privacy-preserving id hash, shared cache, fail open on any error        |
 
 ## Gotchas
 
@@ -313,6 +347,10 @@ records.
 - **Watch Later and History are not readable via the YouTube API.** Never call
   the API for them. Watch Later is our own playlist; history is per-user script
   properties (PLAN.md sections 2 and 6, ADR 0005).
+- **`Utilities.computeDigest` returns signed bytes (-128..127).** Convert each
+  byte with `(byte + 256) % 256` before turning it into hex, or the hash is
+  wrong for every byte above 127. See `videoIdHashPrefix` in
+  `src/server/sponsorBlock.ts`.
 - `dist/`, `.clasp.json`, and `.clasprc.json` are gitignored. Never commit them.
 
 ## Git Workflow

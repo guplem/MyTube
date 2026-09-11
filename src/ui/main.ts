@@ -52,6 +52,7 @@ import {
   feedFlagFilters,
 } from "./feedFilters";
 import { renderBuildStamp } from "./buildStamp";
+import { renderSponsorBlockCredit } from "./sponsorBlockCredit";
 import {
   skeletonPlaylistList,
   skeletonPlayerView,
@@ -1170,6 +1171,7 @@ function start(): void {
 // The footer's deploy stamp is static chrome — no bridge needed, and render()
 // never touches it — so fill it once, the moment the bundle runs.
 renderBuildStamp();
+renderSponsorBlockCredit();
 
 if (document.readyState === "complete") {
   start();

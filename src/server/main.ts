@@ -11,11 +11,13 @@ import type { Video } from "../shared/video";
 import type { PlaylistSummary } from "../shared/playlist";
 import type { CommentOrder, CommentPage } from "../shared/comment";
 import type { FeedPage, FeedPageOptions } from "../shared/feed";
+import type { SponsorSegment } from "../shared/sponsorBlock";
 import * as feed from "./feed";
 import * as youtube from "./youtube";
 import * as history from "./history";
 import * as dismissed from "./dismissed";
 import * as progress from "./progress";
+import * as sponsorBlock from "./sponsorBlock";
 
 // No setFaviconUrl: it fetches and validates the image on Google's servers and
 // only accepts a publicly-hosted raster image (PNG/ICO), rejecting both data:
@@ -119,6 +121,20 @@ function isShort(video: Video): boolean {
 /** Description text of a single video, for the player screen. */
 export function getVideoDescription(videoId: string): string {
   return youtube.getVideoDescription(videoId);
+}
+
+/**
+ * Sponsor and self-promotion time ranges to jump past in a video, from the
+ * public SponsorBlock database. Empty when nothing is known or the lookup
+ * failed, so playback never depends on it. `durationSeconds` is the video
+ * length when the caller knows it, which bounds a bad crowd entry that would
+ * otherwise seek past the end of the video.
+ */
+export function getSponsorSegments(
+  videoId: string,
+  durationSeconds?: number,
+): SponsorSegment[] {
+  return sponsorBlock.getSponsorSegments(videoId, durationSeconds);
 }
 
 /** One page of a video's top-level comments, sorted by order ("relevance"/"time"). */

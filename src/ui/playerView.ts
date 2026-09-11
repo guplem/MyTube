@@ -14,9 +14,15 @@ import type { Video } from "../shared/video";
 import type { VideoComment, CommentOrder } from "../shared/comment";
 import type { Chapter } from "../shared/chapters";
 import { parseChapters } from "../shared/chapters";
+import type { SponsorSegment } from "../shared/sponsorBlock";
+import {
+  sponsorCategoryLabel,
+  sponsorSkipDecision,
+} from "../shared/sponsorBlock";
 import {
   getVideoDescription,
   getComments,
+  getSponsorSegments,
   markVideoSeen,
   removeVideoSeen,
   saveVideoProgress,
@@ -30,6 +36,7 @@ import {
   setStringPreference,
 } from "./preferences";
 import { optimistic } from "./optimistic";
+import { showToast } from "./toast";
 import { skeletonComments, skeletonDescription } from "./skeleton";
 
 // Theater mode (desktop): the player breaks out of the centered column and
@@ -48,6 +55,24 @@ function readStoredPlaybackRate(): number {
   const stored = Number.parseFloat(getStringPreference(SPEED_PREF, ""));
   return Number.isFinite(stored) && stored > 0 ? stored : 1;
 }
+
+// Sponsor skip: jump past the sponsor and self-promotion parts of a video,
+// using the SponsorBlock crowd database (src/server/sponsorBlock.ts). It is a
+// per-device viewing preference like theater mode, so it lives in
+// localStorage. Default on: a viewer who does not want it turns it off once.
+const SPONSOR_SKIP_PREF = "mytube.player.sponsorSkip";
+
+// How often the live position is checked against the segment list. The check
+// is local getCurrentTime polling with no request, so it can be brisk; it has
+// to be, because every polled millisecond is sponsor content the viewer still
+// hears before the jump.
+const SPONSOR_POLL_MS = 250;
+
+// Sponsor-skip toggle icon: the classic "skip forward" (two arrows into a
+// bar). One icon for both states — the button dims while the skip is off (see
+// .player-sponsor in src/ui/index.html).
+const ICON_SPONSOR_SKIP =
+  '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5l8 7-8 7V5z"/><path d="M13 5l7 7-7 7V5z"/></svg>';
 
 // Minimal typing for the YouTube IFrame Player API (loaded from youtube.com).
 interface YouTubePlayerEvent {
@@ -195,6 +220,25 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   let lastSavedProgress = 0;
   let nudgeTimer: number | null = null;
 
+  // Sponsor skip: the current video's segments (empty until the lookup answers,
+  // and empty forever for a video nobody submitted), the starts of the segments
+  // the viewer undid with the toast, and the poll timer that watches the
+  // position. sponsorSegmentsVideoId says which video the list belongs to, so a
+  // late answer for the previous video can never skip inside this one.
+  let sponsorSegments: SponsorSegment[] = [];
+  let ignoredSponsorStarts: number[] = [];
+  let sponsorTimer: number | null = null;
+  let sponsorSegmentsVideoId = "";
+  // The segment the last jump left behind. The player reports the old position
+  // for a poll or two after a seek, so without this the same segment fires a
+  // second jump and a second toast. Cleared as soon as a poll finds the
+  // position outside every segment.
+  let lastSkippedSponsorStart: number | null = null;
+  // Set by destroy(). A sponsor lookup in flight when the viewer leaves the
+  // player answers into a gone controller, and must not install a poll timer
+  // that nothing can clear.
+  let destroyed = false;
+
   // Comment paging/sorting state. The description and comments live in two tabs;
   // the comments tab is unloaded until it is selected. activeTab persists across
   // videos in this session so, once opened, later videos load their comments
@@ -241,6 +285,30 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     // on the in-memory queue like the card toggle does. One-directional —
     // un-marking never re-adds (see markSeenAction in src/ui/main.ts).
     if (target && video.inWatchLater) video.inWatchLater = false;
+  });
+
+  // Sponsor-skip toggle. Turning it on mid-video loads the segments for the
+  // video already playing, so the next sponsor part is skipped without a
+  // reload.
+  let sponsorSkip = getBoolPreference(SPONSOR_SKIP_PREF, true);
+  const sponsorButton = document.createElement("button");
+  sponsorButton.type = "button";
+  sponsorButton.className = "player-sponsor";
+  sponsorButton.innerHTML = ICON_SPONSOR_SKIP;
+  sponsorButton.addEventListener("click", (): void => {
+    sponsorSkip = !sponsorSkip;
+    setBoolPreference(SPONSOR_SKIP_PREF, sponsorSkip);
+    updateSponsorButton();
+    if (!sponsorSkip) {
+      // Forget the last jump too. Otherwise the viewer can turn the skip off
+      // inside a segment, rewind, turn it back on, and never get the jump:
+      // only a poll clears the memory, and the poll is stopped.
+      lastSkippedSponsorStart = null;
+      stopSponsorTracking();
+      return;
+    }
+    const video = queue[currentIndex];
+    if (video) void loadSponsorSegments(video.videoId);
   });
 
   // Theater mode toggle. Hidden on mobile (where the player is already
@@ -358,7 +426,12 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   titleRow.className = "player-title-row";
   const titleActions = document.createElement("div");
   titleActions.className = "player-title-actions";
-  titleActions.append(seenButton, fullscreenButton, theaterButton);
+  titleActions.append(
+    seenButton,
+    sponsorButton,
+    fullscreenButton,
+    theaterButton,
+  );
   titleRow.append(title, titleActions);
 
   // Nav row: the context label / position sit next to the prev/next buttons,
@@ -501,10 +574,26 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     onNavigate(queue[index].videoId, index);
   }
 
+  // Moves playback without touching the page. The sponsor skip uses this: the
+  // viewer did not ask for the jump, so yanking the page to the top would be
+  // wrong. Guarded like applyPlaybackRate because a poll can fire before the
+  // player is ready.
+  // Returns whether the seek ran, so the sponsor skip only commits its state
+  // once the jump really happened.
+  function seekSilently(seconds: number): boolean {
+    if (!player) return false;
+    try {
+      player.seekTo(seconds, true);
+      return true;
+    } catch {
+      return false; // player not ready yet
+    }
+  }
+
   // Seeks the current video to a timestamp (clicked in a comment or description)
   // and scrolls back up so the player is visible.
   function seek(seconds: number): void {
-    if (player) player.seekTo(seconds, true);
+    seekSilently(seconds);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -637,6 +726,18 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
         ? "Mark as watched — you finished this video"
         : "Mark as watched";
     seenButton.setAttribute("aria-pressed", String(seen));
+  }
+
+  // Same pressed-toggle treatment as the theater button, and the title always
+  // names what the next click does.
+  function updateSponsorButton(): void {
+    sponsorButton.classList.toggle("active", sponsorSkip);
+    const label = sponsorSkip
+      ? "Stop skipping sponsor segments"
+      : "Skip sponsor segments";
+    sponsorButton.title = label;
+    sponsorButton.setAttribute("aria-label", label);
+    sponsorButton.setAttribute("aria-pressed", String(sponsorSkip));
   }
 
   function updateTheater(): void {
@@ -902,6 +1003,86 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     }
   }
 
+  // Fetches the video's sponsor segments and starts the watch. Fire-and-forget
+  // on purpose: playback already runs, and a slow or failed lookup must only
+  // mean "skip nothing" (the server returns an empty list for every failure).
+  async function loadSponsorSegments(videoId: string): Promise<void> {
+    if (!sponsorSkip || destroyed) return;
+    if (sponsorSegmentsVideoId === videoId) {
+      startSponsorTracking(); // already looked up, empty list included
+      return;
+    }
+    let segments: SponsorSegment[];
+    try {
+      segments = await getSponsorSegments(
+        videoId,
+        queue[currentIndex]?.durationSeconds,
+      );
+    } catch {
+      return; // no segments: the video plays in full, as before this feature
+    }
+    if (destroyed) return; // the viewer left the player mid-load
+    if (queue[currentIndex]?.videoId !== videoId) return; // video changed mid-load
+    sponsorSegments = segments;
+    sponsorSegmentsVideoId = videoId;
+    startSponsorTracking();
+  }
+
+  // Jumps past the segment the position sits in, and offers one tap to take
+  // the jump back: the data is community-submitted and sometimes wrong. Undo
+  // returns to the segment start and drops that segment for the rest of this
+  // video, so the same jump cannot happen twice.
+  function checkSponsorSkip(): void {
+    if (!sponsorSkip || !player || sponsorSegments.length === 0) return;
+    let now: number;
+    try {
+      now = player.getCurrentTime();
+    } catch {
+      return; // player not ready yet
+    }
+    // A position the player cannot report is not a position outside every
+    // segment, so return instead of clearing the last-jump guard below.
+    if (typeof now !== "number" || Number.isNaN(now)) return;
+    const decision = sponsorSkipDecision(
+      sponsorSegments,
+      now,
+      ignoredSponsorStarts,
+      lastSkippedSponsorStart,
+    );
+    const segment = decision.segment;
+    if (!segment) {
+      lastSkippedSponsorStart = decision.lastSkippedStartSeconds;
+      return;
+    }
+    // Commit the memory and the toast only once the jump ran: a failed seek
+    // leaves the viewer inside the sponsor, so the next poll must try again.
+    if (!seekSilently(segment.endSeconds)) return;
+    lastSkippedSponsorStart = decision.lastSkippedStartSeconds;
+    const skipped = Math.round(segment.endSeconds - segment.startSeconds);
+    const label = sponsorCategoryLabel(segment.category);
+    showToast("Skipped " + label + " (" + String(skipped) + "s)", {
+      label: "Undo",
+      onAction: (): void => {
+        ignoredSponsorStarts.push(segment.startSeconds);
+        seekSilently(segment.startSeconds);
+      },
+    });
+  }
+
+  function startSponsorTracking(): void {
+    if (sponsorTimer !== null || destroyed) return;
+    if (!sponsorSkip || sponsorSegments.length === 0) return;
+    sponsorTimer = window.setInterval(checkSponsorSkip, SPONSOR_POLL_MS);
+    checkSponsorSkip();
+  }
+
+  function stopSponsorTracking(): void {
+    if (sponsorTimer !== null) {
+      window.clearInterval(sponsorTimer);
+      sponsorTimer = null;
+    }
+  }
+
   function startNudgeTracking(): void {
     if (nudgeTimer !== null) return;
     nudgeTimer = window.setInterval(updateSeenButton, NUDGE_POLL_MS);
@@ -971,8 +1152,20 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     updateChrome();
     void loadDescription(video.videoId);
     prepareComments(video.videoId);
+    // Each video starts from a clean sponsor state: the previous video's
+    // segments and its undone jumps must never apply here.
+    stopSponsorTracking();
+    sponsorSegments = [];
+    sponsorSegmentsVideoId = "";
+    ignoredSponsorStarts = [];
+    lastSkippedSponsorStart = null;
+    void loadSponsorSegments(video.videoId);
 
     const api = await loadYouTubeApi();
+    // The viewer left the player mid-load. destroy() already cleared every
+    // timer, so a player built here would restart them with nothing left to
+    // clear them, and the leaked interval keeps saving progress forever.
+    if (destroyed) return;
     if (!player) {
       player = new api.Player(mount, {
         videoId: video.videoId,
@@ -1002,6 +1195,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     startNudgeTracking();
   }
 
+  updateSponsorButton();
   updateTheater();
   void playAt(currentIndex);
 
@@ -1014,10 +1208,12 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
       if (index >= 0) void playAt(index);
     },
     destroy: (): void => {
+      destroyed = true;
       document.removeEventListener("fullscreenchange", onFullscreenChange);
       stopChapterTracking();
       stopProgressSaving();
       stopNudgeTracking();
+      stopSponsorTracking();
       saveProgress(); // leaving the player is the last chance to capture it
       if (player) {
         player.destroy();

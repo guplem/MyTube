@@ -110,6 +110,7 @@ before deciding to log in. Marked optional below.
 | Playlist position                        | We track the index in our own list                                                           | 0                       |
 | Resume playback position                 | Stored by us (see section 6); saved by the player, synced across devices                     | 0                       |
 | Search                                   | Redirect to `youtube.com/results?search_query=...`                                           | 0                       |
+| Sponsor-skip segments                    | SponsorBlock public API, looked up by a hash prefix of the video id (not YouTube)            | 0 (external service)    |
 
 **Uploads strategy (important):** we call `subscriptions.list` only occasionally
 to learn your channel IDs and cache them. The actual "new videos" feed comes

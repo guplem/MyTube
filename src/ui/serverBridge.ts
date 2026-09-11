@@ -8,6 +8,7 @@ import type { Video } from "../shared/video";
 import type { PlaylistSummary } from "../shared/playlist";
 import type { CommentOrder, CommentPage } from "../shared/comment";
 import type { FeedPage, FeedPageOptions } from "../shared/feed";
+import type { SponsorSegment } from "../shared/sponsorBlock";
 
 interface ScriptRunner {
   withSuccessHandler<T>(callback: (value: T) => void): ScriptRunner;
@@ -15,6 +16,7 @@ interface ScriptRunner {
   getFeedPage(options: FeedPageOptions): void;
   getVideoDescription(videoId: string): void;
   getComments(videoId: string, order: CommentOrder, pageToken: string): void;
+  getSponsorSegments(videoId: string, durationSeconds?: number): void;
   markVideoSeen(video: Video): void;
   removeVideoSeen(videoId: string): void;
   undoMarkVideoSeen(videoId: string): void;
@@ -53,6 +55,15 @@ export function getComments(
 ): Promise<CommentPage> {
   return call<CommentPage>((runner) =>
     runner.getComments(videoId, order, pageToken),
+  );
+}
+
+export function getSponsorSegments(
+  videoId: string,
+  durationSeconds?: number,
+): Promise<SponsorSegment[]> {
+  return call<SponsorSegment[]>((runner) =>
+    runner.getSponsorSegments(videoId, durationSeconds),
   );
 }
 

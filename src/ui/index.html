@@ -166,6 +166,15 @@
         font-size: 0.75rem;
         color: #666;
       }
+      .app-footer a {
+        color: inherit;
+      }
+      /* Footer lines sit side by side and wrap to the next row only when they
+         do not fit, which puts each one on its own row on a phone. */
+      .footer-line {
+        display: inline-block;
+        margin: 0 0.5rem;
+      }
 
       /* Feed */
       .video-list {
@@ -536,10 +545,17 @@
         font-size: 0.9rem;
         box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
       }
+      /* A toast that reports something that worked (the sponsor skip), not a
+         failure: neutral chrome colours instead of the red failure palette. */
+      .toast--notice {
+        background: #272727;
+        border-color: #3a3a3a;
+        color: #f1f1f1;
+      }
       .toast-text {
         flex: 1;
       }
-      .toast-refresh {
+      .toast-action {
         flex-shrink: 0;
         background: #272727;
         color: #f1f1f1;
@@ -550,7 +566,7 @@
         font-size: 0.85rem;
         cursor: pointer;
       }
-      .toast-refresh:hover {
+      .toast-action:hover {
         background: #333;
       }
       .toast-dismiss {
@@ -981,8 +997,9 @@
       .player-view button.chapter-card.current .chapter-label {
         color: #fff;
       }
-      /* The theater and fullscreen toggles are compact icon buttons holding
-         an inline SVG. */
+      /* The sponsor-skip, theater and fullscreen toggles are compact icon
+         buttons holding an inline SVG. */
+      .player-view button.player-sponsor:not(.ts-link):not(.player-tab),
       .player-view button.player-theater:not(.ts-link):not(.player-tab),
       .player-view button.player-fullscreen:not(.ts-link):not(.player-tab) {
         display: flex;
@@ -998,14 +1015,29 @@
         button.player-fullscreen[hidden]:not(.ts-link):not(.player-tab) {
         display: none;
       }
+      .player-sponsor svg,
       .player-theater svg,
       .player-fullscreen svg {
         display: block;
       }
-      /* Highlight the theater toggle while it is on. The :not() chain mirrors
-         the box-style rule so this wins on specificity — without it the base
-         rule's background silently beats .active and the highlight never
-         renders. */
+      /* The sponsor toggle reads as off by a dimmed look, so its two states
+         are clear without a second icon. */
+      .player-view
+        button.player-sponsor:not(.active):not(.ts-link):not(.player-tab) {
+        opacity: 0.55;
+      }
+      /* Highlight the sponsor-skip and theater toggles while they are on. The
+         :not() chain mirrors the box-style rule so this wins on specificity —
+         without it the base rule's background silently beats .active and the
+         highlight never renders. */
+      .player-view
+        button.player-sponsor.active:not(.ts-link):not(.player-tab):not(
+          .chapter-card
+        ),
+      .player-view
+        button.player-sponsor.active:not(.ts-link):not(.player-tab):not(
+          .chapter-card
+        ):hover,
       .player-view
         button.player-theater.active:not(.ts-link):not(.player-tab):not(
           .chapter-card
@@ -1112,8 +1144,14 @@
 
     <!-- Deploy indicator: the bundle fills this with the build timestamp
          (renderBuildStamp in src/ui/buildStamp.ts), so the bottom of every
-         screen shows which build is live. -->
-    <footer class="app-footer"><span id="build-stamp"></span></footer>
+         screen shows which build is live. The credit next to it is required:
+         the player skips sponsor segments with SponsorBlock data, which is
+         licensed CC BY-NC-SA 4.0 (renderSponsorBlockCredit in
+         src/ui/sponsorBlockCredit.ts). -->
+    <footer class="app-footer">
+      <span id="build-stamp" class="footer-line"></span
+      ><span id="sponsorblock-credit" class="footer-line"></span>
+    </footer>
 
     <!-- Browser TypeScript bundle (built from src/ui by esbuild). -->
     <?!= include('ui'); ?>
