@@ -1166,6 +1166,22 @@
         .player-view button.player-theater:not(.ts-link):not(.player-tab) {
           display: none;
         }
+        /* The title has little room next to the action buttons on a narrow
+           screen (see .player-title-actions' fixed-width icons). Stack the
+           row instead: actions first (order: -1 moves them ahead of the
+           title, which stays after it in the DOM for a logical reading
+           order), title below at full width. */
+        .player-title-row {
+          flex-direction: column;
+          align-items: stretch;
+        }
+        .player-title-actions {
+          order: -1;
+          margin-left: 0;
+        }
+        .player-title {
+          width: 100%;
+        }
       }
     </style>
   </head>
