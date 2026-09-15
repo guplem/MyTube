@@ -1170,9 +1170,14 @@
            screen (see .player-title-actions' fixed-width icons). Stack the
            row instead: actions first (order: -1 moves them ahead of the
            title, which stays after it in the DOM for a logical reading
-           order), title below at full width. */
+           order), title below at full width. flex-wrap must turn off here:
+           the base rule sets it to wrap for the row layout, and left on, a
+           column-direction flex container treats it as multi-column, pushing
+           the second item into a new column beside the first instead of
+           below it — the title then renders off to the side, invisible. */
         .player-title-row {
           flex-direction: column;
+          flex-wrap: nowrap;
           align-items: stretch;
         }
         .player-title-actions {
