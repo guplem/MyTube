@@ -15,11 +15,12 @@ import type { Video } from "../shared/video";
 export const COMMUNITY_TITLES_PREF = "mytube.display.communityTitles";
 export const COMMUNITY_TITLES_DEFAULT = true;
 
+export function communityTitlesOn(): boolean {
+  return getBoolPreference(COMMUNITY_TITLES_PREF, COMMUNITY_TITLES_DEFAULT);
+}
+
 /** The title to show for a video. The server always sends both titles, so
  *  this reads the preference at render time and a switch needs no refetch. */
 export function displayTitle(video: Video): string {
-  return pickDisplayTitle(
-    video,
-    getBoolPreference(COMMUNITY_TITLES_PREF, COMMUNITY_TITLES_DEFAULT),
-  );
+  return pickDisplayTitle(video, communityTitlesOn());
 }
