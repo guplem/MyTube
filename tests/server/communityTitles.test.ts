@@ -9,8 +9,18 @@ import {
   httpResponse,
   type AppsScriptMocks,
 } from "../helpers/appsScriptMock";
-import { channelRss, makeVideo, type RssEntry } from "../helpers/fixtures";
-import { getFeedPage, getHistory } from "../../src/server/main";
+import {
+  channelRss,
+  makeVideo,
+  playlistItemsPage,
+  type RssEntry,
+} from "../helpers/fixtures";
+import {
+  getFeedPage,
+  getHistory,
+  getPlaylistVideos,
+  getWatchLaterVideos,
+} from "../../src/server/main";
 import { markVideoSeen } from "../../src/server/history";
 import type { FeedPageOptions } from "../../src/shared/feed";
 
@@ -39,18 +49,23 @@ const OPTIONS: FeedPageOptions = {
   beforeDate: "",
 };
 
-function rssEntry(videoId: string): RssEntry {
+function rssEntry(videoId: string, publishedAt: string): RssEntry {
   return {
     videoId,
     title: "YouTube " + videoId,
     channelId: "C1",
     channelTitle: "One",
-    publishedAt: "2026-06-20T10:00:00+00:00",
+    publishedAt,
   };
 }
 
-/** Serves the channel RSS, and answers DeArrow with `dearrow` per URL. */
-function seed(dearrow: (url: string) => ReturnType<typeof httpResponse>): void {
+/** Serves the channel RSS, and answers DeArrow with `dearrow` per URL. The
+ *  feed lists WITH_TITLE first, because it is the newer upload. Returns the
+ *  DeArrow URLs asked. */
+function seed(
+  dearrow: (url: string) => ReturnType<typeof httpResponse>,
+): string[] {
+  const asked: string[] = [];
   mocks.userProperties.setProperty(
     "subscriptionChannels",
     JSON.stringify({
@@ -58,13 +73,38 @@ function seed(dearrow: (url: string) => ReturnType<typeof httpResponse>): void {
       channels: [{ channelId: "C1", title: "One" }],
     }),
   );
-  const rss = channelRss([rssEntry(WITH_TITLE), rssEntry(WITHOUT_TITLE)]);
+  const rss = channelRss([
+    rssEntry(WITH_TITLE, "2026-06-21T10:00:00+00:00"),
+    rssEntry(WITHOUT_TITLE, "2026-06-20T10:00:00+00:00"),
+  ]);
   mocks.fetchAll = (requests) =>
-    requests.map((request) =>
-      request.url.startsWith(DEARROW_BASE)
-        ? dearrow(request.url)
-        : httpResponse(200, rss),
-    );
+    requests.map((request) => {
+      if (!request.url.startsWith(DEARROW_BASE)) return httpResponse(200, rss);
+      asked.push(request.url);
+      return dearrow(request.url);
+    });
+  return asked;
+}
+
+/** Serves `videoIds` as the items of every playlist. */
+function seedPlaylist(videoIds: string[]): void {
+  mocks.userProperties.setProperty("watchLaterPlaylistId", "WL");
+  mocks.youtube.PlaylistItems = {
+    list: () => playlistItemsPage(videoIds),
+    insert: () => ({}),
+    remove: () => ({}),
+  };
+}
+
+/** Makes every script cache read of a DeArrow key throw. */
+function breakDeArrowCache(): void {
+  const cache = mocks.scriptCache;
+  const original = cache.getAll.bind(cache);
+  cache.getAll = (keys: string[]) => {
+    if (keys.some((key) => key.startsWith("da:")))
+      throw new Error("cache down");
+    return original(keys);
+  };
 }
 
 function dearrowAnswer(url: string): ReturnType<typeof httpResponse> {
@@ -123,5 +163,56 @@ describe("community titles on lists", () => {
 
     expect(video.communityTitle).toBeUndefined();
     expect(video.title).toBe("Plain");
+  });
+
+  it("asks DeArrow only for the videos on the page", () => {
+    const asked = seed(dearrowAnswer);
+
+    const page = getFeedPage({ ...OPTIONS, pageSize: 1 });
+
+    expect(page.videos.map((video) => video.videoId)).toEqual([WITH_TITLE]);
+    expect(page.total).toBe(2);
+    expect(asked).toEqual([DEARROW_BASE + "5f6b"]);
+  });
+
+  it("sets communityTitle on a playlist's videos", () => {
+    seed(dearrowAnswer);
+    seedPlaylist([WITH_TITLE, WITHOUT_TITLE]);
+
+    const videos = getPlaylistVideos("PL");
+
+    expect(videos.map((video) => video.communityTitle)).toEqual([
+      "Calm title",
+      undefined,
+    ]);
+  });
+
+  it("sets communityTitle on the Watch Later videos", () => {
+    seed(dearrowAnswer);
+    seedPlaylist([WITHOUT_TITLE, WITH_TITLE]);
+
+    const videos = getWatchLaterVideos();
+
+    expect(videos.map((video) => video.communityTitle)).toEqual([
+      undefined,
+      "Calm title",
+    ]);
+  });
+
+  it("returns the lists with YouTube titles when the lookup throws", () => {
+    seed(dearrowAnswer);
+    seedPlaylist([WITH_TITLE]);
+    breakDeArrowCache();
+
+    const page = getFeedPage(OPTIONS);
+    const playlist = getPlaylistVideos("PL");
+
+    expect(page.videos.map((video) => video.videoId)).toEqual([
+      WITH_TITLE,
+      WITHOUT_TITLE,
+    ]);
+    expect(page.videos.every((video) => !video.communityTitle)).toBe(true);
+    expect(playlist.map((video) => video.title)).toEqual([WITH_TITLE]);
+    expect(playlist[0].communityTitle).toBeUndefined();
   });
 });
