@@ -301,8 +301,11 @@ function flagCommunityTitle(videos: Video[]): void {
       videos.map((video: Video): string => video.videoId),
     );
     for (const video of videos) {
-      const communityTitle = titles[video.videoId];
-      if (communityTitle) video.communityTitle = communityTitle;
+      if (!Object.prototype.hasOwnProperty.call(titles, video.videoId))
+        continue;
+      const communityTitle: unknown = titles[video.videoId];
+      if (typeof communityTitle === "string" && communityTitle)
+        video.communityTitle = communityTitle;
     }
   } catch {
     // Community titles are best-effort.

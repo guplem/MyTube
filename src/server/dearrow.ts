@@ -11,7 +11,9 @@
 //    bucket, and this file picks ours out.
 // 2. COST. A community title is the same for every viewer, so it goes in the
 //    SHARED script cache, one entry per video. The "no title" answer is cached
-//    too, as "": most videos have no title, and they must not be asked twice.
+//    too: most videos have no title, and they must not be asked twice. Each
+//    entry holds JSON.stringify(title), so "no title" is '""' and never an
+//    empty value. A read that does not parse to a string is a miss.
 //    A failed bucket is never cached, and it never touches another bucket.
 // 3. ONE ROUND TRIP. A list asks for its cache misses at once: one
 //    UrlFetchApp.fetchAll with one request per distinct hash prefix, and at
@@ -45,7 +47,9 @@ const MAX_PREFIXES_PER_CALL = 50;
 export function getCommunityTitles(videoIds: string[]): {
   [videoId: string]: string;
 } {
-  const result: { [videoId: string]: string } = {};
+  // No prototype, so an id such as "constructor" never reads an inherited
+  // value.
+  const result: Record<string, string> = Object.create(null);
   const ids = Array.from(new Set(videoIds.filter(Boolean)));
   if (ids.length === 0) return result;
 
@@ -64,8 +68,8 @@ export function getCommunityTitles(videoIds: string[]): {
   // all-digit prefixes such as "1234" to the front.
   const missingByPrefix: Map<string, string[]> = new Map();
   for (const id of ids) {
-    const hit = cached[DEARROW_CACHE_PREFIX + id];
-    if (hit !== undefined) {
+    const hit = parseCachedTitle(cached[DEARROW_CACHE_PREFIX + id]);
+    if (hit !== null) {
       if (hit) result[id] = hit;
       continue;
     }
@@ -106,7 +110,7 @@ export function getCommunityTitles(videoIds: string[]): {
     );
     if (titles === null) return; // failed bucket: not cached
     for (const id of Object.keys(titles)) {
-      toCache[DEARROW_CACHE_PREFIX + id] = titles[id];
+      toCache[DEARROW_CACHE_PREFIX + id] = JSON.stringify(titles[id]);
       if (titles[id]) result[id] = titles[id];
     }
   });
@@ -125,6 +129,17 @@ export function getCommunityTitles(videoIds: string[]): {
   return result;
 }
 
+// The title in one cache entry ("" for no title), or null for a miss.
+function parseCachedTitle(raw: string | undefined): string | null {
+  if (raw === undefined) return null;
+  try {
+    const value: unknown = JSON.parse(raw);
+    return typeof value === "string" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
 // One entry of the bucket answer: the branding of one video in it.
 interface DeArrowBucketEntry {
   titles?: unknown;
@@ -140,7 +155,7 @@ function readBucket(
   try {
     if (!response) return null;
     const code = response.getResponseCode();
-    const titles: { [videoId: string]: string } = {};
+    const titles: Record<string, string> = Object.create(null);
     // Like SponsorBlock, the service sends a 404 to say "nothing here", so
     // this function returns an empty answer that the caller caches. Every
     // other non-200 is a failure.

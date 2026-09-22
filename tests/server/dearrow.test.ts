@@ -211,8 +211,8 @@ describe("getCommunityTitles", () => {
   });
 
   it("serves a cached title with no request", () => {
-    mocks.scriptCache.put("da:" + VIDEO_ID, "From cache");
-    mocks.scriptCache.put("da:" + OTHER_VIDEO_ID, "");
+    mocks.scriptCache.put("da:" + VIDEO_ID, JSON.stringify("From cache"));
+    mocks.scriptCache.put("da:" + OTHER_VIDEO_ID, JSON.stringify(""));
     const calls = respondWith({});
 
     expect(getCommunityTitles([VIDEO_ID, OTHER_VIDEO_ID])).toEqual({
@@ -256,4 +256,119 @@ describe("getCommunityTitles", () => {
     );
     expect(Object.keys(second).sort()).toEqual(ids.slice(0, 100).sort());
   });
+
+  it("stores each answer as a JSON string, so no title is not empty", () => {
+    respondWith({
+      [VIDEO_ID_URL]: bucket({ [VIDEO_ID]: [title("Better", 1)] }),
+      [OTHER_VIDEO_ID_URL]: httpResponse(404, ""),
+    });
+
+    getCommunityTitles([VIDEO_ID, OTHER_VIDEO_ID]);
+
+    expect(mocks.scriptCache.get("da:" + VIDEO_ID)).toBe('"Better"');
+    expect(mocks.scriptCache.get("da:" + OTHER_VIDEO_ID)).toBe('""');
+  });
+
+  it("treats a cached value that is not a JSON string as a miss", () => {
+    mocks.scriptCache.put("da:" + VIDEO_ID, "not json");
+    mocks.scriptCache.put("da:" + OTHER_VIDEO_ID, "42");
+    const calls = respondWith({
+      [VIDEO_ID_URL]: bucket({ [VIDEO_ID]: [title("Better", 1)] }),
+      [OTHER_VIDEO_ID_URL]: httpResponse(404, ""),
+    });
+
+    expect(getCommunityTitles([VIDEO_ID, OTHER_VIDEO_ID])).toEqual({
+      [VIDEO_ID]: "Better",
+    });
+    expect(calls).toEqual([[VIDEO_ID_URL, OTHER_VIDEO_ID_URL]]);
+  });
+
+  it("returns no inherited value for an id such as constructor", () => {
+    respondWith({});
+
+    const titles = getCommunityTitles(["constructor"]);
+
+    expect(titles["constructor"]).toBeUndefined();
+  });
+
+  it("keeps the first bucket's titles when the second bucket fails", () => {
+    const calls = respondWith({
+      [VIDEO_ID_URL]: bucket({ [VIDEO_ID]: [title("Calm", 0)] }),
+      [OTHER_VIDEO_ID_URL]: httpResponse(500, ""),
+    });
+
+    expect(getCommunityTitles([VIDEO_ID, OTHER_VIDEO_ID])).toEqual({
+      [VIDEO_ID]: "Calm",
+    });
+    getCommunityTitles([VIDEO_ID, OTHER_VIDEO_ID]);
+    expect(calls[1]).toEqual([OTHER_VIDEO_ID_URL]);
+  });
+
+  it("reads more than 100 cached ids in chunks of at most 100 keys", () => {
+    const ids = idsInDistinctBuckets(150);
+    for (const id of ids)
+      mocks.scriptCache.put("da:" + id, JSON.stringify("Cached " + id));
+    const keysPerGetAll = spyOnKeyCounts("getAll");
+    const calls = respondWith({});
+
+    const titles = getCommunityTitles(ids);
+
+    expect(calls).toEqual([]);
+    expect(Object.keys(titles)).toHaveLength(150);
+    expect(titles[ids[149]]).toBe("Cached " + ids[149]);
+    expect(keysPerGetAll).toEqual([100, 50]);
+  });
+
+  it("writes more than 100 fetched ids in chunks of at most 100 keys", () => {
+    // 34 buckets of 3 ids: 102 misses, under the cap of 50 requests.
+    const ids = idsInSharedBuckets(34, 3);
+    const keysPerPutAll = spyOnKeyCounts("putAll");
+    const calls = respondWith({});
+    mocks.fetchAll = (requests) => {
+      calls.push(requests.map((request) => request.url));
+      return requests.map(() => httpResponse(404, ""));
+    };
+
+    getCommunityTitles(ids);
+    getCommunityTitles(ids);
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toHaveLength(34);
+    expect(keysPerPutAll).toEqual([100, 2]);
+  });
 });
+
+/** Records the key count of each call to one script cache method. */
+function spyOnKeyCounts(method: "getAll" | "putAll"): number[] {
+  const counts: number[] = [];
+  const cache = mocks.scriptCache;
+  if (method === "getAll") {
+    const original = cache.getAll.bind(cache);
+    cache.getAll = (keys: string[]) => {
+      counts.push(keys.length);
+      return original(keys);
+    };
+  } else {
+    const original = cache.putAll.bind(cache);
+    cache.putAll = (values: { [key: string]: string }, ttl?: number) => {
+      counts.push(Object.keys(values).length);
+      original(values, ttl);
+    };
+  }
+  return counts;
+}
+
+/** `buckets` groups of `perBucket` 11-character ids that share a prefix. */
+function idsInSharedBuckets(buckets: number, perBucket: number): string[] {
+  const byPrefix: Map<string, string[]> = new Map();
+  const full: string[][] = [];
+  for (let n = 0; full.length < buckets; n++) {
+    const id = ("sb" + n).padEnd(11, "y");
+    const group = byPrefix.get(prefixOf(id)) ?? [];
+    if (group.length === perBucket) continue;
+    group.push(id);
+    byPrefix.set(prefixOf(id), group);
+    if (group.length === perBucket) full.push(group);
+  }
+  return full.flat();
+}

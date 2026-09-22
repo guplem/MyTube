@@ -114,4 +114,14 @@ describe("community titles on lists", () => {
     ]);
     expect(page.videos.every((video) => !video.communityTitle)).toBe(true);
   });
+
+  it("sets no inherited value on a video whose id is constructor", () => {
+    seed(dearrowAnswer);
+    markVideoSeen(makeVideo({ videoId: "constructor", title: "Plain" }));
+
+    const [video] = getHistory();
+
+    expect(video.communityTitle).toBeUndefined();
+    expect(video.title).toBe("Plain");
+  });
 });

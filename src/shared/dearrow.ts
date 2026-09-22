@@ -10,6 +10,9 @@
 
 import type { Video } from "./video";
 
+// A longer title is not a title a card can show; it is spam or broken data.
+const MAX_TITLE_LENGTH = 200;
+
 /** The raw title entry shape DeArrow returns, before any check. */
 interface RawCommunityTitle {
   title?: unknown;
@@ -31,7 +34,7 @@ export function cleanCommunityTitle(raw: string): string {
 /**
  * Picks the community title to show from one video's raw DeArrow `titles`
  * list. Returns "" when nothing must show: an empty or malformed list, only
- * downvoted titles, or a locked ORIGINAL title (the moderators say the
+ * downvoted or over-long titles, or a locked ORIGINAL title (the moderators say the
  * uploader's title is fine).
  */
 export function chooseCommunityTitle(raw: unknown): string {
@@ -42,7 +45,7 @@ export function chooseCommunityTitle(raw: unknown): string {
     if (!entry || typeof entry !== "object") continue;
     if (typeof entry.title !== "string") continue;
     const text = cleanCommunityTitle(entry.title);
-    if (!text) continue;
+    if (!text || text.length > MAX_TITLE_LENGTH) continue;
     usable.push({ text, entry });
   }
 

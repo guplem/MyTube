@@ -87,6 +87,32 @@ describe("chooseCommunityTitle", () => {
     expect(chooseCommunityTitle([null, { votes: 3 }, { title: 7 }])).toBe("");
   });
 
+  it("drops a title longer than 200 characters", () => {
+    expect(
+      chooseCommunityTitle([entry("x".repeat(201), 9), entry("Short", 1)]),
+    ).toBe("Short");
+    expect(chooseCommunityTitle([entry("x".repeat(200), 9)])).toBe(
+      "x".repeat(200),
+    );
+  });
+
+  it("shows a title that has no votes field", () => {
+    expect(chooseCommunityTitle([{ title: "T" }])).toBe("T");
+  });
+
+  it("treats only locked: true as locked", () => {
+    expect(
+      chooseCommunityTitle([
+        { title: "Truthy lock", votes: 0, locked: 1 },
+        entry("High", 5),
+      ]),
+    ).toBe("High");
+  });
+
+  it("never shows a title whose votes are not a number", () => {
+    expect(chooseCommunityTitle([{ title: "T", votes: NaN }])).toBe("");
+  });
+
   it("cleans the chosen title and skips one that cleans to nothing", () => {
     expect(
       chooseCommunityTitle([entry("   ", 9), entry(">macOS tips", 1)]),
