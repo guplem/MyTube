@@ -2,7 +2,8 @@
 // Preferences live in localStorage (src/ui/preferences.ts), and this screen
 // reads and writes the very same keys as the controls that already exist (the
 // feed toolbar and the player's own buttons), so the two views can never hold
-// different values. It owns no preference of its own.
+// different values. It owns no preference of its own: even the title switch,
+// which has no other control, keeps its key in src/ui/titlePreferences.ts.
 //
 // The feed filters need more than a write: the feed remembers which page it
 // showed, and that page number belongs to the old filters. The caller passes
@@ -20,6 +21,10 @@ import {
   readStoredPlaybackRate,
   storePlaybackRate,
 } from "./playerPreferences";
+import {
+  COMMUNITY_TITLES_PREF,
+  COMMUNITY_TITLES_DEFAULT,
+} from "./titlePreferences";
 import {
   DEFAULT_PLAYBACK_RATE,
   playbackRateChoices,
@@ -46,9 +51,19 @@ export function SettingsView(onFeedFilterChange: () => void): HTMLElement {
   );
 
   root.appendChild(
+    settingsSection("Titles", "Applied to the next list or video you open.", [
+      preferenceToggle(
+        "Show community titles (DeArrow)",
+        COMMUNITY_TITLES_PREF,
+        COMMUNITY_TITLES_DEFAULT,
+      ),
+    ]),
+  );
+
+  root.appendChild(
     settingsSection("Player", "Applied to the next video you open.", [
-      playerToggle("Theater mode (desktop)", THEATER_PREF, THEATER_DEFAULT),
-      playerToggle(
+      preferenceToggle("Theater mode (desktop)", THEATER_PREF, THEATER_DEFAULT),
+      preferenceToggle(
         "Skip sponsor segments",
         SPONSOR_SKIP_PREF,
         SPONSOR_SKIP_DEFAULT,
@@ -89,11 +104,12 @@ function settingsRow(control: HTMLElement): HTMLElement {
   return row;
 }
 
-// A persisted checkbox for one player preference. A write is all it takes: the
-// player reads the key when it builds the next video, and no other screen holds
-// state that the change makes wrong. Feed filters do need a follow-up, which is
-// why they have their own builder (src/ui/feedFilterControls.ts).
-function playerToggle(
+// A persisted checkbox for one player or title preference. A write is all it
+// takes: the player and the cards read the key when they build the next video,
+// and no other screen holds state that the change makes wrong. Feed filters do
+// need a follow-up, which is why they have their own builder
+// (src/ui/feedFilterControls.ts).
+function preferenceToggle(
   labelText: string,
   prefKey: string,
   defaultValue: boolean,

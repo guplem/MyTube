@@ -9,6 +9,7 @@ import type { FeedPageOptions } from "../shared/feed";
 import { defaultFeedBeforeDate } from "../shared/feed";
 import { shouldSuggestWatched } from "../shared/videoProgress";
 import { watchLaterAfterSeenToggle } from "../shared/watchLaterAfterSeen";
+import { pickDisplayTitle } from "../shared/dearrow";
 import {
   getHistory,
   getPlaylists,
@@ -59,6 +60,7 @@ import {
 } from "./skeleton";
 import { PlayerView, type PlayerController } from "./playerView";
 import { optimistic } from "./optimistic";
+import { communityTitlesOn } from "./titlePreferences";
 import { getBoolPreference, getStringPreference } from "./preferences";
 import {
   pushUrlState,
@@ -730,7 +732,16 @@ function sortVideos(videos: Video[], key: SortKey): Video[] {
     sorted.sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
   else if (key === "oldest")
     sorted.sort((a, b) => a.publishedAt.localeCompare(b.publishedAt));
-  else sorted.sort((a, b) => a.title.localeCompare(b.title));
+  // Sort by the title on show, so "A–Z" matches what the cards read. Read the
+  // preference once: a comparator runs thousands of times on a long playlist.
+  else {
+    const useCommunity: boolean = communityTitlesOn();
+    sorted.sort((a: Video, b: Video): number =>
+      pickDisplayTitle(a, useCommunity).localeCompare(
+        pickDisplayTitle(b, useCommunity),
+      ),
+    );
+  }
   return sorted;
 }
 

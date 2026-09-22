@@ -34,8 +34,10 @@ const SPONSOR_API_CATEGORIES = "?category=sponsor&category=selfpromo";
 const SPONSOR_CACHE_PREFIX = "sb:";
 const SPONSOR_CACHE_TTL_SECONDS = 21600; // 6h, the CacheService maximum
 
-// How much of the hash the request carries. SponsorBlock accepts 4 to 32
-// characters; 4 is the shortest and therefore the largest crowd to hide in.
+// How much of the hash each request carries, for the SponsorBlock segment
+// endpoint and for the DeArrow branding endpoint on the same server. Both
+// accept 4 to 32 characters; 4 is the shortest and therefore the largest
+// crowd to hide in.
 const HASH_PREFIX_LENGTH = 4;
 
 /**
@@ -126,8 +128,9 @@ function fetchSponsorSegments(videoId: string): SponsorSegment[] | null {
 // Utilities.computeDigest returns SIGNED bytes (-128..127), so each byte is
 // brought back into 0..255 before it becomes hex; without that step the hex
 // is wrong for every byte above 127 and the service answers about a different
-// bucket.
-function videoIdHashPrefix(videoId: string): string {
+// bucket. Exported because src/server/dearrow.ts asks the same service by the
+// same prefix.
+export function videoIdHashPrefix(videoId: string): string {
   const digest = Utilities.computeDigest(
     Utilities.DigestAlgorithm.SHA_256,
     videoId,
