@@ -14,6 +14,7 @@
 import type { Video } from "../shared/video";
 import { progressFraction } from "../shared/videoProgress";
 import { skeletonVideoCard } from "./skeleton";
+import { displayTitle, originalTitleHint } from "./titlePreferences";
 
 export interface VideoAction {
   /** Optional machine-readable tag, set as data-action on the button, so a
@@ -315,7 +316,9 @@ function videoCard(
 
   const title = document.createElement("span");
   title.className = "video-title";
-  title.textContent = video.title;
+  title.textContent = displayTitle(video);
+  const hint = originalTitleHint(video, title.textContent);
+  if (hint) title.title = hint;
 
   const channel = document.createElement("span");
   channel.className = "video-channel";

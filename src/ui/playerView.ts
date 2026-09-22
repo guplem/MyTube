@@ -41,6 +41,7 @@ import {
 } from "./playerPreferences";
 import { optimistic } from "./optimistic";
 import { showToast } from "./toast";
+import { displayTitle, originalTitleHint } from "./titlePreferences";
 import { skeletonComments, skeletonDescription } from "./skeleton";
 
 // How often the live position is checked against the segment list. The check
@@ -685,7 +686,9 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   function updateChrome(): void {
     const video = queue[currentIndex];
     position.textContent = `${contextLabel} · ${currentIndex + 1} of ${queue.length}`;
-    title.textContent = video ? video.title : "";
+    title.textContent = video ? displayTitle(video) : "";
+    // Always written: the title element outlives each video in the queue.
+    title.title = video ? originalTitleHint(video, title.textContent) : "";
     prevButton.disabled = currentIndex <= 0;
     nextButton.disabled = currentIndex >= queue.length - 1;
     updateSeenButton();
