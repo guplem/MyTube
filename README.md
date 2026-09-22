@@ -49,12 +49,13 @@ quota. See [One-time Google setup](#one-time-google-setup) below.
   using the community SponsorBlock database, with a one-tap Undo. On by
   default; toggle next to the theater button.
 - **Community titles** — replaces clickbait titles with the community-written
-  title from the DeArrow database when one exists. Hover a title to see the
-  YouTube one. On by default; toggle in Settings.
+  title from the DeArrow database when one exists. On by default. On a
+  computer, hover a title to see the YouTube one; turn the switch off in
+  Settings to see YouTube titles everywhere.
 - **Settings** — a link in the footer of every screen opens one page with every
   preference: the feed filters, community titles, and the player settings
-  (theater mode, sponsor skip, playback speed). The feed toolbar keeps its own toggles, and both views
-  show the same values.
+  (theater mode, sponsor skip, playback speed). The feed toolbar keeps its own
+  toggles, and both views show the same values.
 - **Duration badge** on every thumbnail.
 - **Search** — the search box opens YouTube's results page in a new tab.
 - **Shareable URLs** — the open tab and video are stored in the URL, so browser

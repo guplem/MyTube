@@ -112,14 +112,14 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   `Video`, so the kept feed page (ADR 0008) is untouched.
 - **Community titles come from DeArrow**, a sister project of SponsorBlock on
   the same server. `getCommunityTitles` (`src/server/dearrow.ts`) follows the
-  SponsorBlock rules (ADR 0009), with one change: it batches every cache miss
+  SponsorBlock rules (ADR 0009), with one change: it batches the cache misses
   of a list into one `UrlFetchApp.fetchAll`, one request per distinct hash
-  prefix, and caches per video (`""` means "no title"). The policy lives in
-  `src/shared/dearrow.ts`. `main.ts` sets `Video.communityTitle` on the page's
-  own objects (ADR 0008), page-only in `getFeedPage` because no filter reads
-  it. The browser picks the shown title at render time (`displayTitle` in
-  `src/ui/titlePreferences.ts`), so the Settings switch needs no refetch. The
-  hover text keeps the YouTube title.
+  prefix, at most 50 prefixes per call. It caches per video as
+  `JSON.stringify(title)` (`'""'` means "no title"). The policy lives in
+  `src/shared/dearrow.ts`. `main.ts` sets `Video.communityTitle`, page-only in
+  `getFeedPage` because no filter reads it. The browser picks the shown title
+  at render time (`displayTitle` in `src/ui/titlePreferences.ts`), so the
+  Settings switch needs no refetch.
 - **Seen = watch history only.** `flagSeen` sets it from the history ids;
   "Hide watched" filters on it. In UI copy the flag is always called
   **watched** (matching the History tab); `seen` stays the name in code and
@@ -229,14 +229,17 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
 - UI toggles persist in `localStorage` via `src/ui/preferences.ts` (works inside
   the Apps Script iframe; no server round-trip). Each key and its default lives
   in one module, never in the screen that shows it: `src/ui/feedFilters.ts` for
-  the feed filters, `src/ui/playerPreferences.ts` for the player ones.
+  the feed filters, `src/ui/playerPreferences.ts` for the player ones, and
+  `src/ui/titlePreferences.ts` for the title display.
 - **Settings is the one screen that lists every preference**
   (`src/ui/settingsView.ts`, routed as `{ view: "settings" }`, opened from the
   footer link). It owns no preference: it reads and writes the same keys as the
   feed toolbar and the player buttons, so the views can never disagree. Add a new
   global preference here as well as where it acts. Its feed rows come from
-  `feedFilterControls`; its player rows are built here, because a player
-  preference needs no follow-up beyond the write.
+  `feedFilterControls`; its player and title rows are built here with
+  `preferenceToggle`, because those preferences need no follow-up beyond the
+  write. A display preference with no other control, such as the title switch,
+  can live in Settings only.
 - **Optimistic UI updates for every server mutation.** Any button that writes to
   the server (mark seen, dismiss, add/remove Watch Later — on cards _and_ in the
   player) must feel instant: the Apps Script bridge round-trips to Google and can

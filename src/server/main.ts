@@ -291,10 +291,8 @@ function flagProgress(videos: Video[]): void {
   }
 }
 
-/** Sets the DeArrow community title on each video that has one. The title
- *  goes on the same Video objects, never on copies, so the kept feed page
- *  stays the page on show (ADR 0008). Best-effort: without it every video
- *  shows its YouTube title. */
+/** Sets the DeArrow community title on each video that has one, so the card
+ *  can show it. Best-effort: without it every video shows its YouTube title. */
 function flagCommunityTitle(videos: Video[]): void {
   try {
     const titles = dearrow.getCommunityTitles(

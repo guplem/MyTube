@@ -34,8 +34,10 @@ const SPONSOR_API_CATEGORIES = "?category=sponsor&category=selfpromo";
 const SPONSOR_CACHE_PREFIX = "sb:";
 const SPONSOR_CACHE_TTL_SECONDS = 21600; // 6h, the CacheService maximum
 
-// How much of the hash the request carries. SponsorBlock accepts 4 to 32
-// characters; 4 is the shortest and therefore the largest crowd to hide in.
+// How much of the hash each request carries, for the SponsorBlock segment
+// endpoint and for the DeArrow branding endpoint on the same server. Both
+// accept 4 to 32 characters; 4 is the shortest and therefore the largest
+// crowd to hide in.
 const HASH_PREFIX_LENGTH = 4;
 
 /**

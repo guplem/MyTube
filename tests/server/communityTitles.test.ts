@@ -1,6 +1,6 @@
-// Core concept: the lists that main.ts returns carry the DeArrow community
-// title on the same Video objects that the adapters built (ADR 0008), and a
-// DeArrow failure leaves every list intact with its YouTube titles.
+// Core concept: every list that main.ts returns carries the DeArrow community
+// title, the feed asks only for the page on show, and a DeArrow failure leaves
+// every list intact with its YouTube titles.
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
