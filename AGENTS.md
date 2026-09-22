@@ -110,6 +110,16 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   directions. A failed lookup returns `[]` and is never
   cached, matching the "skip nothing" default. Segments are not stored on
   `Video`, so the kept feed page (ADR 0008) is untouched.
+- **Community titles come from DeArrow**, a sister project of SponsorBlock on
+  the same server. `getCommunityTitles` (`src/server/dearrow.ts`) follows the
+  SponsorBlock rules (ADR 0009), with one change: it batches every cache miss
+  of a list into one `UrlFetchApp.fetchAll`, one request per distinct hash
+  prefix, and caches per video (`""` means "no title"). The policy lives in
+  `src/shared/dearrow.ts`. `main.ts` sets `Video.communityTitle` on the page's
+  own objects (ADR 0008), page-only in `getFeedPage` because no filter reads
+  it. The browser picks the shown title at render time (`displayTitle` in
+  `src/ui/titlePreferences.ts`), so the Settings switch needs no refetch. The
+  hover text keeps the YouTube title.
 - **Seen = watch history only.** `flagSeen` sets it from the history ids;
   "Hide watched" filters on it. In UI copy the flag is always called
   **watched** (matching the History tab); `seen` stays the name in code and
