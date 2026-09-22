@@ -18,6 +18,7 @@ import * as history from "./history";
 import * as dismissed from "./dismissed";
 import * as progress from "./progress";
 import * as sponsorBlock from "./sponsorBlock";
+import * as dearrow from "./dearrow";
 
 // No setFaviconUrl: it fetches and validates the image on Google's servers and
 // only accepts a publicly-hosted raster image (PNG/ICO), rejecting both data:
@@ -84,6 +85,8 @@ export function getFeedPage(options: FeedPageOptions): FeedPage {
   if (!options.hideShorts) enrichDurations(pageVideos);
   flagInWatchLater(pageVideos);
   flagProgress(pageVideos);
+  // No filter reads the community title, so the page alone needs it.
+  flagCommunityTitle(pageVideos);
   return {
     videos: pageVideos,
     total: visible.length,
@@ -211,6 +214,7 @@ export function getHistory(): Video[] {
   enrichDurations(videos);
   flagInWatchLater(videos);
   flagProgress(videos);
+  flagCommunityTitle(videos);
   return videos;
 }
 
@@ -226,6 +230,7 @@ export function getPlaylistVideos(playlistId: string): Video[] {
   enrichDurations(videos);
   flagInWatchLater(videos);
   flagProgress(videos);
+  flagCommunityTitle(videos);
   return videos;
 }
 
@@ -238,6 +243,7 @@ export function getWatchLaterVideos(): Video[] {
   // (no membership lookup) so the card's Watch Later toggle starts on.
   for (const video of videos) video.inWatchLater = true;
   flagProgress(videos);
+  flagCommunityTitle(videos);
   return videos;
 }
 
@@ -282,6 +288,24 @@ function flagProgress(videos: Video[]): void {
     }
   } catch {
     // Resume positions are best-effort.
+  }
+}
+
+/** Sets the DeArrow community title on each video that has one. The title
+ *  goes on the same Video objects, never on copies, so the kept feed page
+ *  stays the page on show (ADR 0008). Best-effort: without it every video
+ *  shows its YouTube title. */
+function flagCommunityTitle(videos: Video[]): void {
+  try {
+    const titles = dearrow.getCommunityTitles(
+      videos.map((video: Video): string => video.videoId),
+    );
+    for (const video of videos) {
+      const communityTitle = titles[video.videoId];
+      if (communityTitle) video.communityTitle = communityTitle;
+    }
+  } catch {
+    // Community titles are best-effort.
   }
 }
 

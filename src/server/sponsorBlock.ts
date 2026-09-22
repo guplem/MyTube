@@ -126,8 +126,9 @@ function fetchSponsorSegments(videoId: string): SponsorSegment[] | null {
 // Utilities.computeDigest returns SIGNED bytes (-128..127), so each byte is
 // brought back into 0..255 before it becomes hex; without that step the hex
 // is wrong for every byte above 127 and the service answers about a different
-// bucket.
-function videoIdHashPrefix(videoId: string): string {
+// bucket. Exported because src/server/dearrow.ts asks the same service by the
+// same prefix.
+export function videoIdHashPrefix(videoId: string): string {
   const digest = Utilities.computeDigest(
     Utilities.DigestAlgorithm.SHA_256,
     videoId,
