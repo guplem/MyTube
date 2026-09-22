@@ -26,4 +26,8 @@ export interface Video {
    *  means watched to the end: a full bar, but playback restarts from the top.
    *  Absent when the video has no saved position. */
   progressSeconds?: number;
+  /** The community-written title from DeArrow (see shared/dearrow.ts), shown
+   *  instead of `title` while the Settings switch is on. Absent when DeArrow
+   *  has no title for the video or the lookup failed. */
+  communityTitle?: string;
 }
