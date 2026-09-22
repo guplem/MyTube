@@ -13,8 +13,9 @@
 //    SHARED script cache, one entry per video. The "no title" answer is cached
 //    too, as "": most videos have no title, and they must not be asked twice.
 //    A failed bucket is never cached, and it never touches another bucket.
-// 3. ONE ROUND TRIP. A list asks for all of its cache misses at once: one
-//    UrlFetchApp.fetchAll with one request per distinct hash prefix.
+// 3. ONE ROUND TRIP. A list asks for its cache misses at once: one
+//    UrlFetchApp.fetchAll with one request per distinct hash prefix, and at
+//    most MAX_PREFIXES_PER_CALL prefixes.
 //
 // Every failure returns no title. A missing title means "show the YouTube
 // title", which is the pre-feature behaviour, and a list must never depend on
@@ -33,6 +34,8 @@ const DEARROW_CACHE_TTL_SECONDS = 21600; // 6h, the CacheService maximum
 // CacheService.getAll and putAll have a per-call size limit; the feed page is
 // small, but history can hold hundreds of videos.
 const CACHE_CHUNK = 100;
+
+const MAX_PREFIXES_PER_CALL = 50;
 
 /**
  * The community title of each video that has one, keyed by video id. A video
@@ -56,27 +59,40 @@ export function getCommunityTitles(videoIds: string[]): {
     );
   }
 
-  // Group the cache misses by hash prefix, so each bucket is asked once.
-  const missingByPrefix: { [prefix: string]: string[] } = {};
+  // Group the cache misses by hash prefix, so each bucket is asked once. A
+  // Map keeps the order of the first-seen id: plain object keys would move
+  // all-digit prefixes such as "1234" to the front.
+  const missingByPrefix: Map<string, string[]> = new Map();
   for (const id of ids) {
     const hit = cached[DEARROW_CACHE_PREFIX + id];
-    if (hit !== undefined && hit !== null) {
+    if (hit !== undefined) {
       if (hit) result[id] = hit;
       continue;
     }
     const prefix = videoIdHashPrefix(id);
-    (missingByPrefix[prefix] = missingByPrefix[prefix] ?? []).push(id);
+    const bucketIds = missingByPrefix.get(prefix) ?? [];
+    bucketIds.push(id);
+    missingByPrefix.set(prefix, bucketIds);
   }
-  const prefixes = Object.keys(missingByPrefix);
+  // The list waits for this fetch, and UrlFetchApp has no timeout, so a long
+  // history must not send hundreds of requests to a volunteer-run server or
+  // spend the per-user UrlFetch quota. The top of the list is asked first.
+  // The misses past the cap are not cached, so a later load fills them in.
+  const prefixes = Array.from(missingByPrefix.keys()).slice(
+    0,
+    MAX_PREFIXES_PER_CALL,
+  );
   if (prefixes.length === 0) return result;
 
   let responses: GoogleAppsScript.URL_Fetch.HTTPResponse[];
   try {
     responses = UrlFetchApp.fetchAll(
-      prefixes.map((prefix: string) => ({
-        url: DEARROW_API_BASE + prefix,
-        muteHttpExceptions: true,
-      })),
+      prefixes.map(
+        (prefix: string): GoogleAppsScript.URL_Fetch.URLFetchRequest => ({
+          url: DEARROW_API_BASE + prefix,
+          muteHttpExceptions: true,
+        }),
+      ),
     );
   } catch {
     return result; // failed lookup: retry on the next request
@@ -84,7 +100,10 @@ export function getCommunityTitles(videoIds: string[]): {
 
   const toCache: { [key: string]: string } = {};
   prefixes.forEach((prefix: string, index: number): void => {
-    const titles = readBucket(responses[index], missingByPrefix[prefix]);
+    const titles = readBucket(
+      responses[index],
+      missingByPrefix.get(prefix) ?? [],
+    );
     if (titles === null) return; // failed bucket: not cached
     for (const id of Object.keys(titles)) {
       toCache[DEARROW_CACHE_PREFIX + id] = titles[id];
@@ -122,9 +141,9 @@ function readBucket(
     if (!response) return null;
     const code = response.getResponseCode();
     const titles: { [videoId: string]: string } = {};
-    // Like SponsorBlock, a 404 is taken as the definitive "nothing here", so
-    // it is an empty answer that the caller caches. Every other non-200 is a
-    // failure.
+    // Like SponsorBlock, the service sends a 404 to say "nothing here", so
+    // this function returns an empty answer that the caller caches. Every
+    // other non-200 is a failure.
     if (code === 404) {
       for (const id of videoIds) titles[id] = "";
       return titles;

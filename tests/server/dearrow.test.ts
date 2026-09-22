@@ -11,6 +11,7 @@ import {
   httpResponse,
   type AppsScriptMocks,
 } from "../helpers/appsScriptMock";
+import { createHash } from "node:crypto";
 import { getCommunityTitles } from "../../src/server/dearrow";
 
 let mocks: AppsScriptMocks;
@@ -57,6 +58,25 @@ function bucket(entries: {
     body[id] = { titles: entries[id], thumbnails: [], randomTime: 0.5 };
   }
   return httpResponse(200, JSON.stringify(body));
+}
+
+/** The DeArrow bucket prefix of a video id, computed off the code under test. */
+function prefixOf(videoId: string): string {
+  return createHash("sha256").update(videoId, "utf8").digest("hex").slice(0, 4);
+}
+
+/** `count` 11-character ids that each hash to a different bucket. */
+function idsInDistinctBuckets(count: number): string[] {
+  const ids: string[] = [];
+  const seen = new Set<string>();
+  for (let n = 0; ids.length < count; n++) {
+    const id = ("id" + n).padEnd(11, "x");
+    const prefix = prefixOf(id);
+    if (seen.has(prefix)) continue;
+    seen.add(prefix);
+    ids.push(id);
+  }
+  return ids;
 }
 
 /** Routes each request URL to a response, and records every URL asked. */
@@ -210,5 +230,30 @@ describe("getCommunityTitles", () => {
     };
 
     expect(getCommunityTitles([VIDEO_ID])).toEqual({ [VIDEO_ID]: "Better" });
+  });
+
+  it("asks at most 50 buckets per call, the first ids first", () => {
+    const ids = idsInDistinctBuckets(200);
+    const calls: string[][] = [];
+    mocks.fetchAll = (requests) => {
+      calls.push(requests.map((request) => request.url));
+      return requests.map((request) => {
+        const prefix = request.url.slice(BASE.length);
+        const id = ids.find((candidate) => prefixOf(candidate) === prefix)!;
+        return bucket({ [id]: [title("Calm " + id, 1)] });
+      });
+    };
+
+    const first = getCommunityTitles(ids);
+    const second = getCommunityTitles(ids);
+
+    expect(calls).toHaveLength(2);
+    expect(calls[0]).toEqual(ids.slice(0, 50).map((id) => BASE + prefixOf(id)));
+    expect(Object.keys(first).sort()).toEqual(ids.slice(0, 50).sort());
+    // The misses past the cap were not cached, so the next call asks for them.
+    expect(calls[1]).toEqual(
+      ids.slice(50, 100).map((id) => BASE + prefixOf(id)),
+    );
+    expect(Object.keys(second).sort()).toEqual(ids.slice(0, 100).sort());
   });
 });
