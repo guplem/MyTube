@@ -72,3 +72,9 @@ export function pickDisplayTitle(video: Video, useCommunity: boolean): string {
   if (useCommunity && video.communityTitle) return video.communityTitle;
   return video.title;
 }
+
+/** The hover text of a shown title: the YouTube title when the shown title is
+ *  a different one, so the original stays reachable. Else "". */
+export function originalTitleHint(video: Video, shown: string): string {
+  return shown === video.title ? "" : "YouTube title: " + video.title;
+}

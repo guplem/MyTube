@@ -14,7 +14,8 @@
 import type { Video } from "../shared/video";
 import { progressFraction } from "../shared/videoProgress";
 import { skeletonVideoCard } from "./skeleton";
-import { displayTitle, originalTitleHint } from "./titlePreferences";
+import { displayTitle } from "./titlePreferences";
+import { originalTitleHint } from "../shared/dearrow";
 
 export interface VideoAction {
   /** Optional machine-readable tag, set as data-action on the button, so a

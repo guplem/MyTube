@@ -1,8 +1,9 @@
 // The title display preference, as it is stored in localStorage. Kept in its
-// own module because three independent things read it: the video cards
-// (src/ui/videoListView.ts), the player (src/ui/playerView.ts), and the
-// Settings screen, which lists it (src/ui/settingsView.ts). This mirrors
-// src/ui/playerPreferences.ts.
+// own module because four independent things read it: the video cards
+// (src/ui/videoListView.ts), the playlist title sort (src/ui/main.ts), the
+// player (src/ui/playerView.ts), and the Settings screen, which lists it
+// (src/ui/settingsView.ts). This mirrors src/ui/playerPreferences.ts. The
+// title rules themselves live in src/shared/dearrow.ts.
 
 import { getBoolPreference } from "./preferences";
 import { pickDisplayTitle } from "../shared/dearrow";
@@ -21,10 +22,4 @@ export function displayTitle(video: Video): string {
     video,
     getBoolPreference(COMMUNITY_TITLES_PREF, COMMUNITY_TITLES_DEFAULT),
   );
-}
-
-/** The hover text of a shown title: the YouTube title when the shown title is
- *  a different one, so the original stays reachable. Else "". */
-export function originalTitleHint(video: Video, shown: string): string {
-  return shown === video.title ? "" : "YouTube title: " + video.title;
 }

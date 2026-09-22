@@ -41,7 +41,8 @@ import {
 } from "./playerPreferences";
 import { optimistic } from "./optimistic";
 import { showToast } from "./toast";
-import { displayTitle, originalTitleHint } from "./titlePreferences";
+import { displayTitle } from "./titlePreferences";
+import { originalTitleHint } from "../shared/dearrow";
 import { skeletonComments, skeletonDescription } from "./skeleton";
 
 // How often the live position is checked against the segment list. The check

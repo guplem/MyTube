@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   chooseCommunityTitle,
   cleanCommunityTitle,
+  originalTitleHint,
   pickDisplayTitle,
 } from "../../src/shared/dearrow";
 import type { Video } from "../../src/shared/video";
@@ -120,17 +121,17 @@ describe("chooseCommunityTitle", () => {
   });
 });
 
-describe("pickDisplayTitle", () => {
-  const video: Video = {
-    videoId: "v1",
-    title: "YOU WON'T BELIEVE THIS",
-    channelId: "c1",
-    channelTitle: "Channel",
-    thumbnailUrl: "",
-    publishedAt: "2026-01-01T00:00:00+00:00",
-    seen: false,
-  };
+const video: Video = {
+  videoId: "v1",
+  title: "YOU WON'T BELIEVE THIS",
+  channelId: "c1",
+  channelTitle: "Channel",
+  thumbnailUrl: "",
+  publishedAt: "2026-01-01T00:00:00+00:00",
+  seen: false,
+};
 
+describe("pickDisplayTitle", () => {
   it("shows the community title when the switch is on", () => {
     expect(
       pickDisplayTitle({ ...video, communityTitle: "A calm title" }, true),
@@ -148,5 +149,17 @@ describe("pickDisplayTitle", () => {
     expect(pickDisplayTitle({ ...video, communityTitle: "" }, true)).toBe(
       video.title,
     );
+  });
+});
+
+describe("originalTitleHint", () => {
+  it("names the YouTube title when the shown title is a different one", () => {
+    expect(originalTitleHint(video, "A calm title")).toBe(
+      "YouTube title: " + video.title,
+    );
+  });
+
+  it("returns no hint when the shown title is the YouTube title", () => {
+    expect(originalTitleHint(video, video.title)).toBe("");
   });
 });
