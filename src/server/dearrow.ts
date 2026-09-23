@@ -20,8 +20,8 @@
 //    most MAX_PREFIXES_PER_CALL prefixes.
 //
 // getDeArrowSubmissions is the single-video lookup for the player Info tab. It
-// follows rules 1 and 2 with its own cache entry, but it tells a failed lookup
-// apart from "no submissions", because the tab shows the difference.
+// follows rules 1 and 2 with its own cache entry, but it reports a failed
+// lookup instead of "no submissions", because the tab shows the difference.
 //
 // Every failure returns no title. A missing title means "show the YouTube
 // title", which is the pre-feature behaviour, and a list must never depend on

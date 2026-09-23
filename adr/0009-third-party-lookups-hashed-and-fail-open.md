@@ -50,7 +50,9 @@ as-is by `src/server/dearrow.ts`:
    answer 404 for an empty bucket). A cached "nothing found" must be a
    non-empty value, so a cache miss (`undefined`) is never confused with a
    found-but-empty answer; DeArrow's entry is `JSON.stringify(title)`, so "no
-   title" is the string `'""'`. **Cache only what the key describes.** The
+   title" is the string `'""'`. The `das:` entry of `getDeArrowSubmissions`
+   holds the submissions list as JSON, where "no submissions" is `[]`, capped
+   at 50 entries. **Cache only what the key describes.** The
    entry holds the answer for that video and nothing else. Apply every rule
    that depends on the caller after the cache read, never before the write.
    SponsorBlock shows why: the video length drops a crowd entry that ends
@@ -65,9 +67,9 @@ as-is by `src/server/dearrow.ts`:
    behavior. A lookup that covers several videos in one call (see below)
    applies this per group: one bucket's failure returns no data for the
    videos in that bucket only, and never cancels the others.
-   One lookup is a diagnostic view, not a feature, and it must report a
-   failure: `getDeArrowSubmissions` in `src/server/dearrow.ts` feeds the
-   player Info tab, which tells "no submissions" apart from "the lookup
+   One lookup feeds a diagnostic view, so it must report a failure:
+   `getDeArrowSubmissions` in `src/server/dearrow.ts` feeds the player Info
+   tab, which shows the difference between "no submissions" and "the lookup
    failed". It returns `{ status: "failed" }` instead of an empty list. It
    still never throws, and it still does not cache the failure.
 

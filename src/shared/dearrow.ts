@@ -41,7 +41,7 @@ export interface DeArrowSubmission {
 }
 
 /** The answer of one submissions lookup. "failed" is not the same as "ok"
- *  with no submissions: the Info tab tells the two apart. */
+ *  with no submissions: the Info tab shows the difference. */
 export type DeArrowSubmissionsResult =
   { status: "ok"; submissions: DeArrowSubmission[] } | { status: "failed" };
 
