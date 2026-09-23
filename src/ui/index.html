@@ -788,8 +788,9 @@
         padding: 1rem;
         border-radius: 8px;
       }
-      /* Tab strip: the "Description" / "Comments" tabs above the panel, styled
-         as an underlined segmented control. Only the selected panel shows. */
+      /* Tab strip: the "Description" / "Comments" / "Info" tabs above the
+         panel, styled as an underlined segmented control. Only the selected
+         panel shows. */
       .player-tab-strip {
         display: flex;
         gap: 0.25rem;
@@ -1214,6 +1215,11 @@
         }
         .player-autoplay {
           margin-left: 0;
+        }
+        /* Smaller side padding keeps the three player tabs on one row on a
+           320px phone. The selector mirrors the base rule so it wins. */
+        .player-view button.player-tab {
+          padding: 0.5rem 0.6rem;
         }
         /* A 320px phone has no room for a wide label column: cap it at a
            part of the row instead. */
