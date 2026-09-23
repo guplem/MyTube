@@ -19,19 +19,31 @@
 //    UrlFetchApp.fetchAll with one request per distinct hash prefix, and at
 //    most MAX_PREFIXES_PER_CALL prefixes.
 //
+// getDeArrowSubmissions is the single-video lookup for the player Info tab. It
+// follows rules 1 and 2 with its own cache entry, but it tells a failed lookup
+// apart from "no submissions", because the tab shows the difference.
+//
 // Every failure returns no title. A missing title means "show the YouTube
 // title", which is the pre-feature behaviour, and a list must never depend on
 // a third-party service that is slow or down.
 //
 // Data is CC BY-NC-SA 4.0; the app footer credits DeArrow.
 
-import { chooseCommunityTitle } from "../shared/dearrow";
+import {
+  chooseCommunityTitle,
+  parseDeArrowSubmissions,
+  type DeArrowSubmission,
+  type DeArrowSubmissionsResult,
+} from "../shared/dearrow";
 import { videoIdHashPrefix } from "./sponsorBlock";
 
 const DEARROW_API_BASE = "https://sponsor.ajay.app/api/branding/";
 
 const DEARROW_CACHE_PREFIX = "da:";
 const DEARROW_CACHE_TTL_SECONDS = 21600; // 6h, the CacheService maximum
+// The submissions of one video, for the player Info tab. A separate prefix,
+// because a "da:" entry holds only the chosen title.
+const DEARROW_SUBMISSIONS_CACHE_PREFIX = "das:";
 
 // CacheService.getAll and putAll have a per-call size limit; the feed page is
 // small, but history can hold hundreds of videos.
@@ -145,6 +157,8 @@ interface DeArrowBucketEntry {
   titles?: unknown;
 }
 
+type DeArrowBucket = { [videoId: string]: DeArrowBucketEntry };
+
 // Picks the asked videos out of one bucket answer. Returns null when the
 // lookup failed, which the caller must not cache, and else a title for every
 // asked video ("" for none).
@@ -152,32 +166,97 @@ function readBucket(
   response: GoogleAppsScript.URL_Fetch.HTTPResponse | undefined,
   videoIds: string[],
 ): { [videoId: string]: string } | null {
+  const bucket = parseBucket(response);
+  if (bucket === null) return null;
+  const titles: Record<string, string> = Object.create(null);
+  for (const id of videoIds)
+    titles[id] = chooseCommunityTitle(rawTitlesOf(bucket, id));
+  return titles;
+}
+
+// The bucket answer keyed by video id, {} for a 404, or null when the lookup
+// failed. Never throws.
+function parseBucket(
+  response: GoogleAppsScript.URL_Fetch.HTTPResponse | undefined,
+): DeArrowBucket | null {
   try {
     if (!response) return null;
     const code = response.getResponseCode();
-    const titles: Record<string, string> = Object.create(null);
     // Like SponsorBlock, the service sends a 404 to say "nothing here", so
     // this function returns an empty answer that the caller caches. Every
     // other non-200 is a failure.
-    if (code === 404) {
-      for (const id of videoIds) titles[id] = "";
-      return titles;
-    }
+    if (code === 404) return {};
     if (code !== 200) return null;
     const bucket: unknown = JSON.parse(response.getContentText());
     // A body that parses but is not the bucket object is the same class of
     // failure as one that does not parse at all, so it must not be cached.
     if (!bucket || typeof bucket !== "object" || Array.isArray(bucket))
       return null;
-    const byId = bucket as { [videoId: string]: DeArrowBucketEntry };
-    for (const id of videoIds) {
-      // A video missing from its bucket has no community title.
-      const entry = Object.prototype.hasOwnProperty.call(byId, id)
-        ? byId[id]
-        : undefined;
-      titles[id] = chooseCommunityTitle(entry ? entry.titles : undefined);
-    }
-    return titles;
+    return bucket as DeArrowBucket;
+  } catch {
+    return null;
+  }
+}
+
+// The raw titles list of one video. A video missing from its bucket has no
+// titles. The own-property check stops an id such as "constructor" from
+// reading an inherited value.
+function rawTitlesOf(bucket: DeArrowBucket, videoId: string): unknown {
+  if (!Object.prototype.hasOwnProperty.call(bucket, videoId)) return undefined;
+  const entry = bucket[videoId];
+  return entry ? entry.titles : undefined;
+}
+
+/**
+ * Every checked title submission of one video, for the player Info tab. It
+ * follows the same rules as getCommunityTitles, but asks for one video only:
+ * the tab opens for one video at a time. Never throws.
+ */
+export function getDeArrowSubmissions(
+  videoId: string,
+): DeArrowSubmissionsResult {
+  if (!videoId) return { status: "ok", submissions: [] };
+
+  const cache = CacheService.getScriptCache();
+  const key = DEARROW_SUBMISSIONS_CACHE_PREFIX + videoId;
+  const cached = parseCachedSubmissions(cache.get(key));
+  if (cached !== null) return { status: "ok", submissions: cached };
+
+  let response: GoogleAppsScript.URL_Fetch.HTTPResponse;
+  try {
+    response = UrlFetchApp.fetch(
+      DEARROW_API_BASE + videoIdHashPrefix(videoId),
+      {
+        muteHttpExceptions: true,
+      },
+    );
+  } catch {
+    return { status: "failed" }; // failed lookup: retry on the next request
+  }
+  const bucket = parseBucket(response);
+  if (bucket === null) return { status: "failed" };
+
+  const submissions = parseDeArrowSubmissions(rawTitlesOf(bucket, videoId));
+  try {
+    // The entry holds JSON, so "no submissions" is "[]" and never an empty
+    // value.
+    cache.put(key, JSON.stringify(submissions), DEARROW_CACHE_TTL_SECONDS);
+  } catch {
+    // A cache write failure must not throw away an answer already fetched.
+  }
+  return { status: "ok", submissions };
+}
+
+// The submissions in one cache entry, or null for a miss. The entry holds the
+// checked list, so it is not checked again: the title clean-up does not give
+// the same result when it runs twice on some titles.
+function parseCachedSubmissions(
+  raw: string | null,
+): DeArrowSubmission[] | null {
+  if (raw === null) return null;
+  try {
+    const value: unknown = JSON.parse(raw);
+    return Array.isArray(value) ? (value as DeArrowSubmission[]) : null;
   } catch {
     return null;
   }

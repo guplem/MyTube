@@ -9,6 +9,7 @@ import type { PlaylistSummary } from "../shared/playlist";
 import type { CommentOrder, CommentPage } from "../shared/comment";
 import type { FeedPage, FeedPageOptions } from "../shared/feed";
 import type { SponsorSegment } from "../shared/sponsorBlock";
+import type { DeArrowSubmissionsResult } from "../shared/dearrow";
 
 interface ScriptRunner {
   withSuccessHandler<T>(callback: (value: T) => void): ScriptRunner;
@@ -17,6 +18,7 @@ interface ScriptRunner {
   getVideoDescription(videoId: string): void;
   getComments(videoId: string, order: CommentOrder, pageToken: string): void;
   getSponsorSegments(videoId: string, durationSeconds?: number): void;
+  getDeArrowSubmissions(videoId: string): void;
   markVideoSeen(video: Video): void;
   removeVideoSeen(videoId: string): void;
   undoMarkVideoSeen(videoId: string): void;
@@ -64,6 +66,14 @@ export function getSponsorSegments(
 ): Promise<SponsorSegment[]> {
   return call<SponsorSegment[]>((runner) =>
     runner.getSponsorSegments(videoId, durationSeconds),
+  );
+}
+
+export function getDeArrowSubmissions(
+  videoId: string,
+): Promise<DeArrowSubmissionsResult> {
+  return call<DeArrowSubmissionsResult>((runner) =>
+    runner.getDeArrowSubmissions(videoId),
   );
 }
 

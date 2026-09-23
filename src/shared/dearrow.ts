@@ -39,6 +39,11 @@ export interface DeArrowSubmission {
   original: boolean;
 }
 
+/** The answer of one submissions lookup. "failed" is not the same as "ok"
+ *  with no submissions: the Info tab tells the two apart. */
+export type DeArrowSubmissionsResult =
+  { status: "ok"; submissions: DeArrowSubmission[] } | { status: "failed" };
+
 /**
  * Checks and cleans one video's raw DeArrow `titles` list, in the order that
  * DeArrow sends it. Drops an entry that is not an object, has no string title,
