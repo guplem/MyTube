@@ -467,6 +467,86 @@ describe("getDeArrowSubmissions", () => {
     expect(calls).toHaveLength(1);
   });
 
+  it("does not clean a cached title again", () => {
+    // The entry holds cleaned titles. Cleaning twice is not safe: a stored
+    // ">a" came from ">>a", and a second clean-up would make it "a".
+    const cached = [{ title: ">a", votes: 1, locked: false, original: false }];
+    mocks.scriptCache.put("das:" + VIDEO_ID, JSON.stringify(cached));
+    const calls = respondWith({});
+
+    expect(getDeArrowSubmissions(VIDEO_ID)).toEqual({
+      status: "ok",
+      submissions: cached,
+    });
+    expect(calls).toEqual([]);
+  });
+
+  it("keeps a cached submission whose votes are null", () => {
+    const cached = [{ title: "L", votes: null, locked: true, original: false }];
+    mocks.scriptCache.put("das:" + VIDEO_ID, JSON.stringify(cached));
+    const calls = respondWith({});
+
+    expect(getDeArrowSubmissions(VIDEO_ID)).toEqual({
+      status: "ok",
+      submissions: cached,
+    });
+    expect(calls).toEqual([]);
+  });
+
+  it("treats a cached list with any malformed item as a miss", () => {
+    const good = { title: "T", votes: 1, locked: false, original: false };
+    const badLists: unknown[][] = [
+      [null],
+      [good, "text"],
+      [{ ...good, title: 7 }],
+      [{ ...good, votes: "1" }],
+      [{ ...good, locked: 1 }],
+      [{ title: "T", votes: 1, locked: false }],
+    ];
+    for (const bad of badLists) {
+      mocks.scriptCache.put("das:" + VIDEO_ID, JSON.stringify(bad));
+      const calls = respondWith({ [VIDEO_ID_URL]: httpResponse(404, "") });
+
+      expect(getDeArrowSubmissions(VIDEO_ID)).toEqual({
+        status: "ok",
+        submissions: [],
+      });
+      expect(calls).toHaveLength(1);
+    }
+  });
+
+  it("returns and stores at most 50 submissions, in DeArrow's order", () => {
+    const titles = Array.from({ length: 60 }, (_, n) => title("T" + n, n));
+    respondWith({ [VIDEO_ID_URL]: bucket({ [VIDEO_ID]: titles }) });
+
+    const result = getDeArrowSubmissions(VIDEO_ID);
+
+    const expected = titles.slice(0, 50).map((entry) => entry.title);
+    expect(
+      result.status === "ok" && result.submissions.map((item) => item.title),
+    ).toEqual(expected);
+    const stored = JSON.parse(mocks.scriptCache.get("das:" + VIDEO_ID)!) as {
+      title: string;
+    }[];
+    expect(stored.map((item) => item.title)).toEqual(expected);
+  });
+
+  it("still returns the fetched answer when the cache read fails", () => {
+    respondWith({
+      [VIDEO_ID_URL]: bucket({ [VIDEO_ID]: [title("Better", 1)] }),
+    });
+    mocks.scriptCache.get = () => {
+      throw new Error("cache down");
+    };
+
+    expect(getDeArrowSubmissions(VIDEO_ID)).toEqual({
+      status: "ok",
+      submissions: [
+        { title: "Better", votes: 1, locked: false, original: false },
+      ],
+    });
+  });
+
   it("still returns the fetched answer when the cache write fails", () => {
     respondWith({
       [VIDEO_ID_URL]: bucket({ [VIDEO_ID]: [title("Better", 1)] }),

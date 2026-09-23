@@ -44,6 +44,9 @@ const DEARROW_CACHE_TTL_SECONDS = 21600; // 6h, the CacheService maximum
 // The submissions of one video, for the player Info tab. A separate prefix,
 // because a "da:" entry holds only the chosen title.
 const DEARROW_SUBMISSIONS_CACHE_PREFIX = "das:";
+// A cache entry has a size limit, and the Info tab has no use for a long tail
+// of titles that nobody votes for. DeArrow sends its best titles first.
+const MAX_SUBMISSIONS = 50;
 
 // CacheService.getAll and putAll have a per-call size limit; the feed page is
 // small, but history can hold hundreds of videos.
@@ -217,9 +220,8 @@ export function getDeArrowSubmissions(
 ): DeArrowSubmissionsResult {
   if (!videoId) return { status: "ok", submissions: [] };
 
-  const cache = CacheService.getScriptCache();
   const key = DEARROW_SUBMISSIONS_CACHE_PREFIX + videoId;
-  const cached = parseCachedSubmissions(cache.get(key));
+  const cached = parseCachedSubmissions(readCache(key));
   if (cached !== null) return { status: "ok", submissions: cached };
 
   let response: GoogleAppsScript.URL_Fetch.HTTPResponse;
@@ -236,28 +238,57 @@ export function getDeArrowSubmissions(
   const bucket = parseBucket(response);
   if (bucket === null) return { status: "failed" };
 
-  const submissions = parseDeArrowSubmissions(rawTitlesOf(bucket, videoId));
+  const submissions = parseDeArrowSubmissions(
+    rawTitlesOf(bucket, videoId),
+  ).slice(0, MAX_SUBMISSIONS);
   try {
     // The entry holds JSON, so "no submissions" is "[]" and never an empty
     // value.
-    cache.put(key, JSON.stringify(submissions), DEARROW_CACHE_TTL_SECONDS);
+    CacheService.getScriptCache().put(
+      key,
+      JSON.stringify(submissions),
+      DEARROW_CACHE_TTL_SECONDS,
+    );
   } catch {
     // A cache write failure must not throw away an answer already fetched.
   }
   return { status: "ok", submissions };
 }
 
-// The submissions in one cache entry, or null for a miss. The entry holds the
-// checked list, so it is not checked again: the title clean-up does not give
-// the same result when it runs twice on some titles.
+// One cache entry, or null when it is absent or the cache read failed. A
+// failed read is a miss: the lookup can still answer.
+function readCache(key: string): string | null {
+  try {
+    return CacheService.getScriptCache().get(key);
+  } catch {
+    return null;
+  }
+}
+
+// The submissions in one cache entry, or null for a miss. Each item is checked
+// for its shape but not cleaned again: the title clean-up does not give the
+// same result when it runs twice on some titles. One bad item makes the whole
+// entry a miss, because a partial list would change the chosen title.
 function parseCachedSubmissions(
   raw: string | null,
 ): DeArrowSubmission[] | null {
   if (raw === null) return null;
   try {
     const value: unknown = JSON.parse(raw);
-    return Array.isArray(value) ? (value as DeArrowSubmission[]) : null;
+    if (!Array.isArray(value) || !value.every(isCachedSubmission)) return null;
+    return value as DeArrowSubmission[];
   } catch {
     return null;
   }
+}
+
+function isCachedSubmission(item: unknown): boolean {
+  if (!item || typeof item !== "object") return false;
+  const submission = item as { [field: string]: unknown };
+  return (
+    typeof submission.title === "string" &&
+    (submission.votes === null || typeof submission.votes === "number") &&
+    typeof submission.locked === "boolean" &&
+    typeof submission.original === "boolean"
+  );
 }
