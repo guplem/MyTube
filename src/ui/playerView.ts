@@ -932,8 +932,8 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     } else {
       const submissions = infoSubmissions.submissions;
       const choice = explainCommunityTitle(submissions);
-      const rows: [string, string][] = submissions.map(
-        (submission, index): [string, string] => {
+      const blocks: HTMLElement[] = submissions.map(
+        (submission, index): HTMLElement => {
           const facts = [
             submission.votes === null
               ? "votes unknown"
@@ -943,10 +943,15 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
           if (submission.locked) facts.push("locked");
           if (submission.original) facts.push("YouTube title");
           if (index === choice.index) facts.push("chosen");
-          return [submission.title, facts.join(" · ")];
+          return infoSubmission(submission.title, facts.join(" · "));
         },
       );
-      if (rows.length > 0) titleSection.appendChild(infoList(rows));
+      if (blocks.length > 0) {
+        const list = document.createElement("ul");
+        list.className = "info-submissions";
+        list.append(...blocks);
+        titleSection.appendChild(list);
+      }
       const outcome =
         choice.index >= 0
           ? "Chosen because " + TITLE_REASON_TEXT[choice.reason] + "."
@@ -1445,6 +1450,19 @@ function infoList(rows: [string, string][]): HTMLElement {
     list.append(term, detail);
   }
   return list;
+}
+
+// One DeArrow submission: the title on its own line, the facts below it.
+function infoSubmission(title: string, facts: string): HTMLElement {
+  const item = document.createElement("li");
+  const titleLine = document.createElement("div");
+  titleLine.className = "info-submission-title";
+  titleLine.textContent = title;
+  const factsLine = document.createElement("div");
+  factsLine.className = "info-submission-facts";
+  factsLine.textContent = facts;
+  item.append(titleLine, factsLine);
+  return item;
 }
 
 function infoNote(text: string): HTMLElement {
