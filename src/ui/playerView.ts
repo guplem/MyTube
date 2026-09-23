@@ -935,8 +935,10 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
       const rows: [string, string][] = submissions.map(
         (submission, index): [string, string] => {
           const facts = [
-            String(submission.votes) +
-              (submission.votes === 1 ? " vote" : " votes"),
+            submission.votes === null
+              ? "votes unknown"
+              : String(submission.votes) +
+                (submission.votes === 1 ? " vote" : " votes"),
           ];
           if (submission.locked) facts.push("locked");
           if (submission.original) facts.push("YouTube title");

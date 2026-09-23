@@ -116,6 +116,24 @@ describe("chooseCommunityTitle", () => {
     expect(chooseCommunityTitle([{ title: "T", votes: NaN }])).toBe("");
   });
 
+  it("picks a locked title whose vote count is not finite", () => {
+    expect(
+      chooseCommunityTitle([
+        { title: "L", votes: Infinity, locked: true },
+        { title: "V", votes: 3 },
+      ]),
+    ).toBe("L");
+  });
+
+  it("never picks a top-voted title whose vote count is not finite", () => {
+    expect(
+      chooseCommunityTitle([
+        { title: "Broken", votes: Infinity },
+        { title: "V", votes: 0 },
+      ]),
+    ).toBe("V");
+  });
+
   it("cleans the chosen title and skips one that cleans to nothing", () => {
     expect(
       chooseCommunityTitle([entry("   ", 9), entry(">macOS tips", 1)]),
@@ -162,10 +180,18 @@ describe("parseDeArrowSubmissions", () => {
     );
   });
 
-  it("drops an entry whose votes are a number that is not finite", () => {
-    expect(parseDeArrowSubmissions([{ title: "T", votes: Infinity }])).toEqual(
-      [],
-    );
+  it("keeps an entry whose votes are not finite, with null votes", () => {
+    // null, because JSON turns Infinity and NaN into null anyway: the cache
+    // and the browser bridge must read the same value that this returns.
+    expect(
+      parseDeArrowSubmissions([
+        { title: "T", votes: Infinity },
+        { title: "N", votes: NaN },
+      ]),
+    ).toEqual([
+      { title: "T", votes: null, locked: false, original: false },
+      { title: "N", votes: null, locked: false, original: false },
+    ]);
   });
 
   it("reads only true as locked or original", () => {

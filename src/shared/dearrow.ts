@@ -34,7 +34,8 @@ export function cleanCommunityTitle(raw: string): string {
 /** One DeArrow title submission for a video, after the checks. */
 export interface DeArrowSubmission {
   title: string;
-  votes: number;
+  /** null when DeArrow sent a vote count that is not finite. */
+  votes: number | null;
   locked: boolean;
   original: boolean;
 }
@@ -48,8 +49,9 @@ export type DeArrowSubmissionsResult =
  * Checks and cleans one video's raw DeArrow `titles` list, in the order that
  * DeArrow sends it. Drops an entry that is not an object, has no string title,
  * cleans to nothing, or is over-long. A votes field that is not a number reads
- * as 0. A votes number that is not finite is broken data, so the entry drops.
- * Only `true` counts as locked or original.
+ * as 0. A votes number that is not finite reads as null: the entry stays, so a
+ * locked title still wins, but it never wins on votes. Only `true` counts as
+ * locked or original.
  */
 export function parseDeArrowSubmissions(raw: unknown): DeArrowSubmission[] {
   if (!Array.isArray(raw)) return [];
@@ -61,10 +63,11 @@ export function parseDeArrowSubmissions(raw: unknown): DeArrowSubmission[] {
     const title = cleanCommunityTitle(entry.title);
     if (!title || title.length > MAX_TITLE_LENGTH) continue;
     const votes = typeof entry.votes === "number" ? entry.votes : 0;
-    if (!Number.isFinite(votes)) continue;
     submissions.push({
       title,
-      votes,
+      // null, not the number: JSON turns Infinity and NaN into null, so the
+      // cache entry and the browser bridge would read a different value.
+      votes: Number.isFinite(votes) ? votes : null,
       locked: entry.locked === true,
       original: entry.original === true,
     });
@@ -111,10 +114,11 @@ export function explainCommunityTitle(
   submissions.forEach((submission: DeArrowSubmission, index: number): void => {
     if (submission.original) return;
     hasOtherTitle = true;
-    if (submission.votes < 0) return;
+    const votes = submission.votes;
+    if (votes === null || votes < 0) return;
     // Strictly greater, so a tie keeps the earlier entry (DeArrow lists its
-    // best title first).
-    if (best < 0 || submission.votes > submissions[best].votes) best = index;
+    // best title first). A kept best always has a number of votes.
+    if (best < 0 || votes > (submissions[best].votes as number)) best = index;
   });
   if (best >= 0) return { index: best, reason: "top-voted" };
   return {
