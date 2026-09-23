@@ -280,6 +280,9 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   // never paints over a newer state of the tab, even for the same video.
   let infoVideoId = "";
   let infoLoadToken = 0;
+  // The stored position when the current video loaded. saveProgress rewrites
+  // video.progressSeconds while the video plays, so the tab keeps its own copy.
+  let resumedFromSeconds = 0;
   let infoLoaded = false;
   let infoSubmissions: DeArrowSubmissionsResult | null = null;
   let infoSegments: SponsorSegment[] | "failed" | null = null;
@@ -916,13 +919,14 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
       return;
     }
 
-    const progress = video.progressSeconds ?? 0;
+    // A finished video starts from the top.
+    const progress = resumedFromSeconds;
     const resume =
       progress === PROGRESS_FINISHED
-        ? "finished"
+        ? "the start (watched to the end before)"
         : progress > 0
           ? formatDuration(progress)
-          : "none";
+          : "the start";
     const videoSection = infoSection("Video", [
       ["Video id", video.videoId],
       [
@@ -932,7 +936,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
           : "unknown",
       ],
       ["Published", formatDate(video.publishedAt) || "unknown"],
-      ["Resume position", resume],
+      ["Resumed from", resume],
     ]);
 
     const titleSection = infoSection("Titles", [
@@ -1390,6 +1394,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     const stored = video.progressSeconds ?? 0;
     const resumeAt = stored > 0 ? stored : 0;
     lastSavedProgress = stored;
+    resumedFromSeconds = stored;
     endCard.hidden = true;
     updateChrome();
     void loadDescription(video.videoId);
