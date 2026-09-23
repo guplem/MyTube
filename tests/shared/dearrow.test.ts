@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   chooseCommunityTitle,
   cleanCommunityTitle,
+  communityTitleDisagrees,
   explainCommunityTitle,
   originalTitleHint,
   parseDeArrowSubmissions,
@@ -259,6 +260,31 @@ describe("explainCommunityTitle", () => {
         ]),
       ),
     ).toEqual({ index: -1, reason: "all-downvoted" });
+  });
+});
+
+describe("communityTitleDisagrees", () => {
+  const submissions = parseDeArrowSubmissions([
+    entry("Voted", 9),
+    entry("Low", 1),
+  ]);
+
+  it("agrees when the list title is the chosen submission", () => {
+    expect(communityTitleDisagrees("Voted", submissions)).toBe(false);
+  });
+
+  it("agrees when neither the list nor the submissions have a title", () => {
+    expect(communityTitleDisagrees(undefined, [])).toBe(false);
+    expect(communityTitleDisagrees("", [entry("Down", -1)])).toBe(false);
+  });
+
+  it("disagrees when the list title is another title", () => {
+    expect(communityTitleDisagrees("Low", submissions)).toBe(true);
+  });
+
+  it("disagrees when only one side has a title", () => {
+    expect(communityTitleDisagrees(undefined, submissions)).toBe(true);
+    expect(communityTitleDisagrees("Old title", [])).toBe(true);
   });
 });
 

@@ -139,6 +139,21 @@ export function chooseCommunityTitle(raw: unknown): string {
   return choice.index >= 0 ? submissions[choice.index].title : "";
 }
 
+/**
+ * Whether a video's list title (`Video.communityTitle`, from the "da:" cache)
+ * differs from the title that the policy picks from a fresh submissions list
+ * ("das:"). The two cache entries expire at different times, so they can
+ * disagree for up to their lifetime. "No title" on both sides agrees.
+ */
+export function communityTitleDisagrees(
+  listTitle: string | undefined,
+  submissions: DeArrowSubmission[],
+): boolean {
+  const choice = explainCommunityTitle(submissions);
+  const chosen = choice.index >= 0 ? submissions[choice.index].title : "";
+  return chosen !== (listTitle ?? "");
+}
+
 /** The title that a card or the player shows for a video. */
 export function pickDisplayTitle(video: Video, useCommunity: boolean): string {
   if (useCommunity && video.communityTitle) return video.communityTitle;

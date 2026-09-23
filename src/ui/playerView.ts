@@ -51,7 +51,11 @@ import {
 import { optimistic } from "./optimistic";
 import { showToast } from "./toast";
 import { communityTitlesOn, displayTitle } from "./titlePreferences";
-import { explainCommunityTitle, originalTitleHint } from "../shared/dearrow";
+import {
+  communityTitleDisagrees,
+  explainCommunityTitle,
+  originalTitleHint,
+} from "../shared/dearrow";
 import {
   skeletonComments,
   skeletonDescription,
@@ -965,13 +969,25 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
         list.append(...blocks);
         titleSection.appendChild(list);
       }
-      const outcome =
+      let outcome =
         choice.index >= 0
           ? "Chosen because " + TITLE_REASON_TEXT[choice.reason] + "."
           : "No DeArrow title, because " +
             TITLE_REASON_TEXT[choice.reason] +
             ".";
+      if (choice.index >= 0 && !communityTitlesOn())
+        outcome +=
+          " It is not on show, because the DeArrow titles switch is off.";
       titleSection.appendChild(infoNote(outcome));
+      // The DeArrow title row comes from the list cache and this list from its
+      // own cache entry, so the two can come from lookups at different times.
+      // A refresh does not help: it reads the same list cache.
+      if (communityTitleDisagrees(video.communityTitle, submissions))
+        titleSection.appendChild(
+          infoNote(
+            "The list above and the DeArrow title row come from lookups at different times, so they disagree. Each one updates within 6 hours, when its cached copy expires.",
+          ),
+        );
     }
 
     const sponsorSection = infoSection("Sponsor segments", [
