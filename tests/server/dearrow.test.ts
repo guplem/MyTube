@@ -12,7 +12,10 @@ import {
   type AppsScriptMocks,
 } from "../helpers/appsScriptMock";
 import { createHash } from "node:crypto";
-import { getCommunityTitles } from "../../src/server/dearrow";
+import {
+  getCommunityTitles,
+  getDeArrowSubmissions,
+} from "../../src/server/dearrow";
 
 let mocks: AppsScriptMocks;
 
@@ -335,6 +338,239 @@ describe("getCommunityTitles", () => {
     expect(calls).toHaveLength(1);
     expect(calls[0]).toHaveLength(34);
     expect(keysPerPutAll).toEqual([100, 2]);
+  });
+});
+
+describe("getDeArrowSubmissions", () => {
+  it("asks for the hash prefix of the video, with HTTP exceptions muted", () => {
+    const sent: { url: string; muteHttpExceptions?: boolean }[] = [];
+    mocks.fetchAll = (requests) => {
+      sent.push(...requests);
+      return requests.map(() => bucket({}));
+    };
+
+    getDeArrowSubmissions(OTHER_VIDEO_ID);
+
+    expect(sent).toEqual([
+      expect.objectContaining({
+        url: OTHER_VIDEO_ID_URL,
+        muteHttpExceptions: true,
+      }),
+    ]);
+  });
+
+  it("returns every checked submission of the video, and only its own", () => {
+    respondWith({
+      [VIDEO_ID_URL]: bucket({
+        [VIDEO_ID]: [title(">iPhone tips", 3), title("Down", -2, true)],
+        [SAME_BUCKET_ID]: [title("Not mine", 5)],
+      }),
+    });
+
+    expect(getDeArrowSubmissions(VIDEO_ID)).toEqual({
+      status: "ok",
+      submissions: [
+        { title: "iPhone tips", votes: 3, locked: false, original: false },
+        { title: "Down", votes: -2, locked: true, original: false },
+      ],
+    });
+  });
+
+  it("returns ok with no submissions for a video absent from its bucket, and caches it", () => {
+    const calls = respondWith({
+      [VIDEO_ID_URL]: bucket({ [SAME_BUCKET_ID]: [title("Not mine", 5)] }),
+    });
+
+    expect(getDeArrowSubmissions(VIDEO_ID)).toEqual({
+      status: "ok",
+      submissions: [],
+    });
+    getDeArrowSubmissions(VIDEO_ID);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("treats a 404 as ok with no submissions and caches it", () => {
+    const calls = respondWith({ [VIDEO_ID_URL]: httpResponse(404, "") });
+
+    expect(getDeArrowSubmissions(VIDEO_ID)).toEqual({
+      status: "ok",
+      submissions: [],
+    });
+    expect(getDeArrowSubmissions(VIDEO_ID)).toEqual({
+      status: "ok",
+      submissions: [],
+    });
+    expect(calls).toHaveLength(1);
+  });
+
+  it("reports a failed answer and asks again on the next call", () => {
+    const calls = respondWith({ [VIDEO_ID_URL]: httpResponse(500, "") });
+
+    expect(getDeArrowSubmissions(VIDEO_ID)).toEqual({ status: "failed" });
+    expect(getDeArrowSubmissions(VIDEO_ID)).toEqual({ status: "failed" });
+    expect(calls).toHaveLength(2);
+  });
+
+  it("reports a failure when the fetch throws, and caches nothing", () => {
+    let attempts = 0;
+    mocks.fetchAll = () => {
+      attempts++;
+      throw new Error("network down");
+    };
+
+    expect(getDeArrowSubmissions(VIDEO_ID)).toEqual({ status: "failed" });
+    expect(getDeArrowSubmissions(VIDEO_ID)).toEqual({ status: "failed" });
+    expect(attempts).toBe(2);
+  });
+
+  it("reports a failure for a body that is not a bucket object", () => {
+    const calls = respondWith({ [VIDEO_ID_URL]: httpResponse(200, "[]") });
+
+    expect(getDeArrowSubmissions(VIDEO_ID)).toEqual({ status: "failed" });
+    expect(getDeArrowSubmissions(VIDEO_ID)).toEqual({ status: "failed" });
+    expect(calls).toHaveLength(2);
+
+    respondWith({ [VIDEO_ID_URL]: httpResponse(200, "not json") });
+    expect(getDeArrowSubmissions(VIDEO_ID)).toEqual({ status: "failed" });
+  });
+
+  it("serves a cached answer with no request, in its own cache entry", () => {
+    const cached = [
+      { title: "Cached", votes: 1, locked: false, original: false },
+    ];
+    mocks.scriptCache.put("das:" + VIDEO_ID, JSON.stringify(cached));
+    mocks.scriptCache.put("da:" + OTHER_VIDEO_ID, JSON.stringify("List title"));
+    const calls = respondWith({
+      [OTHER_VIDEO_ID_URL]: httpResponse(404, ""),
+    });
+
+    expect(getDeArrowSubmissions(VIDEO_ID)).toEqual({
+      status: "ok",
+      submissions: cached,
+    });
+    // The list path's entry holds one chosen title, not the submissions.
+    expect(getDeArrowSubmissions(OTHER_VIDEO_ID)).toEqual({
+      status: "ok",
+      submissions: [],
+    });
+    expect(calls).toEqual([[OTHER_VIDEO_ID_URL]]);
+  });
+
+  it("treats a cached value that is not a JSON list as a miss", () => {
+    mocks.scriptCache.put("das:" + VIDEO_ID, '"text"');
+    const calls = respondWith({ [VIDEO_ID_URL]: httpResponse(404, "") });
+
+    expect(getDeArrowSubmissions(VIDEO_ID)).toEqual({
+      status: "ok",
+      submissions: [],
+    });
+    expect(calls).toHaveLength(1);
+  });
+
+  it("does not clean a cached title again", () => {
+    // The entry holds cleaned titles. Cleaning twice is not safe: a stored
+    // ">a" came from ">>a", and a second clean-up would make it "a".
+    const cached = [{ title: ">a", votes: 1, locked: false, original: false }];
+    mocks.scriptCache.put("das:" + VIDEO_ID, JSON.stringify(cached));
+    const calls = respondWith({});
+
+    expect(getDeArrowSubmissions(VIDEO_ID)).toEqual({
+      status: "ok",
+      submissions: cached,
+    });
+    expect(calls).toEqual([]);
+  });
+
+  it("keeps a cached submission whose votes are null", () => {
+    const cached = [{ title: "L", votes: null, locked: true, original: false }];
+    mocks.scriptCache.put("das:" + VIDEO_ID, JSON.stringify(cached));
+    const calls = respondWith({});
+
+    expect(getDeArrowSubmissions(VIDEO_ID)).toEqual({
+      status: "ok",
+      submissions: cached,
+    });
+    expect(calls).toEqual([]);
+  });
+
+  it("treats a cached list with any malformed item as a miss", () => {
+    const good = { title: "T", votes: 1, locked: false, original: false };
+    const badLists: unknown[][] = [
+      [null],
+      [good, "text"],
+      [{ ...good, title: 7 }],
+      [{ ...good, votes: "1" }],
+      [{ ...good, locked: 1 }],
+      [{ title: "T", votes: 1, locked: false }],
+    ];
+    for (const bad of badLists) {
+      mocks.scriptCache.put("das:" + VIDEO_ID, JSON.stringify(bad));
+      const calls = respondWith({ [VIDEO_ID_URL]: httpResponse(404, "") });
+
+      expect(getDeArrowSubmissions(VIDEO_ID)).toEqual({
+        status: "ok",
+        submissions: [],
+      });
+      expect(calls).toHaveLength(1);
+    }
+  });
+
+  it("returns and stores at most 50 submissions, in DeArrow's order", () => {
+    const titles = Array.from({ length: 60 }, (_, n) => title("T" + n, n));
+    respondWith({ [VIDEO_ID_URL]: bucket({ [VIDEO_ID]: titles }) });
+
+    const result = getDeArrowSubmissions(VIDEO_ID);
+
+    const expected = titles.slice(0, 50).map((entry) => entry.title);
+    expect(
+      result.status === "ok" && result.submissions.map((item) => item.title),
+    ).toEqual(expected);
+    const stored = JSON.parse(mocks.scriptCache.get("das:" + VIDEO_ID)!) as {
+      title: string;
+    }[];
+    expect(stored.map((item) => item.title)).toEqual(expected);
+  });
+
+  it("still returns the fetched answer when the cache read fails", () => {
+    respondWith({
+      [VIDEO_ID_URL]: bucket({ [VIDEO_ID]: [title("Better", 1)] }),
+    });
+    mocks.scriptCache.get = () => {
+      throw new Error("cache down");
+    };
+
+    expect(getDeArrowSubmissions(VIDEO_ID)).toEqual({
+      status: "ok",
+      submissions: [
+        { title: "Better", votes: 1, locked: false, original: false },
+      ],
+    });
+  });
+
+  it("still returns the fetched answer when the cache write fails", () => {
+    respondWith({
+      [VIDEO_ID_URL]: bucket({ [VIDEO_ID]: [title("Better", 1)] }),
+    });
+    mocks.scriptCache.put = () => {
+      throw new Error("cache full");
+    };
+
+    expect(getDeArrowSubmissions(VIDEO_ID)).toEqual({
+      status: "ok",
+      submissions: [
+        { title: "Better", votes: 1, locked: false, original: false },
+      ],
+    });
+  });
+
+  it("sends no request without a video id", () => {
+    const calls = respondWith({});
+
+    expect(getDeArrowSubmissions("")).toEqual({
+      status: "ok",
+      submissions: [],
+    });
+    expect(calls).toEqual([]);
   });
 });
 

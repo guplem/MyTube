@@ -300,7 +300,8 @@ Source adapters all return `Video[]`, so the same UI can render any of them:
 - `PlayerView` (the "playlist player" you named) — input is an ordered `Video[]`
   queue, a start index, and a context label. It embeds the IFrame player, shows
   position ("3 of 12"), prev/next, the autoplay-next toggle, the end-of-video
-  "next / mark seen" card, the description, and comments. **Identical for Watch
+  "next / mark seen" card, the description, comments, and an Info tab (titles
+  and sponsor segments). **Identical for Watch
   Later and every playlist**, because both are just an ordered `Video[]`.
 - `AppShell` — sidebar (Feed, Watch Later, Playlists, History) plus the search
   box; hosts whichever view is active.

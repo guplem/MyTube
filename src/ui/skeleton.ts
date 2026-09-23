@@ -103,6 +103,12 @@ export function skeletonDescription(): HTMLElement {
   return skeletonParagraph(["100%", "92%", "97%", "88%", "55%"]);
 }
 
+/** Placeholder for one section of the player Info tab while its lookup is on
+ *  the wire: a few short label-and-value rows. */
+export function skeletonInfoRows(): HTMLElement {
+  return skeletonParagraph(["60%", "45%", "70%"]);
+}
+
 /** Placeholder for the sort toolbar above a playlist-type list, so the grid
  *  below doesn't shift down when the real control appears. One block sized
  *  like the "Sort" label plus its select. */

@@ -12,6 +12,7 @@ import type { PlaylistSummary } from "../shared/playlist";
 import type { CommentOrder, CommentPage } from "../shared/comment";
 import type { FeedPage, FeedPageOptions } from "../shared/feed";
 import type { SponsorSegment } from "../shared/sponsorBlock";
+import type { DeArrowSubmissionsResult } from "../shared/dearrow";
 import * as feed from "./feed";
 import * as youtube from "./youtube";
 import * as history from "./history";
@@ -138,6 +139,16 @@ export function getSponsorSegments(
   durationSeconds?: number,
 ): SponsorSegment[] {
   return sponsorBlock.getSponsorSegments(videoId, durationSeconds);
+}
+
+/**
+ * Every DeArrow title submission of one video, for the player Info tab. The
+ * tab asks only when it opens, so a player that never opens it sends nothing.
+ */
+export function getDeArrowSubmissions(
+  videoId: string,
+): DeArrowSubmissionsResult {
+  return dearrow.getDeArrowSubmissions(videoId);
 }
 
 /** One page of a video's top-level comments, sorted by order ("relevance"/"time"). */
