@@ -6,7 +6,9 @@ import { describe, expect, it } from "vitest";
 import {
   chooseCommunityTitle,
   cleanCommunityTitle,
+  explainCommunityTitle,
   originalTitleHint,
+  parseDeArrowSubmissions,
   pickDisplayTitle,
 } from "../../src/shared/dearrow";
 import type { Video } from "../../src/shared/video";
@@ -118,6 +120,119 @@ describe("chooseCommunityTitle", () => {
     expect(
       chooseCommunityTitle([entry("   ", 9), entry(">macOS tips", 1)]),
     ).toBe("macOS tips");
+  });
+});
+
+describe("parseDeArrowSubmissions", () => {
+  it("keeps every usable entry in order, cleaned", () => {
+    expect(
+      parseDeArrowSubmissions([
+        entry(">iPhone tips", 3),
+        entry("Uploader title", 0, true, true),
+      ]),
+    ).toEqual([
+      { title: "iPhone tips", votes: 3, locked: false, original: false },
+      { title: "Uploader title", votes: 0, locked: true, original: true },
+    ]);
+  });
+
+  it("returns an empty list for a list that is not an array", () => {
+    expect(parseDeArrowSubmissions(undefined)).toEqual([]);
+    expect(parseDeArrowSubmissions({ title: "T" })).toEqual([]);
+  });
+
+  it("drops malformed, empty, and over-long entries", () => {
+    expect(
+      parseDeArrowSubmissions([
+        null,
+        "text",
+        { votes: 3 },
+        { title: 7 },
+        entry("   ", 1),
+        entry("x".repeat(201), 1),
+        entry("Kept", 1),
+      ]).map((submission) => submission.title),
+    ).toEqual(["Kept"]);
+  });
+
+  it("reads a missing or non-number votes field as 0", () => {
+    expect(parseDeArrowSubmissions([{ title: "T" }])[0].votes).toBe(0);
+    expect(parseDeArrowSubmissions([{ title: "T", votes: "9" }])[0].votes).toBe(
+      0,
+    );
+  });
+
+  it("drops an entry whose votes are a number that is not finite", () => {
+    expect(parseDeArrowSubmissions([{ title: "T", votes: Infinity }])).toEqual(
+      [],
+    );
+  });
+
+  it("reads only true as locked or original", () => {
+    expect(
+      parseDeArrowSubmissions([
+        { title: "T", votes: 0, locked: 1, original: "yes" },
+      ]),
+    ).toEqual([{ title: "T", votes: 0, locked: false, original: false }]);
+  });
+});
+
+describe("explainCommunityTitle", () => {
+  it("reports no submissions for an empty list", () => {
+    expect(explainCommunityTitle([])).toEqual({
+      index: -1,
+      reason: "no-submissions",
+    });
+  });
+
+  it("points at the locked submission", () => {
+    expect(
+      explainCommunityTitle(
+        parseDeArrowSubmissions([entry("Voted", 9), entry("Locked", 0, true)]),
+      ),
+    ).toEqual({ index: 1, reason: "locked" });
+  });
+
+  it("reports a locked original title as no title", () => {
+    expect(
+      explainCommunityTitle(
+        parseDeArrowSubmissions([
+          entry("Voted", 9),
+          entry("Uploader", 0, true, true),
+        ]),
+      ),
+    ).toEqual({ index: -1, reason: "locked-original" });
+  });
+
+  it("points at the top-voted submission", () => {
+    expect(
+      explainCommunityTitle(
+        parseDeArrowSubmissions([
+          entry("Low", 1),
+          entry("Original", 50, false, true),
+          entry("High", 5),
+        ]),
+      ),
+    ).toEqual({ index: 2, reason: "top-voted" });
+  });
+
+  it("reports a list of only original titles", () => {
+    expect(
+      explainCommunityTitle(
+        parseDeArrowSubmissions([entry("Uploader", 4, false, true)]),
+      ),
+    ).toEqual({ index: -1, reason: "only-original" });
+  });
+
+  it("reports a list where every other title is downvoted", () => {
+    expect(
+      explainCommunityTitle(
+        parseDeArrowSubmissions([
+          entry("Uploader", 4, false, true),
+          entry("Down", -1),
+        ]),
+      ),
+    ).toEqual({ index: -1, reason: "all-downvoted" });
   });
 });
 

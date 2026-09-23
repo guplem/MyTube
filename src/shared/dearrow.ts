@@ -31,6 +31,93 @@ export function cleanCommunityTitle(raw: string): string {
   return raw.replace(/(^|\s)>(?=\S)/g, "$1").trim();
 }
 
+/** One DeArrow title submission for a video, after the checks. */
+export interface DeArrowSubmission {
+  title: string;
+  votes: number;
+  locked: boolean;
+  original: boolean;
+}
+
+/**
+ * Checks and cleans one video's raw DeArrow `titles` list, in the order that
+ * DeArrow sends it. Drops an entry that is not an object, has no string title,
+ * cleans to nothing, or is over-long. A votes field that is not a number reads
+ * as 0. A votes number that is not finite is broken data, so the entry drops.
+ * Only `true` counts as locked or original.
+ */
+export function parseDeArrowSubmissions(raw: unknown): DeArrowSubmission[] {
+  if (!Array.isArray(raw)) return [];
+
+  const submissions: DeArrowSubmission[] = [];
+  for (const entry of raw as RawCommunityTitle[]) {
+    if (!entry || typeof entry !== "object") continue;
+    if (typeof entry.title !== "string") continue;
+    const title = cleanCommunityTitle(entry.title);
+    if (!title || title.length > MAX_TITLE_LENGTH) continue;
+    const votes = typeof entry.votes === "number" ? entry.votes : 0;
+    if (!Number.isFinite(votes)) continue;
+    submissions.push({
+      title,
+      votes,
+      locked: entry.locked === true,
+      original: entry.original === true,
+    });
+  }
+  return submissions;
+}
+
+/** Why the policy picked a submission, or why it picked none. */
+export type CommunityTitleReason =
+  | "locked"
+  | "top-voted"
+  | "no-submissions"
+  | "locked-original"
+  | "only-original"
+  | "all-downvoted";
+
+/** The submission that the policy picks (`index`, -1 for none) and why. */
+export interface CommunityTitleChoice {
+  index: number;
+  reason: CommunityTitleReason;
+}
+
+/**
+ * Applies the title policy to the checked submissions of one video. The
+ * player Info tab shows the reason, so a viewer can see why a video keeps its
+ * YouTube title.
+ */
+export function explainCommunityTitle(
+  submissions: DeArrowSubmission[],
+): CommunityTitleChoice {
+  if (submissions.length === 0) return { index: -1, reason: "no-submissions" };
+
+  const locked = submissions.findIndex(
+    (submission: DeArrowSubmission): boolean => submission.locked,
+  );
+  if (locked >= 0) {
+    return submissions[locked].original
+      ? { index: -1, reason: "locked-original" }
+      : { index: locked, reason: "locked" };
+  }
+
+  let best = -1;
+  let hasOtherTitle = false;
+  submissions.forEach((submission: DeArrowSubmission, index: number): void => {
+    if (submission.original) return;
+    hasOtherTitle = true;
+    if (submission.votes < 0) return;
+    // Strictly greater, so a tie keeps the earlier entry (DeArrow lists its
+    // best title first).
+    if (best < 0 || submission.votes > submissions[best].votes) best = index;
+  });
+  if (best >= 0) return { index: best, reason: "top-voted" };
+  return {
+    index: -1,
+    reason: hasOtherTitle ? "all-downvoted" : "only-original",
+  };
+}
+
 /**
  * Picks the community title to show from one video's raw DeArrow `titles`
  * list. Returns "" when nothing must show: an empty or malformed list, only
@@ -38,33 +125,9 @@ export function cleanCommunityTitle(raw: string): string {
  * uploader's title is fine).
  */
 export function chooseCommunityTitle(raw: unknown): string {
-  if (!Array.isArray(raw)) return "";
-
-  const usable: { text: string; entry: RawCommunityTitle }[] = [];
-  for (const entry of raw as RawCommunityTitle[]) {
-    if (!entry || typeof entry !== "object") continue;
-    if (typeof entry.title !== "string") continue;
-    const text = cleanCommunityTitle(entry.title);
-    if (!text || text.length > MAX_TITLE_LENGTH) continue;
-    usable.push({ text, entry });
-  }
-
-  const locked = usable.find(
-    (candidate: { entry: RawCommunityTitle }): boolean =>
-      candidate.entry.locked === true,
-  );
-  if (locked) return locked.entry.original === true ? "" : locked.text;
-
-  let best: { text: string; votes: number } | null = null;
-  for (const { text, entry } of usable) {
-    if (entry.original === true) continue;
-    const votes = typeof entry.votes === "number" ? entry.votes : 0;
-    if (!Number.isFinite(votes) || votes < 0) continue;
-    // Strictly greater, so a tie keeps the earlier entry (DeArrow lists its
-    // best title first).
-    if (!best || votes > best.votes) best = { text, votes };
-  }
-  return best ? best.text : "";
+  const submissions = parseDeArrowSubmissions(raw);
+  const choice = explainCommunityTitle(submissions);
+  return choice.index >= 0 ? submissions[choice.index].title : "";
 }
 
 /** The title that a card or the player shows for a video. */
