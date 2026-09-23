@@ -816,6 +816,42 @@
         color: #fff;
         border-bottom-color: #3ea6ff;
       }
+      /* The Info tab: sections of label and value rows. The value column
+         takes the rest of the width, and long ids or titles wrap. */
+      .info-card {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+      .info-heading {
+        margin: 0 0 0.5rem;
+        font-size: 1rem;
+      }
+      h4.info-heading {
+        margin-top: 0.75rem;
+        font-size: 0.9rem;
+        color: #aaa;
+      }
+      .info-list {
+        display: grid;
+        grid-template-columns: minmax(8rem, max-content) 1fr;
+        gap: 0.35rem 1rem;
+        margin: 0;
+      }
+      .info-list dt {
+        color: #aaa;
+        overflow-wrap: anywhere;
+      }
+      .info-list dd {
+        margin: 0;
+        color: #ddd;
+        overflow-wrap: anywhere;
+        min-width: 0;
+      }
+      .info-note {
+        margin: 0.5rem 0 0;
+        color: #aaa;
+      }
       /* The comments panel lays its controls, list, and "show more" in a column. */
       .player-tab-panel.comments-card {
         display: flex;

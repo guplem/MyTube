@@ -15,6 +15,10 @@ import type { VideoComment, CommentOrder } from "../shared/comment";
 import type { Chapter } from "../shared/chapters";
 import { parseChapters } from "../shared/chapters";
 import type { SponsorSegment } from "../shared/sponsorBlock";
+import type {
+  CommunityTitleReason,
+  DeArrowSubmissionsResult,
+} from "../shared/dearrow";
 import {
   sponsorCategoryLabel,
   sponsorSkipDecision,
@@ -22,12 +26,17 @@ import {
 import {
   getVideoDescription,
   getComments,
+  getDeArrowSubmissions,
   getSponsorSegments,
   markVideoSeen,
   removeVideoSeen,
   saveVideoProgress,
 } from "./serverBridge";
-import { progressToStore, shouldSuggestWatched } from "../shared/videoProgress";
+import {
+  PROGRESS_FINISHED,
+  progressToStore,
+  shouldSuggestWatched,
+} from "../shared/videoProgress";
 import { watchLaterAfterSeenToggle } from "../shared/watchLaterAfterSeen";
 import { dropStaleFeedPage } from "./feedPageCache";
 import { getBoolPreference, setBoolPreference } from "./preferences";
@@ -41,9 +50,14 @@ import {
 } from "./playerPreferences";
 import { optimistic } from "./optimistic";
 import { showToast } from "./toast";
-import { displayTitle } from "./titlePreferences";
-import { originalTitleHint } from "../shared/dearrow";
-import { skeletonComments, skeletonDescription } from "./skeleton";
+import { communityTitlesOn, displayTitle } from "./titlePreferences";
+import { explainCommunityTitle, originalTitleHint } from "../shared/dearrow";
+import {
+  skeletonComments,
+  skeletonDescription,
+  skeletonInfoRows,
+} from "./skeleton";
+import { formatDate, formatDuration } from "./videoListView";
 
 // How often the live position is checked against the segment list. The check
 // is local getCurrentTime polling with no request, so it can be brisk; it has
@@ -91,6 +105,18 @@ interface YouTubeNamespace {
     options: YouTubePlayerOptions,
   ) => YouTubePlayer;
 }
+type PlayerTab = "description" | "comments" | "info";
+
+// The Info tab's words for each outcome of the title policy.
+const TITLE_REASON_TEXT: Record<CommunityTitleReason, string> = {
+  locked: "a DeArrow moderator locked this title",
+  "top-voted": "it has the most votes",
+  "no-submissions": "nobody submitted a title",
+  "locked-original": "a DeArrow moderator locked the YouTube title",
+  "only-original": "every submission keeps the YouTube title",
+  "all-downvoted": "every other title has negative votes",
+};
+
 const PLAYER_STATE_ENDED = 0;
 const PLAYER_STATE_PAUSED = 2;
 
@@ -232,8 +258,16 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   let commentsToken = "";
   let commentsVideoId = "";
   let commentsLoading = false;
-  let activeTab: "description" | "comments" = "description";
+  let activeTab: PlayerTab = "description";
   let commentsLoaded = false;
+
+  // Info tab state. The tab asks the server only when it opens, so a player
+  // that never opens it sends no extra request. null means "on the wire".
+  // infoSegments is "failed" when the bridge call itself failed.
+  let infoVideoId = "";
+  let infoLoaded = false;
+  let infoSubmissions: DeArrowSubmissionsResult | null = null;
+  let infoSegments: SponsorSegment[] | "failed" | null = null;
 
   const root = document.createElement("div");
   root.className = "player-view";
@@ -306,6 +340,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     sponsorSkip = !sponsorSkip;
     setBoolPreference(SPONSOR_SKIP_PREF, sponsorSkip);
     updateSponsorButton();
+    if (infoLoaded) renderInfo(); // the Info tab shows the auto-skip state
     if (!sponsorSkip) {
       // Forget the last jump too. Otherwise the viewer can turn the skip off
       // inside a segment, rewind, turn it back on, and never get the jump:
@@ -508,7 +543,14 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   commentsTab.textContent = "Comments";
   commentsTab.addEventListener("click", (): void => setActiveTab("comments"));
 
-  tabStrip.append(descTab, commentsTab);
+  const infoTab = document.createElement("button");
+  infoTab.type = "button";
+  infoTab.className = "player-tab";
+  infoTab.setAttribute("role", "tab");
+  infoTab.textContent = "Info";
+  infoTab.addEventListener("click", (): void => setActiveTab("info"));
+
+  tabStrip.append(descTab, commentsTab, infoTab);
 
   // Description tab panel: holds the description card.
   const descPanel = document.createElement("div");
@@ -559,6 +601,13 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
 
   commentsPanel.append(commentsControls, comments, showMoreButton);
 
+  // Info tab panel: the facts, titles, and sponsor segments of the video. It
+  // shows why a video keeps its YouTube title, because most videos have no
+  // DeArrow title and the switch then seems broken.
+  const infoPanel = document.createElement("div");
+  infoPanel.className = "player-tab-panel player-card info-card";
+  infoPanel.setAttribute("role", "tabpanel");
+
   const endCard = document.createElement("div");
   endCard.className = "player-end-card";
   endCard.hidden = true;
@@ -571,6 +620,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     tabStrip,
     descPanel,
     commentsPanel,
+    infoPanel,
     endCard,
   );
   updateTabsUi();
@@ -779,20 +829,154 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   }
 
   function updateTabsUi(): void {
-    const onComments = activeTab === "comments";
-    descTab.setAttribute("aria-selected", String(!onComments));
-    commentsTab.setAttribute("aria-selected", String(onComments));
-    descPanel.hidden = onComments;
-    commentsPanel.hidden = !onComments;
+    const tabs: [PlayerTab, HTMLButtonElement, HTMLElement][] = [
+      ["description", descTab, descPanel],
+      ["comments", commentsTab, commentsPanel],
+      ["info", infoTab, infoPanel],
+    ];
+    for (const [tab, button, panel] of tabs) {
+      button.setAttribute("aria-selected", String(activeTab === tab));
+      panel.hidden = activeTab !== tab;
+    }
   }
 
-  // Switches the visible tab. The comments body is fetched the first time the
-  // Comments tab is opened for the current video.
-  function setActiveTab(tab: "description" | "comments"): void {
+  // Switches the visible tab. The comments and info bodies are fetched the
+  // first time their tab is opened for the current video.
+  function setActiveTab(tab: PlayerTab): void {
     activeTab = tab;
     updateTabsUi();
     if (tab === "comments" && commentsVideoId && !commentsLoaded)
       loadComments(commentsVideoId);
+    if (tab === "info" && infoVideoId && !infoLoaded)
+      void loadInfo(infoVideoId);
+  }
+
+  // Called on each video change: resets the info state and only fetches if the
+  // Info tab is currently selected.
+  function prepareInfo(videoId: string): void {
+    infoVideoId = videoId;
+    infoLoaded = false;
+    infoSubmissions = null;
+    infoSegments = null;
+    infoPanel.replaceChildren();
+    if (activeTab === "info") void loadInfo(videoId);
+  }
+
+  async function loadInfo(videoId: string): Promise<void> {
+    infoLoaded = true;
+    renderInfo();
+    // Use the segments that the skip already has. Else ask here: with the
+    // skip off, loadSponsorSegments asks for nothing, but the tab still shows
+    // the segments.
+    const segmentsRequest: Promise<SponsorSegment[] | "failed"> =
+      sponsorSegmentsVideoId === videoId
+        ? Promise.resolve(sponsorSegments)
+        : getSponsorSegments(
+            videoId,
+            queue[currentIndex]?.durationSeconds,
+          ).catch((): "failed" => "failed");
+    const submissionsRequest: Promise<DeArrowSubmissionsResult> =
+      getDeArrowSubmissions(videoId).catch((): DeArrowSubmissionsResult => ({
+        status: "failed",
+      }));
+    const [segments, submissions] = await Promise.all([
+      segmentsRequest,
+      submissionsRequest,
+    ]);
+    if (destroyed) return; // the viewer left the player mid-load
+    if (queue[currentIndex]?.videoId !== videoId) return; // video changed mid-load
+    infoSegments = segments;
+    infoSubmissions = submissions;
+    renderInfo();
+  }
+
+  // Draws the Info tab from the current video and the loaded answers. DeArrow
+  // text is crowd-submitted, so every value goes in through textContent.
+  function renderInfo(): void {
+    const video = queue[currentIndex];
+    if (!video) {
+      infoPanel.replaceChildren();
+      return;
+    }
+
+    const progress = video.progressSeconds ?? 0;
+    const resume =
+      progress === PROGRESS_FINISHED
+        ? "finished"
+        : progress > 0
+          ? formatDuration(progress)
+          : "none";
+    const videoSection = infoSection("Video", [
+      ["Video id", video.videoId],
+      [
+        "Duration",
+        video.durationSeconds
+          ? formatDuration(video.durationSeconds)
+          : "unknown",
+      ],
+      ["Published", formatDate(video.publishedAt) || "unknown"],
+      ["Resume position", resume],
+    ]);
+
+    const titleSection = infoSection("Titles", [
+      ["YouTube title", video.title],
+      ["DeArrow title", video.communityTitle || "none"],
+      ["Title on show", displayTitle(video)],
+      ["DeArrow titles switch", communityTitlesOn() ? "on" : "off"],
+    ]);
+    titleSection.appendChild(infoHeading("DeArrow submissions", "h4"));
+    if (infoSubmissions === null) {
+      titleSection.appendChild(skeletonInfoRows());
+    } else if (infoSubmissions.status === "failed") {
+      titleSection.appendChild(infoNote("Could not load DeArrow submissions."));
+    } else {
+      const submissions = infoSubmissions.submissions;
+      const choice = explainCommunityTitle(submissions);
+      const rows: [string, string][] = submissions.map(
+        (submission, index): [string, string] => {
+          const facts = [
+            String(submission.votes) +
+              (submission.votes === 1 ? " vote" : " votes"),
+          ];
+          if (submission.locked) facts.push("locked");
+          if (submission.original) facts.push("YouTube title");
+          if (index === choice.index) facts.push("chosen");
+          return [submission.title, facts.join(" · ")];
+        },
+      );
+      if (rows.length > 0) titleSection.appendChild(infoList(rows));
+      const outcome =
+        choice.index >= 0
+          ? "Chosen because " + TITLE_REASON_TEXT[choice.reason] + "."
+          : "No DeArrow title, because " +
+            TITLE_REASON_TEXT[choice.reason] +
+            ".";
+      titleSection.appendChild(infoNote(outcome));
+    }
+
+    const sponsorSection = infoSection("Sponsor segments", [
+      ["Auto-skip", sponsorSkip ? "on" : "off"],
+    ]);
+    if (infoSegments === null) {
+      sponsorSection.appendChild(skeletonInfoRows());
+    } else if (infoSegments === "failed") {
+      sponsorSection.appendChild(infoNote("Could not load sponsor segments."));
+    } else if (infoSegments.length === 0) {
+      sponsorSection.appendChild(infoNote("No sponsor segments."));
+    } else {
+      sponsorSection.appendChild(
+        infoList(
+          infoSegments.map((segment): [string, string] => [
+            sponsorCategoryLabel(segment.category),
+            formatDuration(segment.startSeconds) +
+              " – " +
+              formatDuration(segment.endSeconds),
+          ]),
+        ),
+      );
+    }
+
+    infoPanel.replaceChildren(videoSection, titleSection, sponsorSection);
   }
 
   // Called on each video change: resets comment state and only fetches if the
@@ -1161,6 +1345,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     updateChrome();
     void loadDescription(video.videoId);
     prepareComments(video.videoId);
+    prepareInfo(video.videoId);
     // Each video starts from a clean sponsor state: the previous video's
     // segments and its undone jumps must never apply here.
     stopSponsorTracking();
@@ -1230,6 +1415,41 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
       }
     },
   };
+}
+
+// One Info tab section: a heading above label and value rows.
+function infoSection(heading: string, rows: [string, string][]): HTMLElement {
+  const section = document.createElement("section");
+  section.className = "info-section";
+  section.append(infoHeading(heading, "h3"), infoList(rows));
+  return section;
+}
+
+function infoHeading(text: string, tag: "h3" | "h4"): HTMLElement {
+  const heading = document.createElement(tag);
+  heading.className = "info-heading";
+  heading.textContent = text;
+  return heading;
+}
+
+function infoList(rows: [string, string][]): HTMLElement {
+  const list = document.createElement("dl");
+  list.className = "info-list";
+  for (const [label, value] of rows) {
+    const term = document.createElement("dt");
+    term.textContent = label;
+    const detail = document.createElement("dd");
+    detail.textContent = value;
+    list.append(term, detail);
+  }
+  return list;
+}
+
+function infoNote(text: string): HTMLElement {
+  const note = document.createElement("p");
+  note.className = "info-note";
+  note.textContent = text;
+  return note;
 }
 
 // Seconds-of-day relative time like "3 days ago". Falls back to a date string.

@@ -368,13 +368,15 @@ function videoCard(
   return card;
 }
 
-function formatDate(iso: string): string {
+// Exported so the player Info tab shows dates and lengths the same way as the
+// cards.
+export function formatDate(iso: string): string {
   const date = new Date(iso);
   return Number.isNaN(date.getTime()) ? "" : date.toLocaleDateString();
 }
 
 // Seconds to "M:SS" (or "H:MM:SS" for an hour or more).
-function formatDuration(totalSeconds: number): string {
+export function formatDuration(totalSeconds: number): string {
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = Math.floor(totalSeconds % 60);
