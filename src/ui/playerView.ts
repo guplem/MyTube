@@ -239,6 +239,14 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   let ignoredSponsorStarts: number[] = [];
   let sponsorTimer: number | null = null;
   let sponsorSegmentsVideoId = "";
+  // The one segments request for a video, in flight or settled. The skip and
+  // the Info tab both await it, so opening the tab during the skip lookup
+  // sends no second request. A failed request clears itself, so a later ask
+  // tries again.
+  let sponsorSegmentsRequest: {
+    videoId: string;
+    promise: Promise<SponsorSegment[]>;
+  } | null = null;
   // The segment the last jump left behind. The player reports the old position
   // for a poll or two after a seek, so without this the same segment fires a
   // second jump and a second toast. Cleared as soon as a poll finds the
@@ -263,8 +271,11 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
 
   // Info tab state. The tab asks the server only when it opens, so a player
   // that never opens it sends no extra request. null means "on the wire".
-  // infoSegments is "failed" when the bridge call itself failed.
+  // infoSegments is "failed" when the bridge call itself failed. Each load and
+  // each reset takes a new infoLoadToken, so a late answer from an older load
+  // never paints over a newer state of the tab, even for the same video.
   let infoVideoId = "";
+  let infoLoadToken = 0;
   let infoLoaded = false;
   let infoSubmissions: DeArrowSubmissionsResult | null = null;
   let infoSegments: SponsorSegment[] | "failed" | null = null;
@@ -855,6 +866,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   // Info tab is currently selected.
   function prepareInfo(videoId: string): void {
     infoVideoId = videoId;
+    infoLoadToken += 1;
     infoLoaded = false;
     infoSubmissions = null;
     infoSegments = null;
@@ -863,18 +875,18 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   }
 
   async function loadInfo(videoId: string): Promise<void> {
+    infoLoadToken += 1;
+    const token = infoLoadToken;
     infoLoaded = true;
     renderInfo();
-    // Use the segments that the skip already has. Else ask here: with the
-    // skip off, loadSponsorSegments asks for nothing, but the tab still shows
-    // the segments.
-    const segmentsRequest: Promise<SponsorSegment[] | "failed"> =
+    // Use the segments that the skip already has, or its request in flight.
+    // Else ask here: with the skip off, loadSponsorSegments asks for nothing,
+    // but the tab still shows the segments.
+    const segmentsRequest: Promise<SponsorSegment[] | "failed"> = (
       sponsorSegmentsVideoId === videoId
         ? Promise.resolve(sponsorSegments)
-        : getSponsorSegments(
-            videoId,
-            queue[currentIndex]?.durationSeconds,
-          ).catch((): "failed" => "failed");
+        : requestSponsorSegments(videoId)
+    ).catch((): "failed" => "failed");
     const submissionsRequest: Promise<DeArrowSubmissionsResult> =
       getDeArrowSubmissions(videoId).catch((): DeArrowSubmissionsResult => ({
         status: "failed",
@@ -884,6 +896,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
       submissionsRequest,
     ]);
     if (destroyed) return; // the viewer left the player mid-load
+    if (token !== infoLoadToken) return; // a newer load or a reset owns the tab
     if (queue[currentIndex]?.videoId !== videoId) return; // video changed mid-load
     infoSegments = segments;
     infoSubmissions = submissions;
@@ -1214,10 +1227,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     }
     let segments: SponsorSegment[];
     try {
-      segments = await getSponsorSegments(
-        videoId,
-        queue[currentIndex]?.durationSeconds,
-      );
+      segments = await requestSponsorSegments(videoId);
     } catch {
       return; // no segments: the video plays in full, as before this feature
     }
@@ -1226,6 +1236,22 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     sponsorSegments = segments;
     sponsorSegmentsVideoId = videoId;
     startSponsorTracking();
+  }
+
+  // The shared segments request for a video (see sponsorSegmentsRequest).
+  function requestSponsorSegments(videoId: string): Promise<SponsorSegment[]> {
+    if (sponsorSegmentsRequest && sponsorSegmentsRequest.videoId === videoId)
+      return sponsorSegmentsRequest.promise;
+    const promise = getSponsorSegments(
+      videoId,
+      queue[currentIndex]?.durationSeconds,
+    );
+    sponsorSegmentsRequest = { videoId, promise };
+    promise.catch((): void => {
+      if (sponsorSegmentsRequest && sponsorSegmentsRequest.promise === promise)
+        sponsorSegmentsRequest = null;
+    });
+    return promise;
   }
 
   // Jumps past the segment the position sits in, and offers one tap to take
@@ -1352,15 +1378,17 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     updateChrome();
     void loadDescription(video.videoId);
     prepareComments(video.videoId);
-    prepareInfo(video.videoId);
     // Each video starts from a clean sponsor state: the previous video's
-    // segments and its undone jumps must never apply here.
+    // segments and its undone jumps must never apply here. The skip lookup
+    // starts before prepareInfo, so an open Info tab awaits the same request.
     stopSponsorTracking();
     sponsorSegments = [];
     sponsorSegmentsVideoId = "";
+    sponsorSegmentsRequest = null;
     ignoredSponsorStarts = [];
     lastSkippedSponsorStart = null;
     void loadSponsorSegments(video.videoId);
+    prepareInfo(video.videoId);
 
     const api = await loadYouTubeApi();
     // The viewer left the player mid-load. destroy() already cleared every
