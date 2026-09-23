@@ -859,7 +859,8 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   }
 
   // Switches the visible tab. The comments and info bodies are fetched the
-  // first time their tab is opened for the current video.
+  // first time their tab is opened for the current video. The Info tab asks
+  // again on a later open when its last load failed.
   function setActiveTab(tab: PlayerTab): void {
     activeTab = tab;
     updateTabsUi();
@@ -907,6 +908,10 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     if (queue[currentIndex]?.videoId !== videoId) return; // video changed mid-load
     infoSegments = segments;
     infoSubmissions = submissions;
+    // After a failure, let the next open of the tab ask again, so a failure
+    // note does not stay for the rest of the video.
+    if (segments === "failed" || submissions.status === "failed")
+      infoLoaded = false;
     renderInfo();
   }
 
