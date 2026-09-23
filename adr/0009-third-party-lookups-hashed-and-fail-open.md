@@ -65,6 +65,11 @@ as-is by `src/server/dearrow.ts`:
    behavior. A lookup that covers several videos in one call (see below)
    applies this per group: one bucket's failure returns no data for the
    videos in that bucket only, and never cancels the others.
+   One lookup is a diagnostic view, not a feature, and it must report a
+   failure: `getDeArrowSubmissions` in `src/server/dearrow.ts` feeds the
+   player Info tab, which tells "no submissions" apart from "the lookup
+   failed". It returns `{ status: "failed" }` instead of an empty list. It
+   still never throws, and it still does not cache the failure.
 
 ### Batching a lookup across a list
 

@@ -44,7 +44,9 @@ quota. See [One-time Google setup](#one-time-google-setup) below.
   remove videos from any list; a video already saved shows a pressed
   "✓ Watch Later" button.
 - **Player** — embedded YouTube player with previous/next, an autoplay toggle,
-  the description and comments, and no end-screen recommendations.
+  the description and comments, and no end-screen recommendations. An Info
+  tab shows the video's facts, its YouTube and DeArrow titles with the reason
+  for the pick, and its sponsor segments.
 - **Sponsor skip** — jumps past the sponsor and self-promotion parts of a video
   using the community SponsorBlock database, with a one-tap Undo. On by
   default; toggle next to the theater button.
