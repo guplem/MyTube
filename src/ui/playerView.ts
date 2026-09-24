@@ -111,6 +111,10 @@ interface YouTubeNamespace {
 }
 type PlayerTab = "description" | "comments" | "info";
 
+// The Info tab's value for a fact that has no data. One short mark instead of
+// words like "none" or "unknown" lets the eye skip empty rows.
+const INFO_EMPTY = "-";
+
 // The Info tab's words for each outcome of the title policy.
 const TITLE_REASON_TEXT: Record<CommunityTitleReason, string> = {
   locked: "a DeArrow moderator locked this title",
@@ -938,16 +942,17 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
         "Duration",
         video.durationSeconds
           ? formatDuration(video.durationSeconds)
-          : "unknown",
+          : INFO_EMPTY,
       ],
-      ["Published", formatDate(video.publishedAt) || "unknown"],
+      ["Published", formatDate(video.publishedAt) || INFO_EMPTY],
       ["Resumed from", resume],
     ]);
 
+    // No "title on show" row: the switch row and the two titles already say
+    // which one is on show, and a third title made the section hard to scan.
     const titleSection = infoSection("Titles", [
       ["YouTube title", video.title],
-      ["DeArrow title", video.communityTitle || "none"],
-      ["Title on show", displayTitle(video)],
+      ["DeArrow title", video.communityTitle || INFO_EMPTY],
       ["DeArrow titles switch", communityTitlesOn() ? "on" : "off"],
     ]);
     titleSection.appendChild(infoHeading("DeArrow submissions", "h4"));
