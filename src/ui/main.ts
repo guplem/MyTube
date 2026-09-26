@@ -35,6 +35,7 @@ import {
   forceReloadFeedPage,
   setFeedMutationScreen,
   isKeptFeedPage,
+  dropFeedPage,
 } from "./feedPageCache";
 import {
   trackFeedLoad,
@@ -60,6 +61,7 @@ import {
 } from "./skeleton";
 import { PlayerView, type PlayerController } from "./playerView";
 import { optimistic } from "./optimistic";
+import { showToast } from "./toast";
 import { communityTitlesOn } from "./titlePreferences";
 import { getBoolPreference, getStringPreference } from "./preferences";
 import {
@@ -203,8 +205,48 @@ function makeWatchLaterToggle(vanishesWhen: boolean | null): VideoAction {
             ? "Couldn't add to Watch Later"
             : "Couldn't remove from Watch Later",
       );
+      if (!video.inWatchLater && !video.dismissed) {
+        showToast("Removed from Watch Later", {
+          label: "Dismiss from feed",
+          onAction: (): void => dismissAfterWatchLaterRemoval(video, button),
+        });
+      }
     },
   };
+}
+
+// The action of the toast that a Watch Later removal shows: a video the user
+// is done with often should not come back in the feed either. The toast
+// outlives its card. Once the card is gone, the user is on another screen, and
+// the router would judge this write by that screen, not by the one that owns
+// this Video object, so drop the kept feed page outright.
+function dismissAfterWatchLaterRemoval(
+  video: Video,
+  button: HTMLButtonElement,
+): void {
+  if (video.dismissed) return;
+  if (!button.isConnected) dropFeedPage();
+  // On the feed the card has a dismiss corner: go through it, so the corner
+  // reflects the new state and shares its rollback key with a tap on it.
+  const corner: HTMLButtonElement | null =
+    button
+      .closest(".video-card")
+      ?.querySelector<HTMLButtonElement>(".video-card-corner") ?? null;
+  if (corner) {
+    toggleDismiss(video, corner);
+    return;
+  }
+  optimistic({
+    key: video,
+    apply: (): void => {
+      video.dismissed = true;
+    },
+    revert: (): void => {
+      if (video.dismissed) video.dismissed = false;
+    },
+    send: (): Promise<void> => markVideoDismissed(video.videoId),
+    failMessage: "Couldn't dismiss video",
+  });
 }
 
 // Playlists and history: the card stays whatever the toggle says, so no dim.

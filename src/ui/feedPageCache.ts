@@ -105,6 +105,13 @@ export function setFeedMutationScreen(screen: FeedMutationScreen): void {
   currentScreen = screen;
 }
 
+/** Drops the kept page whatever the router reports. For a write made on a
+ *  Video object that may not be the kept page's own, even though the screen on
+ *  show says it would be (a toast action that outlives its card). */
+export function dropFeedPage(): void {
+  cache.clear();
+}
+
 /** Drops the kept page unless the mutation just changed that page's own Video
  *  objects. Called by every server write (optimistic() and the player's
  *  progress save). */
