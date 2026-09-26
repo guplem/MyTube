@@ -157,6 +157,11 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   exception is the Watch Later screen's own seen toggle: its un-toggle goes
   through `undoMarkVideoSeen`, which restores the playlist entry (guarded on
   membership, never creates the playlist) and then un-marks the view.
+- **A Watch Later removal offers a dismiss, never applies one.** The toggle
+  shows a toast with a "Dismiss from feed" action (skipped when the video is
+  already dismissed). The toast outlives its card, so a tap after the card is
+  gone calls `dropFeedPage()`: the router would judge the write by the wrong
+  screen (ADR 0008).
 - **Videos resume where you left off, on any device.** The player saves the
   playback position server-side (`src/server/progress.ts`, chunked user
   properties mirroring `history.ts`, capped at the 500 most recently saved), so
