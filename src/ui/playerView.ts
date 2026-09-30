@@ -50,6 +50,7 @@ import {
 } from "./playerPreferences";
 import { optimistic } from "./optimistic";
 import { showToast } from "./toast";
+import { createScreenWakeLockHolder } from "./screenWakeLock";
 import { communityTitlesOn, displayTitle } from "./titlePreferences";
 import {
   communityTitleDisagrees,
@@ -126,6 +127,7 @@ const TITLE_REASON_TEXT: Record<CommunityTitleReason, string> = {
 };
 
 const PLAYER_STATE_ENDED = 0;
+const PLAYER_STATE_PLAYING = 1;
 const PLAYER_STATE_PAUSED = 2;
 
 // Minimal typing for screen.orientation lock/unlock: lock() is implemented
@@ -264,6 +266,8 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   // player answers into a gone controller, and must not install a poll timer
   // that nothing can clear.
   let destroyed = false;
+  // Keeps the screen on while the video plays; handleStateChange drives it.
+  const screenWakeLock = createScreenWakeLockHolder();
 
   // Comment paging/sorting state. The description and comments live in two tabs;
   // the comments tab is unloaded until it is selected. activeTab persists across
@@ -1374,6 +1378,15 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   }
 
   function handleStateChange(event: YouTubePlayerEvent): void {
+    // Buffering and cueing leave the lock as it was: a stall mid-video must not
+    // let the screen dim.
+    if (event.data === PLAYER_STATE_PLAYING) screenWakeLock.setWanted(true);
+    if (
+      event.data === PLAYER_STATE_PAUSED ||
+      event.data === PLAYER_STATE_ENDED
+    ) {
+      screenWakeLock.setWanted(false);
+    }
     // Pausing is the best "the user may be leaving" signal available inside
     // the Apps Script iframe, so capture the position right away. Ending
     // saves too: progressToStore maps the final position to 0, clearing the
@@ -1470,6 +1483,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     destroy: (): void => {
       destroyed = true;
       document.removeEventListener("fullscreenchange", onFullscreenChange);
+      screenWakeLock.release();
       stopChapterTracking();
       stopProgressSaving();
       stopNudgeTracking();
