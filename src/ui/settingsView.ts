@@ -18,6 +18,8 @@ import {
   THEATER_DEFAULT,
   SPONSOR_SKIP_PREF,
   SPONSOR_SKIP_DEFAULT,
+  BACKGROUND_PLAY_PREF,
+  BACKGROUND_PLAY_DEFAULT,
   readStoredPlaybackRate,
   storePlaybackRate,
 } from "./playerPreferences";
@@ -67,6 +69,11 @@ export function SettingsView(onFeedFilterChange: () => void): HTMLElement {
         "Skip sponsor segments",
         SPONSOR_SKIP_PREF,
         SPONSOR_SKIP_DEFAULT,
+      ),
+      preferenceToggle(
+        "Keep playing when the screen locks",
+        BACKGROUND_PLAY_PREF,
+        BACKGROUND_PLAY_DEFAULT,
       ),
       playbackRateSetting(),
     ]),
