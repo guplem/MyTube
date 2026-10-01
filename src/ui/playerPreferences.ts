@@ -18,6 +18,12 @@ export const THEATER_DEFAULT = false;
 export const SPONSOR_SKIP_PREF = "mytube.player.sponsorSkip";
 export const SPONSOR_SKIP_DEFAULT = true;
 
+// Background play: keep the video playing when the phone locks, by undoing
+// the pause that YouTube's embed makes when the page hides (rule in
+// src/shared/backgroundPlay.ts). Default on: that pause is never wanted.
+export const BACKGROUND_PLAY_PREF = "mytube.player.backgroundPlay";
+export const BACKGROUND_PLAY_DEFAULT = true;
+
 // Playback speed: the rate the viewer last chose, remembered per device and
 // reapplied to every video. It is a viewing preference, not a per-video fact, so
 // it lives here rather than in the server-side progress store. The value is

@@ -45,9 +45,12 @@ import {
   THEATER_DEFAULT,
   SPONSOR_SKIP_PREF,
   SPONSOR_SKIP_DEFAULT,
+  BACKGROUND_PLAY_PREF,
+  BACKGROUND_PLAY_DEFAULT,
   readStoredPlaybackRate,
   storePlaybackRate,
 } from "./playerPreferences";
+import { shouldResumeAfterHide } from "../shared/backgroundPlay";
 import { optimistic } from "./optimistic";
 import { showToast } from "./toast";
 import { createScreenWakeLockHolder } from "./screenWakeLock";
@@ -102,6 +105,9 @@ interface YouTubePlayer {
   getDuration(): number;
   /** Suggests a playback speed (1 = normal); clamped to the video's allowed rates. */
   setPlaybackRate(suggestedRate: number): void;
+  playVideo(): void;
+  /** One of the PLAYER_STATE_* values. */
+  getPlayerState(): number;
   destroy(): void;
 }
 interface YouTubeNamespace {
@@ -266,6 +272,11 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   // player answers into a gone controller, and must not install a poll timer
   // that nothing can clear.
   let destroyed = false;
+  // Background play (see src/shared/backgroundPlay.ts). Each pause or hide
+  // stamps its time; the rule there decides whether the pause was YouTube's.
+  let hiddenAtMs: number | null = null;
+  let pausedAtMs: number | null = null;
+
   // Keeps the screen on while the video plays; handleStateChange drives it.
   const screenWakeLock = createScreenWakeLockHolder();
 
@@ -1377,7 +1388,38 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     storePlaybackRate(rate);
   }
 
+  function resumeIfBackgroundPause(): void {
+    if (
+      !player ||
+      !getBoolPreference(BACKGROUND_PLAY_PREF, BACKGROUND_PLAY_DEFAULT)
+    )
+      return;
+    if (!shouldResumeAfterHide(hiddenAtMs, pausedAtMs)) return;
+    // Undo one pause per hide, so a later lock-screen pause always stays.
+    hiddenAtMs = null;
+    pausedAtMs = null;
+    player.playVideo();
+  }
+
+  const onPlayerVisibilityChange = (): void => {
+    if (!document.hidden) {
+      hiddenAtMs = null;
+      return;
+    }
+    hiddenAtMs = Date.now();
+    // The embed paused just before the browser reported the hide.
+    if (player && player.getPlayerState() === PLAYER_STATE_PAUSED) {
+      resumeIfBackgroundPause();
+    }
+  };
+  document.addEventListener("visibilitychange", onPlayerVisibilityChange);
+
   function handleStateChange(event: YouTubePlayerEvent): void {
+    if (event.data === PLAYER_STATE_PLAYING) pausedAtMs = null;
+    if (event.data === PLAYER_STATE_PAUSED) {
+      pausedAtMs = Date.now();
+      if (document.hidden) resumeIfBackgroundPause();
+    }
     // Buffering and cueing leave the lock as it was: a stall mid-video must not
     // let the screen dim.
     if (event.data === PLAYER_STATE_PLAYING) screenWakeLock.setWanted(true);
@@ -1483,6 +1525,10 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     destroy: (): void => {
       destroyed = true;
       document.removeEventListener("fullscreenchange", onFullscreenChange);
+      document.removeEventListener(
+        "visibilitychange",
+        onPlayerVisibilityChange,
+      );
       screenWakeLock.release();
       stopChapterTracking();
       stopProgressSaving();

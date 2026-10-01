@@ -272,6 +272,12 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   before its load and return early when it fires.** Otherwise it paints over the
   screen the user moved to, and its cards then act under that screen's feed
   mutation policy (ADR 0008).
+- **Background play undoes YouTube's hide pause, and only that one.** The
+  embed pauses itself when the page hides (phone locked). `PlayerView` calls
+  `playVideo()` once for a pause within 1.5s of the hide, either order
+  (`shouldResumeAfterHide` in `src/shared/backgroundPlay.ts`). A later pause,
+  from the lock-screen controls, stays. The Settings switch is
+  `BACKGROUND_PLAY_PREF`, default on.
 - **Anything that starts a timer or builds a player after an `await` must check
   that its owner is still alive.** `PlayerView` keeps a per-instance `destroyed`
   flag, sets it in `destroy()`, and returns on it after every `await` (see
