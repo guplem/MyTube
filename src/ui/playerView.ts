@@ -51,6 +51,7 @@ import {
   storePlaybackRate,
 } from "./playerPreferences";
 import { shouldResumeAfterHide } from "../shared/backgroundPlay";
+import { logBackgroundPlay } from "./backgroundPlayLog";
 import { optimistic } from "./optimistic";
 import { showToast } from "./toast";
 import { createScreenWakeLockHolder } from "./screenWakeLock";
@@ -1389,19 +1390,45 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   }
 
   function resumeIfBackgroundPause(): void {
-    if (
-      !player ||
-      !getBoolPreference(BACKGROUND_PLAY_PREF, BACKGROUND_PLAY_DEFAULT)
-    )
-      return;
-    if (!shouldResumeAfterHide(hiddenAtMs, pausedAtMs)) return;
+    const enabled: boolean = getBoolPreference(
+      BACKGROUND_PLAY_PREF,
+      BACKGROUND_PLAY_DEFAULT,
+    );
+    const resume: boolean = shouldResumeAfterHide(hiddenAtMs, pausedAtMs);
+    logBackgroundPlay(
+      "decide: enabled=" +
+        enabled +
+        " player=" +
+        Boolean(player) +
+        " hiddenAt=" +
+        hiddenAtMs +
+        " pausedAt=" +
+        pausedAtMs +
+        " resume=" +
+        resume,
+    );
+    if (!player || !enabled || !resume) return;
     // Undo one pause per hide, so a later lock-screen pause always stays.
     hiddenAtMs = null;
     pausedAtMs = null;
     player.playVideo();
+    logBackgroundPlay("playVideo sent");
+    // Show whether the embed accepted the request or paused again.
+    for (const delayMs of [500, 2000, 5000]) {
+      window.setTimeout((): void => {
+        if (destroyed || !player) return;
+        logBackgroundPlay(
+          "state after " + delayMs + "ms: " + player.getPlayerState(),
+        );
+      }, delayMs);
+    }
   }
 
   const onPlayerVisibilityChange = (): void => {
+    logBackgroundPlay(
+      "visibilitychange, player state=" +
+        (player ? player.getPlayerState() : "none"),
+    );
     if (!document.hidden) {
       hiddenAtMs = null;
       return;
@@ -1415,6 +1442,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   document.addEventListener("visibilitychange", onPlayerVisibilityChange);
 
   function handleStateChange(event: YouTubePlayerEvent): void {
+    logBackgroundPlay("state change: " + event.data);
     if (event.data === PLAYER_STATE_PLAYING) pausedAtMs = null;
     if (event.data === PLAYER_STATE_PAUSED) {
       pausedAtMs = Date.now();

@@ -14,6 +14,10 @@
 import { getBoolPreference, setBoolPreference } from "./preferences";
 import { feedFilterControls } from "./feedFilterControls";
 import {
+  clearBackgroundPlayLog,
+  readBackgroundPlayLog,
+} from "./backgroundPlayLog";
+import {
   THEATER_PREF,
   THEATER_DEFAULT,
   SPONSOR_SKIP_PREF,
@@ -79,7 +83,37 @@ export function SettingsView(onFeedFilterChange: () => void): HTMLElement {
     ]),
   );
 
+  root.appendChild(
+    settingsSection(
+      "Background play log (test)",
+      "Play a video, lock the phone for 10 seconds, unlock, then open this screen.",
+      [backgroundPlayLog()],
+    ),
+  );
+
   return root;
+}
+
+// TEMPORARY: shows the diagnostic log (see src/ui/backgroundPlayLog.ts).
+function backgroundPlayLog(): HTMLElement {
+  const wrapper = document.createElement("div");
+  const output = document.createElement("pre");
+  output.style.whiteSpace = "pre-wrap";
+  output.style.fontSize = "11px";
+  const paint = (): void => {
+    const entries: string[] = readBackgroundPlayLog();
+    output.textContent = entries.length ? entries.join("\n") : "(empty)";
+  };
+  const clear = document.createElement("button");
+  clear.type = "button";
+  clear.textContent = "Clear log";
+  clear.addEventListener("click", (): void => {
+    clearBackgroundPlayLog();
+    paint();
+  });
+  paint();
+  wrapper.append(clear, output);
+  return wrapper;
 }
 
 // A titled group of settings, with one line saying what the group covers.
