@@ -9,9 +9,9 @@ on:
   push:
     branches: [main]
   # Manual escape hatch: deploy the current `main` on demand from the Actions
-  # tab. Needed because a merge performed by the auto-merge bot's default
-  # GITHUB_TOKEN does not trigger the push event above; a real token (see
-  # auto-merge.yml) restores automatic deploys, and this button covers the rest.
+  # tab, for example to retry a failed deploy. Every PR merge fires the push
+  # event above, because a person's account turns on auto-merge, never the
+  # GITHUB_TOKEN (GitHub starts no workflow from a GITHUB_TOKEN push).
   workflow_dispatch:
 
 jobs:

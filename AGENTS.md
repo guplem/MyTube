@@ -323,7 +323,7 @@ conversion could be deleted with every test still green (see the
   and the build on every PR to `main` (`.github/workflows/ci.yml`), and again
   before deploy (`.github/workflows/deploy.yml`). The repo ruleset "Requirements
   for merge" makes the `test` check required, so **a PR cannot merge to `main`
-  until CI is green**; `auto-merge.yml` then merges it automatically. Run
+  until CI is green**; GitHub auto-merge then merges it. Run
   `npm run check` locally before opening a PR.
 
 ## Architecture Decision Records (ADRs)
@@ -404,7 +404,9 @@ records.
 
 - Branch from `main`, PR back to `main` (merging deploys to production via `deploy.yml`). **Never push to `main`.** Whenever you create a branch, use the `create-branch` skill.
 - Conventional commits: `feat:`, `fix:`, `refactor:`, `chore:`, `docs:`, `test:`. Whenever you commit, use the `write-commit` skill.
-- PRs merge automatically once the required `test` check passes (`auto-merge.yml`). There is no human review gate; the tests are the review, which is what makes the TDD protocol above non-negotiable.
+- **An agent merges its own PR with auto-merge**: run `gh pr merge --auto --merge <PR>` when the PR is ready. GitHub merges it when the required `test` check passes. There is no human review gate; the tests are the review, which is what makes the TDD protocol above non-negotiable.
+- **Turn on auto-merge with your own account, never from a workflow.** GitHub starts no workflow from a `GITHUB_TOKEN` push, so a workflow merge skips the deploy (`deploy.yml` runs on `push` to `main`).
+- **Never bypass the merge ruleset**, for example with `gh pr merge --admin`. When a PR does not merge, find the cause and fix it: update a branch that is behind `main`, resolve a conflict, or fix a red check.
 
 ## Documentation Organization
 
