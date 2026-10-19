@@ -666,8 +666,26 @@ function showHistory(): void {
 
 // Watch Later defaults to oldest upload first (the natural "watch the backlog"
 // order); other playlists default to their YouTube order.
-function showWatchLater(): void {
-  renderPlaylistScreen(getWatchLaterVideos(), "oldest", () => ({
+// The app lands on Watch Later, so an empty list on the first screen means
+// nothing to watch there: open the feed instead. Only the landing redirects. A
+// tap on the Watch Later tab still shows the empty list, or the tab would seem
+// broken. The URL is replaced, not pushed, so Back never returns to the empty
+// list.
+function showWatchLater(redirectIfEmpty: boolean): void {
+  const movedOn = navigationMovedOn();
+  const load: Promise<Video[]> = getWatchLaterVideos().then(
+    (videos): Video[] => {
+      if (redirectIfEmpty && videos.length === 0 && !movedOn()) {
+        const feed: Screen = { view: "feed" };
+        replaceUrlState(feed, paramsFor(feed));
+        // render() moves the navigation on, so the Watch Later paint below
+        // returns early.
+        render(feed);
+      }
+      return videos;
+    },
+  );
+  renderPlaylistScreen(load, "oldest", () => ({
     onPlay: (index, queue): void =>
       playFromList(queue, index, { source: "watchlater" }),
     actions: [watchLaterRemoveAction, watchLaterSeenAction],
@@ -1003,6 +1021,10 @@ function minimalVideo(videoId: string): Video {
 // whether the feed is the screen to re-render or the screen to warm up.
 let currentView: Screen["view"] = DEFAULT_SCREEN.view;
 
+// False until the first render(), so a screen can tell the app's landing from
+// a later visit.
+let hasRendered = false;
+
 function go(screen: Screen): void {
   // Push BEFORE render. The player calls onVideoChange during render, which
   // replaceUrlState()s the current history entry. If we rendered first, that
@@ -1021,6 +1043,8 @@ function render(screen: Screen): void {
   // Retires every screen still loading: from here on their paint is dropped.
   navigationGeneration += 1;
   currentView = screen.view;
+  const isLanding: boolean = !hasRendered;
+  hasRendered = true;
   // Leaving the player: tear down the YouTube iframe so it stops playing. This
   // runs FIRST, before the incoming screen is recorded below and before the
   // warm-up, because destroy() saves the playback position: that mutation
@@ -1044,7 +1068,7 @@ function render(screen: Screen): void {
   if (screen.view !== "feed") warmFeedPage();
   switch (screen.view) {
     case "watchlater":
-      showWatchLater();
+      showWatchLater(isLanding);
       break;
     case "playlists":
       showPlaylists();

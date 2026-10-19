@@ -42,7 +42,8 @@ quota. See [One-time Google setup](#one-time-google-setup) below.
   order, upload date newest/oldest first, or title).
 - **Watch Later** — a real YouTube playlist the app creates and manages. Add or
   remove videos from any list; a video already saved shows a pressed
-  "✓ Watch Later" button.
+  "✓ Watch Later" button. The app opens on Watch Later, or on the feed when
+  Watch Later is empty.
 - **Player** — embedded YouTube player with previous/next, an autoplay toggle,
   the description and comments, and no end-screen recommendations. An Info
   tab shows the video's facts, its YouTube and DeArrow titles with the reason
