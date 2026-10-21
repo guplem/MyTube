@@ -301,6 +301,8 @@ export interface AppsScriptMocks {
    * fetch or accept the image (a 404, or a type it rejects).
    */
   rejectFavicon: boolean;
+  /** The values doGet assigned on the index template before evaluate(). */
+  templateValues: { [key: string]: string };
 }
 
 /**
@@ -325,6 +327,7 @@ export function installAppsScriptMocks(): AppsScriptMocks {
     onLockWait: () => {},
     htmlCalls: [],
     rejectFavicon: false,
+    templateValues: {},
   };
 
   const g = globalThis as Record<string, unknown>;
@@ -397,7 +400,10 @@ export function installAppsScriptMocks(): AppsScriptMocks {
   };
   g.HtmlService = {
     XFrameOptionsMode: { ALLOWALL: "ALLOWALL", DEFAULT: "DEFAULT" },
-    createTemplateFromFile: () => ({ evaluate: () => htmlOutput }),
+    // The template is the values object itself, as on Apps Script, where a
+    // scriptlet reads any property assigned on the template.
+    createTemplateFromFile: () =>
+      Object.assign(mocks.templateValues, { evaluate: () => htmlOutput }),
   };
 
   // YouTube is read through this proxy so tests can assign mocks.youtube.* at

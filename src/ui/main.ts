@@ -739,7 +739,7 @@ function showPlaylists(): void {
 }
 
 // Every preference in one place (src/ui/settingsView.ts). It reads only
-// localStorage, which answers at once, so it paints synchronously: there is no
+// the local preference copy, which answers at once, so it paints synchronously: there is no
 // load to await and so no navigationMovedOn() guard to keep.
 function showSettings(): void {
   const app = appContainer();

@@ -148,7 +148,8 @@ Two kinds of data, stored in two places:
     per user): `PropertiesService` user properties, chunked like the history
     and capped at ~500 most-recently-saved entries.
   - **Small settings** (the Watch Later playlist ID, autoplay toggle, cached
-    channel IDs, last-refresh time): `PropertiesService` user properties.
+    channel IDs, last-refresh time, and the UI preferences, which every device
+    of the account shares): `PropertiesService` user properties.
     Reason: tiny key/value data, fastest to read, no Sheet needed.
 
 Because we deploy "execute as user accessing," both the Sheet and the user

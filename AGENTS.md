@@ -126,7 +126,7 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   "Hide watched" filters on it. In UI copy the flag is always called
   **watched** (matching the History tab); `seen` stays the name in code and
   storage. The feed also has a date filter (`beforeDate` in
-  `getFeedPage`, a localStorage pref) that hides older videos but does not touch
+  `getFeedPage`, a stored preference) that hides older videos but does not touch
   the `seen` flag, so playlists and Watch Later are unaffected.
 - **Every card action is a state toggle, and cards share one layout.** Each
   card on every list shows the same two stacked buttons — the Watch Later
@@ -233,11 +233,20 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   the player and every screen. With no page kept, the last derived value stands.
   Filter defaults live in `src/ui/feedFilters.ts` so the request and the recount
   can never read a toggle differently.
-- UI toggles persist in `localStorage` via `src/ui/preferences.ts` (works inside
-  the Apps Script iframe; no server round-trip). Each key and its default lives
-  in one module, never in the screen that shows it: `src/ui/feedFilters.ts` for
-  the feed filters, `src/ui/playerPreferences.ts` for the player ones, and
-  `src/ui/titlePreferences.ts` for the title display.
+- **UI preferences are stored per Google account, read from `localStorage`.**
+  `src/server/preferences.ts` keeps the whole set as one JSON user property, so
+  every device reads the same filters. Chrome splits `localStorage` by the top
+  page, so the GitHub Pages wrapper and the plain Apps Script URL never share a
+  local copy. `doGet` embeds the account set in the page
+  (`preferencesScriptLiteral`), and `src/ui/preferences.ts` makes the local copy
+  match it before any screen reads it, with no extra round trip. Every write goes
+  to both copies; the server write is fire-and-forget. A missing property means
+  "never stored": the first device with a non-empty local set uploads it
+  (`importPreferences`, ADR 0010). Only `src/ui/preferences.ts` touches
+  `localStorage`.
+  Each key and its default lives in one module, never in the screen that shows
+  it: `src/ui/feedFilters.ts` for the feed filters, `src/ui/playerPreferences.ts`
+  for the player ones, and `src/ui/titlePreferences.ts` for the title display.
 - **Settings is the one screen that lists every preference**
   (`src/ui/settingsView.ts`, routed as `{ view: "settings" }`, opened from the
   footer link). It owns no preference: it reads and writes the same keys as the
@@ -356,6 +365,7 @@ records.
 | [0007](adr/0007-agent-docs-structure.md)                             | `AGENTS.md` map + Claude-Code-only skills, subagents, and settings                           |
 | [0008](adr/0008-single-kept-feed-page-via-shared-object-identity.md) | Feed keeps ONE loaded page, kept correct by sharing `Video` object identity                  |
 | [0009](adr/0009-third-party-lookups-hashed-and-fail-open.md)         | Third-party lookups: privacy-preserving id hash, shared cache, fail open on any error        |
+| [0010](adr/0010-ui-preferences-per-account-with-local-mirror.md)     | UI preferences: one per-account user property, mirrored in localStorage for sync reads       |
 
 ## Gotchas
 

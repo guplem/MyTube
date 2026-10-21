@@ -10,6 +10,7 @@ import type { CommentOrder, CommentPage } from "../shared/comment";
 import type { FeedPage, FeedPageOptions } from "../shared/feed";
 import type { SponsorSegment } from "../shared/sponsorBlock";
 import type { DeArrowSubmissionsResult } from "../shared/dearrow";
+import type { Preferences } from "../shared/preferences";
 
 interface ScriptRunner {
   withSuccessHandler<T>(callback: (value: T) => void): ScriptRunner;
@@ -25,6 +26,8 @@ interface ScriptRunner {
   markVideoDismissed(videoId: string): void;
   removeVideoDismissed(videoId: string): void;
   saveVideoProgress(videoId: string, seconds: number): void;
+  setPreference(key: string, value: string | null): void;
+  importPreferences(prefs: Preferences): void;
   getHistory(): void;
   getPlaylists(): void;
   getPlaylistVideos(playlistId: string): void;
@@ -102,6 +105,17 @@ export function saveVideoProgress(
   seconds: number,
 ): Promise<void> {
   return call<void>((runner) => runner.saveVideoProgress(videoId, seconds));
+}
+
+export function setPreference(
+  key: string,
+  value: string | null,
+): Promise<void> {
+  return call<void>((runner) => runner.setPreference(key, value));
+}
+
+export function importPreferences(prefs: Preferences): Promise<void> {
+  return call<void>((runner) => runner.importPreferences(prefs));
 }
 
 export function getHistory(): Promise<Video[]> {

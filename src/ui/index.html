@@ -1297,6 +1297,13 @@
       ><span id="sponsorblock-credit" class="footer-line"></span>
     </footer>
 
+    <!-- The account's stored preferences (null when it has none yet), read by
+         src/ui/preferences.ts before the bundle draws anything. doGet fills
+         preferencesJson with preferencesScriptLiteral, which is safe here. -->
+    <script>
+      window.MYTUBE_ACCOUNT_PREFERENCES = <?!= preferencesJson ?>;
+    </script>
+
     <!-- Browser TypeScript bundle (built from src/ui by esbuild). -->
     <?!= include('ui'); ?>
   </body>

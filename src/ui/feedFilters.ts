@@ -1,4 +1,4 @@
-// The feed's filter toggles, as they are stored in localStorage. Kept in their
+// The feed's filter toggles, as src/ui/preferences.ts stores them. Kept in their
 // own module because two independent things read them: the feed screen, which
 // turns them into a getFeedPage request, and the Feed nav button, which needs
 // the flag filters to tell whether a video the user just dealt with still counts

@@ -1,4 +1,4 @@
-// The player's viewing preferences, as they are stored in localStorage. Kept in
+// The player's viewing preferences, as src/ui/preferences.ts stores them. Kept in
 // their own module because two independent things read them: the player, which
 // applies them to the video on show, and the Settings screen, which lists them
 // (see src/ui/settingsView.ts). Importing them from playerView.ts would pull the
