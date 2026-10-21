@@ -304,7 +304,7 @@ conversion could be deleted with every test still green (see the
 - **Tests live in `tests/`** (mirroring `src/server/` and `src/shared/`) and run on Node via
   **Vitest** (`npm test`). There is no Apps Script in CI, so the runtime globals
   (`PropertiesService`, `CacheService`, `UrlFetchApp`, `XmlService`, `YouTube`,
-  `Utilities`) are replaced by in-memory fakes in
+  `Utilities`, `HtmlService`) are replaced by in-memory fakes in
   `tests/helpers/appsScriptMock.ts`. Call `installAppsScriptMocks()` in
   `beforeEach` and `uninstallAppsScriptMocks()` in `afterEach`, then seed
   state/responses through the returned handle. This runs the **real** server
@@ -398,6 +398,13 @@ records.
   byte with `(byte + 256) % 256` before turning it into hex, or the hash is
   wrong for every byte above 127. See `videoIdHashPrefix` in
   `src/server/sponsorBlock.ts`.
+- **The installable app is a GitHub Pages wrapper, not the Apps Script URL.**
+  Google owns the top page of the web app, so it can carry no manifest. The
+  wrapper in `pages/` frames the app, which only works while `doGet` keeps
+  `setXFrameOptionsMode(ALLOWALL)`. `doGet` also takes its favicon from that
+  site, because `setFaviconUrl` accepts only a public PNG/ICO URL (no `data:`,
+  no SVG). Wrap that call in `try`: Google fetches the icon while it builds the
+  page and throws when it cannot.
 - `dist/`, `.clasp.json`, and `.clasprc.json` are gitignored. Never commit them.
 
 ## Git Workflow

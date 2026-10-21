@@ -294,6 +294,13 @@ export interface AppsScriptMocks {
    * this one waited for the lock.
    */
   onLockWait: () => void;
+  /** Records each HtmlOutput setter call made by doGet, as "name:arg". */
+  htmlCalls: string[];
+  /**
+   * When true, setFaviconUrl throws like the real one does when Google cannot
+   * fetch or accept the image (a 404, or a type it rejects).
+   */
+  rejectFavicon: boolean;
 }
 
 /**
@@ -316,6 +323,8 @@ export function installAppsScriptMocks(): AppsScriptMocks {
     sleeps: [],
     lockCalls: [],
     onLockWait: () => {},
+    htmlCalls: [],
+    rejectFavicon: false,
   };
 
   const g = globalThis as Record<string, unknown>;
@@ -368,6 +377,29 @@ export function installAppsScriptMocks(): AppsScriptMocks {
 
   g.XmlService = fakeXmlService;
 
+  const htmlOutput: Record<string, (arg: string) => unknown> = {};
+  for (const name of ["setTitle", "setXFrameOptionsMode"]) {
+    htmlOutput[name] = (arg: string) => {
+      mocks.htmlCalls.push(`${name}:${arg}`);
+      return htmlOutput;
+    };
+  }
+  htmlOutput.addMetaTag = (name: string) => {
+    mocks.htmlCalls.push(`addMetaTag:${name}`);
+    return htmlOutput;
+  };
+  htmlOutput.setFaviconUrl = (url: string) => {
+    if (mocks.rejectFavicon) {
+      throw new Error("The favicon icon image type is not supported.");
+    }
+    mocks.htmlCalls.push(`setFaviconUrl:${url}`);
+    return htmlOutput;
+  };
+  g.HtmlService = {
+    XFrameOptionsMode: { ALLOWALL: "ALLOWALL", DEFAULT: "DEFAULT" },
+    createTemplateFromFile: () => ({ evaluate: () => htmlOutput }),
+  };
+
   // YouTube is read through this proxy so tests can assign mocks.youtube.* at
   // any point and the production code (which captures `YouTube` lazily inside
   // each function) still sees the latest stub.
@@ -394,6 +426,7 @@ export function uninstallAppsScriptMocks(): void {
     "XmlService",
     "YouTube",
     "LockService",
+    "HtmlService",
   ]) {
     delete g[key];
   }

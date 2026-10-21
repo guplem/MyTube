@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="MyTube">
   <!-- MyTube app icon: dark tile matching the app background (#0f0f0f), a red
-       screen, and a white play triangle. Source of truth for the favicon wired
-       into doGet in src/server/main.ts (kept in sync as a data URI there). -->
+       screen, and a white play triangle. Source of truth for the inlined icon
+       in index.html and the PNGs in pages/ (keep all three in sync). -->
   <rect width="64" height="64" rx="14" fill="#0f0f0f" />
   <rect x="8" y="15" width="48" height="34" rx="9" fill="#ff0033" />
   <path d="M27 24 L42 32 L27 40 Z" fill="#ffffff" />
