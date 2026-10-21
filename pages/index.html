@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>MyTube</title>
+    <meta name="theme-color" content="#0f0f0f" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" type="image/png" href="icon-192.png" />
+    <link rel="apple-touch-icon" href="icon-192.png" />
+    <!-- Installable wrapper for the Apps Script web app. Chrome installs a site
+         only when the top page links a manifest, and Apps Script gives us no
+         control over its own top page. So this page is the top page and frames
+         the app. doGet must keep setXFrameOptionsMode(ALLOWALL), or Google
+         refuses the frame. -->
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #0f0f0f;
+      }
+      iframe {
+        display: block;
+        width: 100%;
+        height: 100%;
+        border: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- The allow list delegates what the player needs: fullscreen, autoplay
+         for the next video, and the wake lock that keeps the screen on. -->
+    <iframe
+      src="https://script.google.com/macros/s/AKfycbxKXGIgGhnj4jFBsx9KvMLQW9tRbVToQN2jfyZXrGRcWUynjrX6oWBnUDleJZlvT9E1/exec"
+      title="MyTube"
+      allow="
+        autoplay;
+        fullscreen;
+        encrypted-media;
+        picture-in-picture;
+        screen-wake-lock;
+        clipboard-write;
+      "
+    ></iframe>
+  </body>
+</html>

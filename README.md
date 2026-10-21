@@ -182,6 +182,22 @@ To deploy the current `main` on demand (e.g. after a merge that didn't deploy),
 use the **Run workflow** button on _Deploy to Apps Script_ in the Actions tab
 (`deploy.yml` also has a `workflow_dispatch` trigger).
 
+## Install as an app (GitHub Pages wrapper)
+
+Chrome cannot install the Apps Script URL as an app: Google owns that page, so
+it can carry no manifest (the file that describes an installable web app). The
+`pages/` folder is a small page that frames the app and links a manifest. It also
+hosts the app icon, which `doGet` sets as the favicon (the browser tab icon).
+
+`.github/workflows/pages.yml` publishes `pages/` to
+**https://guplem.github.io/MyTube/** on every push to `main` that changes it.
+Setup, once: Settings → Pages → Source: **GitHub Actions**. GitHub Pages needs a
+public repo on the free plan.
+
+Open that URL in Chrome on the phone, then menu → **Install app**. If you deploy
+your own copy, change the app URL in `pages/index.html` and the icon URL in
+`src/server/main.ts`.
+
 ## Troubleshooting
 
 - **"No valid .clasp.json"** — the file is in `dist/` instead of the root; see

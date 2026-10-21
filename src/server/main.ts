@@ -21,18 +21,30 @@ import * as progress from "./progress";
 import * as sponsorBlock from "./sponsorBlock";
 import * as dearrow from "./dearrow";
 
-// No setFaviconUrl: it fetches and validates the image on Google's servers and
-// only accepts a publicly-hosted raster image (PNG/ICO), rejecting both data:
-// URIs and SVG with "The favicon icon image type is not supported." This repo
-// has nowhere public to host one, so the icon ships as a best-effort inline
-// <link rel="icon"> in index.html instead (see the note there).
+// The PWA wrapper on GitHub Pages (pages/) serves the icon and frames this page.
+// setFaviconUrl only accepts a public PNG/ICO that Google fetches itself, so the
+// icon lives on that site. It sets the favicon of Google's outer page, which the
+// <link rel="icon"> in index.html can never reach.
+const FAVICON_URL = "https://guplem.github.io/MyTube/icon-192.png";
 
 /** Serves the single web app page. Called by Apps Script for GET requests. */
 export function doGet(): GoogleAppsScript.HTML.HtmlOutput {
-  return HtmlService.createTemplateFromFile("index")
-    .evaluate()
-    .setTitle("MyTube")
-    .addMetaTag("viewport", "width=device-width, initial-scale=1");
+  const output: GoogleAppsScript.HTML.HtmlOutput =
+    HtmlService.createTemplateFromFile("index")
+      .evaluate()
+      .setTitle("MyTube")
+      .addMetaTag("viewport", "width=device-width, initial-scale=1")
+      // ALLOWALL lets the GitHub Pages wrapper embed the app. Each visitor
+      // still sees only their own account's data.
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  // Google fetches the icon while it builds the page and throws when it
+  // cannot. A missing icon must never take the whole app down.
+  try {
+    output.setFaviconUrl(FAVICON_URL);
+  } catch (error) {
+    console.warn("Favicon not set: " + String(error));
+  }
+  return output;
 }
 
 /** Inlines another HTML file into a template (used by index.html for the UI bundle). */

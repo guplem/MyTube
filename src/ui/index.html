@@ -3,11 +3,10 @@
   <head>
     <base target="_top" />
     <meta charset="utf-8" />
-    <!-- App icon (src/ui/icon.svg, inlined so it needs no hosting). Best-effort:
-         the server can't use HtmlOutput.setFaviconUrl (it rejects data:/SVG), and
-         the published app runs inside Google's outer iframe whose tab icon this
-         <link> can't override, but it applies wherever the page is the top
-         document (preview, direct HTML) and documents the app's icon. -->
+    <!-- App icon (src/ui/icon.svg, inlined). The browser tab shows the icon of
+         Google's outer page, which doGet sets with setFaviconUrl (the PNG on
+         GitHub Pages, pages/). This <link> applies only where this page is the
+         top document, such as a preview. -->
     <link
       rel="icon"
       type="image/svg+xml"
