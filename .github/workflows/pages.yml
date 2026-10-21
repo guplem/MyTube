@@ -1,7 +1,8 @@
 name: Deploy wrapper to GitHub Pages
 
 # Publishes pages/ (the installable wrapper and the app icon) to
-# https://guplem.github.io/MyTube/. doGet reads the favicon from there.
+# https://triunitystudios.com/MyTube/ (guplem.github.io redirects to that custom
+# domain). doGet reads the favicon from there.
 # Requires Settings -> Pages -> Source: "GitHub Actions", and a public repo
 # (or a paid plan for Pages on a private repo).
 

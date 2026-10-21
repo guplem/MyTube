@@ -24,8 +24,9 @@ import * as dearrow from "./dearrow";
 // The PWA wrapper on GitHub Pages (pages/) serves the icon and frames this page.
 // setFaviconUrl only accepts a public PNG/ICO that Google fetches itself, so the
 // icon lives on that site. It sets the favicon of Google's outer page, which the
-// <link rel="icon"> in index.html can never reach.
-const FAVICON_URL = "https://guplem.github.io/MyTube/icon-192.png";
+// <link rel="icon"> in index.html can never reach. The URL is the final one:
+// guplem.github.io redirects to the account's custom domain.
+const FAVICON_URL = "https://triunitystudios.com/MyTube/icon-192.png";
 
 /** Serves the single web app page. Called by Apps Script for GET requests. */
 export function doGet(): GoogleAppsScript.HTML.HtmlOutput {

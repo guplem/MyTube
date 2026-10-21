@@ -190,7 +190,8 @@ it can carry no manifest (the file that describes an installable web app). The
 hosts the app icon, which `doGet` sets as the favicon (the browser tab icon).
 
 `.github/workflows/pages.yml` publishes `pages/` to
-**https://guplem.github.io/MyTube/** on every push to `main` that changes it.
+**https://triunitystudios.com/MyTube/** (the account's custom domain for
+`guplem.github.io`) on every push to `main` that changes it.
 Setup, once: Settings → Pages → Source: **GitHub Actions**. GitHub Pages needs a
 public repo on the free plan.
 

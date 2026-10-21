@@ -27,7 +27,7 @@ describe("doGet", () => {
   it("sets the favicon from the GitHub Pages site", () => {
     doGet();
     expect(mocks.htmlCalls).toContain(
-      "setFaviconUrl:https://guplem.github.io/MyTube/icon-192.png",
+      "setFaviconUrl:https://triunitystudios.com/MyTube/icon-192.png",
     );
   });
 
