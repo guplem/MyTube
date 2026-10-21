@@ -8,6 +8,7 @@ import {
   type AppsScriptMocks,
 } from "../helpers/appsScriptMock";
 import { doGet } from "../../src/server/main";
+import { setPreference } from "../../src/server/preferences";
 
 let mocks: AppsScriptMocks;
 
@@ -36,5 +37,18 @@ describe("doGet", () => {
     expect(() => doGet()).not.toThrow();
     expect(mocks.htmlCalls).toContain("setTitle:MyTube");
     expect(mocks.htmlCalls).toContain("setXFrameOptionsMode:ALLOWALL");
+  });
+
+  it("embeds the account's stored preferences in the page", () => {
+    setPreference("mytube.hideViewed", "true");
+    doGet();
+    expect(JSON.parse(mocks.templateValues.preferencesJson)).toEqual({
+      "mytube.hideViewed": "true",
+    });
+  });
+
+  it("embeds null when the account has no stored preferences yet", () => {
+    doGet();
+    expect(mocks.templateValues.preferencesJson).toBe("null");
   });
 });

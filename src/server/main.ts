@@ -20,6 +20,8 @@ import * as dismissed from "./dismissed";
 import * as progress from "./progress";
 import * as sponsorBlock from "./sponsorBlock";
 import * as dearrow from "./dearrow";
+import * as preferences from "./preferences";
+import { preferencesScriptLiteral } from "../shared/preferences";
 
 // The PWA wrapper on GitHub Pages (pages/) serves the icon and frames this page.
 // setFaviconUrl only accepts a public PNG/ICO that Google fetches itself, so the
@@ -30,14 +32,20 @@ const FAVICON_URL = "https://triunitystudios.com/MyTube/icon-192.png";
 
 /** Serves the single web app page. Called by Apps Script for GET requests. */
 export function doGet(): GoogleAppsScript.HTML.HtmlOutput {
-  const output: GoogleAppsScript.HTML.HtmlOutput =
-    HtmlService.createTemplateFromFile("index")
-      .evaluate()
-      .setTitle("MyTube")
-      .addMetaTag("viewport", "width=device-width, initial-scale=1")
-      // ALLOWALL lets the GitHub Pages wrapper embed the app. Each visitor
-      // still sees only their own account's data.
-      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  const template: GoogleAppsScript.HTML.HtmlTemplate =
+    HtmlService.createTemplateFromFile("index");
+  // The page carries the account's preferences, so the browser applies them
+  // before its first feed request, with no extra round trip.
+  template.preferencesJson = preferencesScriptLiteral(
+    preferences.getPreferences(),
+  );
+  const output: GoogleAppsScript.HTML.HtmlOutput = template
+    .evaluate()
+    .setTitle("MyTube")
+    .addMetaTag("viewport", "width=device-width, initial-scale=1")
+    // ALLOWALL lets the GitHub Pages wrapper embed the app. Each visitor
+    // still sees only their own account's data.
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   // Google fetches the icon while it builds the page and throws when it
   // cannot. A missing icon must never take the whole app down.
   try {
@@ -220,6 +228,16 @@ export function markVideoDismissed(videoId: string): void {
 /** Removes a video from the dismissed list (un-dismisses it). */
 export function removeVideoDismissed(videoId: string): void {
   dismissed.removeVideoDismissed(videoId);
+}
+
+/** Stores one UI preference for the account; null removes it. */
+export function setPreference(key: string, value: string | null): void {
+  preferences.setPreference(key, value);
+}
+
+/** Uploads a device's local preferences to an account that has none stored. */
+export function importPreferences(prefs: unknown): void {
+  preferences.importPreferences(prefs);
 }
 
 /**

@@ -1,4 +1,4 @@
-// The title display preference, as it is stored in localStorage. Kept in its
+// The title display preference, as src/ui/preferences.ts stores it. Kept in its
 // own module because four independent things read it: the video cards
 // (src/ui/videoListView.ts), the playlist title sort (src/ui/main.ts), the
 // player (src/ui/playerView.ts), and the Settings screen, which lists it

@@ -1,5 +1,5 @@
 // The Settings screen: one place that lists every preference the app stores.
-// Preferences live in localStorage (src/ui/preferences.ts), and this screen
+// Preferences live in src/ui/preferences.ts (per account), and this screen
 // reads and writes the very same keys as the controls that already exist (the
 // feed toolbar and the player's own buttons), so the two views can never hold
 // different values. It owns no preference of its own: even the title switch,

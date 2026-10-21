@@ -68,7 +68,7 @@ export function feedFilterControls(afterChange: () => void): HTMLElement[] {
   ];
 }
 
-// A persisted checkbox for one feed filter. Saves to localStorage, then runs
+// A persisted checkbox for one feed filter. Saves the preference, then runs
 // afterChange so the feed picks the new state up.
 function filterToggle(
   labelText: string,
