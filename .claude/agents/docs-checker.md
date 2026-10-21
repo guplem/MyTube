@@ -42,7 +42,7 @@ You verify and fix drift. You do not author new ADRs or decide new decisions: th
 | `appsscript.json` scopes                   | AGENTS.md OAuth gotcha; PLAN.md scope set                         |
 | `tests/` count or layout                   | AGENTS.md TDD section; README if it cites a count                 |
 | `adr/` files added/changed                 | the ADR index table in the root AGENTS.md                         |
-| deploy/CI/auto-merge workflows             | AGENTS.md Git Workflow and TDD gate; README auto-merge section    |
+| deploy/CI workflows, auto-merge flow       | AGENTS.md Git Workflow and TDD gate; README auto-merge section    |
 
 ## Output format
 
