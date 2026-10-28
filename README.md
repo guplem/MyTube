@@ -158,25 +158,20 @@ because they hold credentials.
 
 ## Auto-merge PRs
 
-`.github/workflows/auto-merge.yml` flags every non-draft same-repo PR for
-GitHub's native auto-merge, so it merges once the required `test` check passes —
-no manual click. The merge is authorised by a **GitHub App token**, not the
-default `GITHUB_TOKEN`: GitHub does not trigger workflows from `GITHUB_TOKEN`
-pushes, so a merge made with it would land on `main` without firing the deploy
-(the app would silently stop updating). Setup:
+Whoever opens a PR turns on GitHub's native auto-merge for it: an agent does
+this for its own PR (`gh pr merge --auto --merge`), and you click **Enable
+auto-merge** on a PR you open by hand. GitHub then merges the PR once the
+required `test` check passes. No workflow and no GitHub App are involved.
+
+The merge counts as the person who turned on auto-merge, so it fires the
+`push` event that starts the deploy. A workflow could not do this with the
+default `GITHUB_TOKEN`: GitHub starts no workflow from a `GITHUB_TOKEN` push, so
+the app would silently stop updating. Setup:
 
 1. Settings → General → enable **Allow auto-merge**.
 2. The repo ruleset **Requirements for merge** makes the `test` status check
    required on `main`. It deliberately requires **no** review: a required
    review would make auto-merge wait forever for an approval.
-3. Create a GitHub App installed on this repo with **Contents: read/write** and
-   **Pull requests: read/write**. Store its App ID as the Actions **variable**
-   `AUTOMERGE_APP_ID` (not sensitive) and a generated private key as the
-   **secret** `AUTOMERGE_APP_PRIVATE_KEY`.
-
-If those are missing the workflow simply fails to queue the PR, leaving
-it for a manual merge — which itself triggers the deploy — so the worst case is
-"not auto-merged", never "merged but not deployed".
 
 To deploy the current `main` on demand (e.g. after a merge that didn't deploy),
 use the **Run workflow** button on _Deploy to Apps Script_ in the Actions tab
