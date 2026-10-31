@@ -67,3 +67,22 @@ export function showToast(message: string, action?: ToastAction): void {
 
   window.setTimeout((): void => toast.remove(), 6000);
 }
+
+// The hint snackbar a long press shows (src/ui/longPressHint.ts): what the
+// held button does, in the words of its tooltip. Neutral, no buttons, and only
+// one at a time, so holding several buttons in a row never stacks hints.
+let currentHint: HTMLElement | null = null;
+
+export function showHint(message: string): void {
+  currentHint?.remove();
+  const hint = document.createElement("div");
+  hint.className = "toast toast--notice toast--hint";
+  hint.setAttribute("role", "status");
+  hint.textContent = message;
+  toastContainer().appendChild(hint);
+  currentHint = hint;
+  window.setTimeout((): void => {
+    hint.remove();
+    if (currentHint === hint) currentHint = null;
+  }, 3000);
+}
