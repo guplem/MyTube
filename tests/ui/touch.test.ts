@@ -4,7 +4,11 @@
 // its press feedback from :active instead.
 
 import { describe, expect, it } from "vitest";
-import { appStyleRules, type StyleRule } from "../helpers/stylesheet";
+import {
+  appStyleRules,
+  readRepoFile,
+  type StyleRule,
+} from "../helpers/stylesheet";
 
 const HOVER_GATE = "(hover: hover) and (pointer: fine)";
 
@@ -88,5 +92,14 @@ describe("touch baseline", (): void => {
 
   it("never selects body text as a whole", (): void => {
     expect(declarationsFor("body").get("user-select")).toBeUndefined();
+  });
+});
+
+describe("press feedback on iOS", (): void => {
+  it("has a passive document touchstart listener, without which iOS Safari never applies :active", (): void => {
+    const boot: string = readRepoFile("src/ui/main.ts");
+    expect(boot).toMatch(
+      /document\.addEventListener\(\s*"touchstart",[^;]*\{\s*passive: true\s*\}/,
+    );
   });
 });

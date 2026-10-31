@@ -1312,6 +1312,11 @@ function start(): void {
 renderBuildStamp();
 renderSponsorBlockCredit();
 
+// iOS Safari applies :active on touch only while some touchstart listener
+// exists. The stylesheet's press feedback lives in :active, so this empty
+// listener switches it on. Passive, so it never delays scrolling.
+document.addEventListener("touchstart", (): void => {}, { passive: true });
+
 if (document.readyState === "complete") {
   start();
 } else {
