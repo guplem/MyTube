@@ -765,7 +765,10 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   }
 
   // Rebuild the chapter strip for a video (or hide it when there are none).
-  function renderChapters(list: Chapter[]): void {
+  // `settled` is false only for the clear before a description loads: the
+  // next video may have chapters too, so an open Chapters tab stays open
+  // until the answer says otherwise.
+  function renderChapters(list: Chapter[], settled: boolean = true): void {
     stopChapterTracking();
     chapters = list;
     chapterCards = [];
@@ -777,7 +780,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     if (list.length === 0) {
       chaptersSection.hidden = true;
       // A video without chapters cannot stay on an empty Chapters tab.
-      if (activeTab === "chapters") setActiveTab("description");
+      if (settled && activeTab === "chapters") setActiveTab("description");
       return;
     }
     for (const chapter of list) {
@@ -962,7 +965,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
 
   async function loadDescription(videoId: string): Promise<void> {
     description.replaceChildren(skeletonDescription());
-    renderChapters([]); // clear any previous video's chapters while loading
+    renderChapters([], false); // clear the previous video's chapters while loading
     try {
       const text = await getVideoDescription(videoId);
       if (queue[currentIndex]?.videoId !== videoId) return; // video changed mid-load
@@ -971,9 +974,12 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
         renderChapters(parseChapters(text));
       } else {
         description.textContent = "(no description)";
+        renderChapters([]);
       }
     } catch {
+      if (queue[currentIndex]?.videoId !== videoId) return;
       description.textContent = "(could not load description)";
+      renderChapters([]);
     }
   }
 
