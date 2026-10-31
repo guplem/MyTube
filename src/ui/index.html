@@ -1167,6 +1167,10 @@
           display: none;
         }
       }
+      /* motion-exception: the 0.2s fade of background and border-color is the
+         "current chapter" highlight arriving as playback moves on. Both
+         repaint, but a chapter card is small and the change comes about once
+         a minute, so the paint cost is negligible. */
       .player-view button.chapter-card {
         flex: 0 0 auto;
         max-width: 220px;
