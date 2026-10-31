@@ -79,7 +79,7 @@ describe("touch baseline", (): void => {
   });
 
   it("keeps a long press from selecting a button label", (): void => {
-    const button: Map<string, string> = declarationsFor("button");
+    const button: Map<string, string> = declarationsFor("button:not(.ts-link)");
     expect(button.get("user-select")).toBe("none");
     expect(button.get("-webkit-user-select")).toBe("none");
   });
@@ -87,7 +87,28 @@ describe("touch baseline", (): void => {
   it("keeps a long press on a button or its thumbnail from opening a callout", (): void => {
     // -webkit-touch-callout inherits, so the card thumbnail inside
     // .video-play is covered by the button rule.
-    expect(declarationsFor("button").get("-webkit-touch-callout")).toBe("none");
+    expect(
+      declarationsFor("button:not(.ts-link)").get("-webkit-touch-callout"),
+    ).toBe("none");
+  });
+
+  it("keeps timestamp links selectable, so copied text keeps its times", (): void => {
+    // A timestamp is a .ts-link button inside description and comment text.
+    // Chrome leaves user-select: none content out of a copy, so "Intro 0:00"
+    // would paste as "Intro ".
+    const unselectable: string[] = rules
+      .filter(
+        (rule: StyleRule): boolean =>
+          rule.declarations.get("user-select") === "none" ||
+          rule.declarations.get("-webkit-user-select") === "none",
+      )
+      .flatMap((rule: StyleRule): string[] => rule.selectors)
+      .filter(
+        (selector: string): boolean =>
+          // A bare `button`, or a selector naming .ts-link outside a :not().
+          selector === "button" || /\.ts-link(?![^(]*\))/.test(selector),
+      );
+    expect(unselectable).toEqual([]);
   });
 
   it("never selects body text as a whole", (): void => {
