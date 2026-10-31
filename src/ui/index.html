@@ -23,6 +23,31 @@
       [hidden] {
         display: none !important;
       }
+      /* Touch baseline. The tap highlight is the grey box a phone paints over
+         every tapped control; the :active rules below give the press
+         feedback instead. text-size-adjust stops iOS from enlarging text in
+         landscape. */
+      html {
+        -webkit-tap-highlight-color: transparent;
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+      }
+      /* No double-tap zoom on a control, so a tap fires at once. */
+      button,
+      input,
+      select,
+      label {
+        touch-action: manipulation;
+      }
+      /* A long press on a control must not select its label or open the
+         copy or "save image" callout (the callout setting inherits, so it
+         covers the card thumbnail inside .video-play). Only controls: text
+         that is content stays selectable. */
+      button {
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+      }
       body {
         font-family:
           system-ui,
