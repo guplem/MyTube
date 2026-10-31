@@ -192,7 +192,7 @@ describe("getWatchLaterVideos", () => {
     expect(videos.map((video) => video.inWatchLater)).toEqual([true, true]);
   });
 
-  it("logs one stage timing line", () => {
+  it("logs one stage timing line and reads the user properties once", () => {
     mocks.userProperties.setProperty("watchLaterPlaylistId", "WL");
     mocks.youtube.PlaylistItems = {
       list: () => playlistItemsPage(["a"]),
@@ -200,9 +200,11 @@ describe("getWatchLaterVideos", () => {
       remove: () => ({}),
     };
     const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const before = mocks.userProperties.getPropertiesCalls;
 
     getWatchLaterVideos();
 
+    expect(mocks.userProperties.getPropertiesCalls - before).toBe(1);
     expect(log).toHaveBeenCalledTimes(1);
     expect(String(log.mock.calls[0][0])).toMatch(
       /^getWatchLaterVideos \d+ms \| playlist \d+ms \(1 videos\) \| history \d+ms \| durations \d+ms \| titles \d+ms$/,

@@ -28,6 +28,8 @@ function utf8Bytes(value: string): number {
 
 class FakeProperties {
   private store: { [key: string]: string };
+  /** How many times getProperties() read the whole store. */
+  getPropertiesCalls = 0;
 
   constructor(initial: { [key: string]: string } = {}) {
     this.store = { ...initial };
@@ -50,6 +52,7 @@ class FakeProperties {
   }
 
   getProperties(): { [key: string]: string } {
+    this.getPropertiesCalls += 1;
     return { ...this.store };
   }
 

@@ -73,8 +73,9 @@ export function getFeedPage(options: FeedPageOptions): FeedPage {
   const uploads = feed.getUploadsFeed(options.forceRefresh, stopwatch);
   const all = uploads.videos;
   stopwatch.lap("merge", all.length + " videos");
-  flagSeen(all);
-  flagDismissed(all);
+  const userProperties = readUserProperties();
+  flagSeen(all, userProperties);
+  flagDismissed(all, userProperties);
   stopwatch.lap("history");
   let visible = all;
   // Cheapest filters first, so each costly step runs on an already smaller
@@ -115,7 +116,7 @@ export function getFeedPage(options: FeedPageOptions): FeedPage {
     stopwatch.lap("durations", "page");
   }
   flagInWatchLater(pageVideos);
-  flagProgress(pageVideos);
+  flagProgress(pageVideos, userProperties);
   stopwatch.lap("page flags");
   // No filter reads the community title, so the page alone needs it.
   flagCommunityTitle(pageVideos);
@@ -305,8 +306,9 @@ function enrichList(
   stopwatch: Stopwatch,
   options: { flagSeen: boolean; inWatchLater?: boolean },
 ): Video[] {
-  if (options.flagSeen) flagSeen(videos);
-  flagProgress(videos);
+  const userProperties = readUserProperties();
+  if (options.flagSeen) flagSeen(videos, userProperties);
+  flagProgress(videos, userProperties);
   stopwatch.lap("history");
   enrichDurations(videos);
   stopwatch.lap("durations");
@@ -330,10 +332,25 @@ export function removeFromWatchLater(videoId: string): void {
   youtube.removeFromWatchLater(videoId);
 }
 
-/** Flags each video seen against the watch history. Best-effort: never breaks a list. */
-function flagSeen(videos: Video[]): void {
+// The whole user property store, read ONCE per list call: the history, the
+// dismissed list and the resume positions all live in it, and each read is a
+// round trip to Google's storage. Best-effort like the flags that use it: a
+// failed read leaves each flag to read the store itself.
+function readUserProperties(): { [key: string]: string } | undefined {
   try {
-    const seen = new Set(history.getSeenVideoIds());
+    return PropertiesService.getUserProperties().getProperties();
+  } catch {
+    return undefined;
+  }
+}
+
+/** Flags each video seen against the watch history. Best-effort: never breaks a list. */
+function flagSeen(
+  videos: Video[],
+  userProperties?: { [key: string]: string },
+): void {
+  try {
+    const seen = new Set(history.getSeenVideoIds(userProperties));
     for (const video of videos) video.seen = seen.has(video.videoId);
   } catch {
     // History is best-effort.
@@ -341,9 +358,12 @@ function flagSeen(videos: Video[]): void {
 }
 
 /** Flags each video dismissed against the dismissed list. Best-effort. */
-function flagDismissed(videos: Video[]): void {
+function flagDismissed(
+  videos: Video[],
+  userProperties?: { [key: string]: string },
+): void {
   try {
-    const ids = new Set(dismissed.getDismissedVideoIds());
+    const ids = new Set(dismissed.getDismissedVideoIds(userProperties));
     for (const video of videos) video.dismissed = ids.has(video.videoId);
   } catch {
     // Dismissed list is best-effort.
@@ -352,9 +372,12 @@ function flagDismissed(videos: Video[]): void {
 
 /** Flags each video with its stored resume position, so the player starts
  *  where the user left off. Best-effort: without it videos start at 0. */
-function flagProgress(videos: Video[]): void {
+function flagProgress(
+  videos: Video[],
+  userProperties?: { [key: string]: string },
+): void {
   try {
-    const positions = progress.getProgressSeconds();
+    const positions = progress.getProgressSeconds(userProperties);
     for (const video of videos) {
       const seconds = positions[video.videoId];
       if (seconds !== undefined) video.progressSeconds = seconds;

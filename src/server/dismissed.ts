@@ -42,13 +42,19 @@ function withUserLock<T>(action: () => T): T {
   }
 }
 
-/** All dismissed video ids, used to flag and hide videos in the feed. */
-export function getDismissedVideoIds(): string[] {
-  return readIds();
+/** All dismissed video ids, used to flag and hide videos in the feed. Pass
+ *  the user properties when the caller already read them. */
+export function getDismissedVideoIds(all?: {
+  [key: string]: string;
+}): string[] {
+  return readIds(all);
 }
 
-function readIds(): string[] {
-  const all = PropertiesService.getUserProperties().getProperties();
+function readIds(
+  all: {
+    [key: string]: string;
+  } = PropertiesService.getUserProperties().getProperties(),
+): string[] {
   const chunkKeys = Object.keys(all)
     .filter((key) => key.startsWith(CHUNK_PREFIX))
     .sort((a, b) => chunkIndex(a) - chunkIndex(b));

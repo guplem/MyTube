@@ -90,7 +90,14 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   via `youtube.getVideoDurationsSeconds` (Data API `contentDetails`, cached in
   the shared script cache since length is the same for everyone), hidden when
   `<= 180s`. A toggle re-shows them because the length heuristic has false
-  positives.
+  positives. The cache misses go out as ONE `UrlFetchApp.fetchAll` of plain
+  Data API requests, signed with `ScriptApp.getOAuthToken()`; the advanced
+  service asks one batch at a time. A failed batch falls back to the advanced
+  service, and a batch that fails both ways is left out and never cached.
+- **A list call reads the user property store once.** History, dismissed and
+  resume positions all live there, so `getFeedPage` and `enrichList` in
+  `src/server/main.ts` read it with `readUserProperties()` and pass the result
+  to each flag. A new flag that reads the store takes the same parameter.
 - **Sponsor segments come from SponsorBlock, a public crowd database, not
   YouTube.** `getSponsorSegments` (`src/server/sponsorBlock.ts`) asks by hash
   prefix (first 4 hex chars of `sha256(videoId)`), so the plain video id never
@@ -332,7 +339,7 @@ conversion could be deleted with every test still green (see the
 - **Tests live in `tests/`** (mirroring `src/server/` and `src/shared/`, plus `tests/ui/`) and run on Node via
   **Vitest** (`npm test`). There is no Apps Script in CI, so the runtime globals
   (`PropertiesService`, `CacheService`, `UrlFetchApp`, `XmlService`, `YouTube`,
-  `Utilities`, `HtmlService`) are replaced by in-memory fakes in
+  `Utilities`, `HtmlService`, `ScriptApp`) are replaced by in-memory fakes in
   `tests/helpers/appsScriptMock.ts`. Call `installAppsScriptMocks()` in
   `beforeEach` and `uninstallAppsScriptMocks()` in `afterEach`, then seed
   state/responses through the returned handle. This runs the **real** server

@@ -317,6 +317,38 @@ describe("getFeedPage", () => {
   });
 });
 
+describe("getFeedPage, user property reads", () => {
+  it("reads the whole user property store once per page, not once per flag", () => {
+    seedFeed([entry("a", "2026-06-20T10:00:00+00:00")]);
+    seedDurations({ a: "PT10M" });
+    markVideoSeen({
+      videoId: "a",
+      title: "a",
+      channelId: "C1",
+      channelTitle: "One",
+      thumbnailUrl: "",
+      publishedAt: "2026-06-20T10:00:00+00:00",
+      seen: false,
+    });
+    markVideoDismissed("b");
+    const before = mocks.userProperties.getPropertiesCalls;
+
+    const page = getFeedPage({
+      page: 0,
+      pageSize: 24,
+      forceRefresh: false,
+      hideShorts: true,
+      hideViewed: false,
+      hideDismissed: true,
+      hideSaved: true,
+      beforeDate: "2000-01-01",
+    });
+
+    expect(page.videos.map((video) => video.seen)).toEqual([true]);
+    expect(mocks.userProperties.getPropertiesCalls - before).toBe(1);
+  });
+});
+
 describe("getFeedPage, timing line", () => {
   it("logs one line naming every stage, with the RSS fetch counts", () => {
     seedFeed([entry("a", "2026-06-20T10:00:00+00:00")]);
