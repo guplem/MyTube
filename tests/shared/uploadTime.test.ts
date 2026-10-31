@@ -59,6 +59,15 @@ describe("formatUploadTime", (): void => {
     expect(formatUploadTime("not a date", NOW, "en-GB")).toBe("");
   });
 
+  it("gives the date for a time well in the future (a scheduled premiere)", (): void => {
+    expect(formatUploadTime(at(10, 7, 18, 0), NOW, "en-GB")).toBe(
+      "7 Nov, 18:00",
+    );
+    expect(formatUploadTime(at(9, 31, 20, 0), NOW, "en-GB")).toBe(
+      "31 Oct, 20:00",
+    );
+  });
+
   it("treats a time a little in the future (clock skew) as just now", (): void => {
     expect(formatUploadTime(at(9, 31, 12, 3), NOW, "en-GB")).toBe("Just now");
   });
