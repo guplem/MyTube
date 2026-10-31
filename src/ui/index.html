@@ -74,6 +74,7 @@
         gap: 0.5rem;
         max-width: 100%;
         overflow-x: auto;
+        overscroll-behavior-x: contain;
         scrollbar-width: none;
         -ms-overflow-style: none;
       }
@@ -1149,6 +1150,9 @@
         display: flex;
         gap: 0.5rem;
         overflow-x: auto;
+        /* Every horizontal strip contains its overscroll: past the end, a
+           trackpad swipe would otherwise reach the page and go "back". */
+        overscroll-behavior-x: contain;
         padding-bottom: 0.35rem;
       }
       /* On touch devices the overlay scrollbar can appear on load and linger

@@ -103,3 +103,23 @@ describe("press feedback on iOS", (): void => {
     );
   });
 });
+
+describe("horizontal scroll strips", (): void => {
+  const strips: StyleRule[] = rules.filter((rule: StyleRule): boolean =>
+    /^(auto|scroll)$/.test(rule.declarations.get("overflow-x") ?? ""),
+  );
+
+  it("exist (the check below is not vacuous)", (): void => {
+    expect(strips.length).toBeGreaterThan(0);
+  });
+
+  it("keep their scroll to themselves, so the end of a strip never swipes the page back", (): void => {
+    const leaking: string[] = strips
+      .filter(
+        (rule: StyleRule): boolean =>
+          rule.declarations.get("overscroll-behavior-x") !== "contain",
+      )
+      .flatMap((rule: StyleRule): string[] => rule.selectors);
+    expect(leaking).toEqual([]);
+  });
+});
