@@ -66,7 +66,12 @@
         flex: 0 0 auto;
         white-space: nowrap;
       }
-      .app-nav button:hover {
+      @media (hover: hover) and (pointer: fine) {
+        .app-nav button:hover {
+          color: #fff;
+        }
+      }
+      .app-nav button:active {
         color: #fff;
       }
       .app-nav button.active {
@@ -148,7 +153,12 @@
         font: inherit;
         cursor: pointer;
       }
-      .app-search button:hover {
+      @media (hover: hover) and (pointer: fine) {
+        .app-search button:hover {
+          background: #333;
+        }
+      }
+      .app-search button:active {
         background: #333;
       }
       #app {
@@ -186,7 +196,12 @@
         text-decoration: underline;
         cursor: pointer;
       }
-      .footer-link:hover {
+      @media (hover: hover) and (pointer: fine) {
+        .footer-link:hover {
+          color: #f1f1f1;
+        }
+      }
+      .footer-link:active {
         color: #f1f1f1;
       }
 
@@ -276,7 +291,12 @@
         line-height: 1;
         cursor: pointer;
       }
-      .video-card-corner:hover {
+      @media (hover: hover) and (pointer: fine) {
+        .video-card-corner:hover {
+          background: rgba(0, 0, 0, 0.9);
+        }
+      }
+      .video-card-corner:active {
         background: rgba(0, 0, 0, 0.9);
       }
       .video-card--seen {
@@ -355,7 +375,12 @@
         font: inherit;
         cursor: pointer;
       }
-      .video-play:hover {
+      @media (hover: hover) and (pointer: fine) {
+        .video-play:hover {
+          background: #272727;
+        }
+      }
+      .video-play:active {
         background: #272727;
       }
       .video-actions {
@@ -383,7 +408,12 @@
         font-size: 0.8rem;
         cursor: pointer;
       }
-      .video-action:hover {
+      @media (hover: hover) and (pointer: fine) {
+        .video-action:hover {
+          background: #333;
+        }
+      }
+      .video-action:active {
         background: #333;
       }
       /* A toggled-ON card button reads as pressed: filled with the same colors
@@ -395,7 +425,12 @@
         border-color: #3ea6ff;
         color: #fff;
       }
-      .video-action--on:hover {
+      @media (hover: hover) and (pointer: fine) {
+        .video-action--on:hover {
+          background: #284066;
+        }
+      }
+      .video-action--on:active {
         background: #284066;
       }
       /* Notification dot on the watched toggle when the progress store (or,
@@ -436,7 +471,12 @@
         font: inherit;
         cursor: pointer;
       }
-      .playlist-item:hover {
+      @media (hover: hover) and (pointer: fine) {
+        .playlist-item:hover {
+          background: #272727;
+        }
+      }
+      .playlist-item:active {
         background: #272727;
       }
       .video-thumb-wrap {
@@ -522,7 +562,12 @@
         font: inherit;
         cursor: pointer;
       }
-      .list-controls button:hover:not(:disabled) {
+      @media (hover: hover) and (pointer: fine) {
+        .list-controls button:hover:not(:disabled) {
+          background: #333;
+        }
+      }
+      .list-controls button:active:not(:disabled) {
         background: #333;
       }
       .list-controls button:disabled {
@@ -551,7 +596,12 @@
         font: inherit;
         cursor: pointer;
       }
-      .refresh-button:hover {
+      @media (hover: hover) and (pointer: fine) {
+        .refresh-button:hover {
+          background: #333;
+        }
+      }
+      .refresh-button:active {
         background: #333;
       }
       .refresh-button--right {
@@ -614,7 +664,12 @@
         font-size: 0.85rem;
         cursor: pointer;
       }
-      .toast-action:hover {
+      @media (hover: hover) and (pointer: fine) {
+        .toast-action:hover {
+          background: #333;
+        }
+      }
+      .toast-action:active {
         background: #333;
       }
       .toast-dismiss {
@@ -808,7 +863,13 @@
         color: #aaa;
         cursor: pointer;
       }
-      .player-view button.player-tab:hover {
+      @media (hover: hover) and (pointer: fine) {
+        .player-view button.player-tab:hover {
+          background: none;
+          color: #ddd;
+        }
+      }
+      .player-view button.player-tab:active {
         background: none;
         color: #ddd;
       }
@@ -951,7 +1012,12 @@
         text-decoration: underline;
         cursor: pointer;
       }
-      .ts-link:hover {
+      @media (hover: hover) and (pointer: fine) {
+        .ts-link:hover {
+          color: #6cb8ff;
+        }
+      }
+      .ts-link:active {
         color: #6cb8ff;
       }
       .show-more {
@@ -964,7 +1030,12 @@
         font: inherit;
         cursor: pointer;
       }
-      .show-more:hover:not(:disabled) {
+      @media (hover: hover) and (pointer: fine) {
+        .show-more:hover:not(:disabled) {
+          background: #333;
+        }
+      }
+      .show-more:active:not(:disabled) {
         background: #333;
       }
       .show-more:disabled {
@@ -983,8 +1054,16 @@
         font: inherit;
         cursor: pointer;
       }
+      @media (hover: hover) and (pointer: fine) {
+        .player-view
+          button:not(.ts-link):not(.player-tab):not(.chapter-card):hover:not(
+            :disabled
+          ) {
+          background: #333;
+        }
+      }
       .player-view
-        button:not(.ts-link):not(.player-tab):not(.chapter-card):hover:not(
+        button:not(.ts-link):not(.player-tab):not(.chapter-card):active:not(
           :disabled
         ) {
         background: #333;
@@ -1005,10 +1084,18 @@
         border-color: #3ea6ff;
         color: #fff;
       }
+      @media (hover: hover) and (pointer: fine) {
+        .player-view
+          button.player-toggle--on:not(.ts-link):not(.player-tab):not(
+            .chapter-card
+          ):hover:not(:disabled) {
+          background: #284066;
+        }
+      }
       .player-view
         button.player-toggle--on:not(.ts-link):not(.player-tab):not(
           .chapter-card
-        ):hover:not(:disabled) {
+        ):active:not(:disabled) {
         background: #284066;
       }
 
@@ -1069,7 +1156,13 @@
           background 0.2s ease,
           border-color 0.2s ease;
       }
-      .player-view button.chapter-card:hover {
+      @media (hover: hover) and (pointer: fine) {
+        .player-view button.chapter-card:hover {
+          background: #242424;
+          border-color: #3a3a3a;
+        }
+      }
+      .player-view button.chapter-card:active {
         background: #242424;
         border-color: #3a3a3a;
       }
@@ -1096,7 +1189,12 @@
         background: #23334a;
         border-color: #3ea6ff;
       }
-      .player-view button.chapter-card.current:hover {
+      @media (hover: hover) and (pointer: fine) {
+        .player-view button.chapter-card.current:hover {
+          background: #284066;
+        }
+      }
+      .player-view button.chapter-card.current:active {
         background: #284066;
       }
       .player-view button.chapter-card.current .chapter-label {
@@ -1140,17 +1238,35 @@
           .chapter-card
         ),
       .player-view
+        button.player-theater.active:not(.ts-link):not(.player-tab):not(
+          .chapter-card
+        ) {
+        background: #3ea6ff;
+        border-color: #3ea6ff;
+        color: #0f0f0f;
+      }
+      @media (hover: hover) and (pointer: fine) {
+        .player-view
+          button.player-sponsor.active:not(.ts-link):not(.player-tab):not(
+            .chapter-card
+          ):hover,
+        .player-view
+          button.player-theater.active:not(.ts-link):not(.player-tab):not(
+            .chapter-card
+          ):hover {
+          background: #3ea6ff;
+          border-color: #3ea6ff;
+          color: #0f0f0f;
+        }
+      }
+      .player-view
         button.player-sponsor.active:not(.ts-link):not(.player-tab):not(
           .chapter-card
-        ):hover,
+        ):active,
       .player-view
         button.player-theater.active:not(.ts-link):not(.player-tab):not(
           .chapter-card
-        ),
-      .player-view
-        button.player-theater.active:not(.ts-link):not(.player-tab):not(
-          .chapter-card
-        ):hover {
+        ):active {
         background: #3ea6ff;
         border-color: #3ea6ff;
         color: #0f0f0f;
