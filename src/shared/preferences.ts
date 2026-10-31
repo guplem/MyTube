@@ -43,7 +43,13 @@ export function sanitizePreferences(input: unknown): Preferences {
  * older script parsers reject.
  */
 export function preferencesScriptLiteral(prefs: Preferences | null): string {
-  return JSON.stringify(prefs)
+  return scriptLiteral(prefs);
+}
+
+/** Any JSON value as a literal for a <script> in the served page, escaped
+ *  the same way as the preferences above. */
+export function scriptLiteral(value: unknown): string {
+  return JSON.stringify(value)
     .replace(/</g, "\\u003c")
     .replace(/\u2028/g, "\\u2028")
     .replace(/\u2029/g, "\\u2029");
