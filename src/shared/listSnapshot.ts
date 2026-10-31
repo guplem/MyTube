@@ -106,6 +106,7 @@ export function feedSnapshotKey(options: FeedPageOptions): string {
     JSON.stringify({
       pageSize: options.pageSize,
       hideShorts: options.hideShorts,
+      hideUpcoming: options.hideUpcoming,
       hideViewed: options.hideViewed,
       hideDismissed: options.hideDismissed,
       hideSaved: options.hideSaved,

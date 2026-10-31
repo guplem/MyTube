@@ -94,8 +94,8 @@ export function getFeedPage(options: FeedPageOptions): FeedPage {
   let visible = all;
   // Cheapest filters first, so each costly step runs on an already smaller
   // list: the free ones (already-computed flags, a date string compare), then
-  // Watch Later membership, then the duration lookup (hideShorts), the most
-  // expensive of all.
+  // Watch Later membership, then the length lookup (hideShorts and
+  // hideUpcoming share it), the most expensive of all.
   if (options.hideViewed) {
     visible = visible.filter((video) => !video.seen);
   }
@@ -116,16 +116,22 @@ export function getFeedPage(options: FeedPageOptions): FeedPage {
     visible = visible.filter((video) => !video.inWatchLater);
     stopwatch.lap("watch later");
   }
-  if (options.hideShorts) {
+  const lengthsOnWholeList: boolean =
+    options.hideShorts || options.hideUpcoming;
+  if (lengthsOnWholeList) {
     enrichDurations(visible);
-    visible = visible.filter((video) => !isShort(video));
+    if (options.hideShorts)
+      visible = visible.filter((video) => !isShort(video));
+    if (options.hideUpcoming)
+      visible = visible.filter((video) => video.scheduledStartAt === undefined);
     stopwatch.lap("durations", "whole list");
   }
   const start = options.page * options.pageSize;
   const pageVideos = visible.slice(start, start + options.pageSize);
-  // Durations power the on-card badge. With hideShorts on they are already
-  // looked up for the whole list above; otherwise fetch them just for this page.
-  if (!options.hideShorts) {
+  // Durations power the on-card badge and the upcoming marker. With a filter
+  // that reads them they are already looked up for the whole list above;
+  // otherwise fetch them just for this page.
+  if (!lengthsOnWholeList) {
     enrichDurations(pageVideos);
     stopwatch.lap("durations", "page");
   }
@@ -150,13 +156,19 @@ export function getFeedPage(options: FeedPageOptions): FeedPage {
 // clip), which is why the UI offers a toggle to show Shorts again.
 const SHORT_MAX_SECONDS = 180;
 
+// Also sets scheduledStartAt on a video that is announced but not out yet: the
+// same Data API answer carries it (src/shared/upcoming.ts).
 function enrichDurations(videos: Video[]): void {
   try {
-    const durations = youtube.getVideoDurationsSeconds(
+    const lengths = youtube.getVideoLengths(
       videos.map((video) => video.videoId),
     );
-    for (const video of videos)
-      video.durationSeconds = durations[video.videoId];
+    for (const video of videos) {
+      const length: youtube.VideoLength | undefined = lengths[video.videoId];
+      video.durationSeconds = length?.durationSeconds;
+      if (length?.scheduledStartAt !== undefined)
+        video.scheduledStartAt = length.scheduledStartAt;
+    }
   } catch {
     // Length lookup is best-effort; without it no video is treated as a Short.
   }

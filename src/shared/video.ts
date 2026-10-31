@@ -12,6 +12,10 @@ export interface Video {
   publishedAt: string;
   /** Not available from RSS; filled in for sources that know it. */
   durationSeconds?: number;
+  /** The scheduled start (ISO 8601) of a premiere or live stream that is
+   *  announced but not out yet. Set by the same lookup as durationSeconds;
+   *  absent for every video that can play now. See shared/upcoming.ts. */
+  scheduledStartAt?: string;
   /** Whether the user marked this video seen (history, milestone 4). */
   seen: boolean;
   /** Whether the user dismissed this video from the feed. Set on feed videos only. */

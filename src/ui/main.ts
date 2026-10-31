@@ -46,9 +46,11 @@ import {
 } from "./feedNavButton";
 import {
   HIDE_SHORTS_PREF,
+  HIDE_UPCOMING_PREF,
   HIDE_SAVED_PREF,
   BEFORE_DATE_PREF,
   HIDE_SHORTS_DEFAULT,
+  HIDE_UPCOMING_DEFAULT,
   HIDE_SAVED_DEFAULT,
   feedFlagFilters,
 } from "./feedFilters";
@@ -516,6 +518,7 @@ function feedPageOptions(
     pageSize,
     forceRefresh,
     hideShorts: getBoolPreference(HIDE_SHORTS_PREF, HIDE_SHORTS_DEFAULT),
+    hideUpcoming: getBoolPreference(HIDE_UPCOMING_PREF, HIDE_UPCOMING_DEFAULT),
     // The same three filters the Feed nav button recounts with, read from one
     // place so the request and the recount can never disagree.
     ...feedFlagFilters(),

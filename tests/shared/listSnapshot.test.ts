@@ -160,6 +160,7 @@ describe("feed snapshots", () => {
     pageSize: 24,
     forceRefresh: false,
     hideShorts: true,
+    hideUpcoming: true,
     hideViewed: false,
     hideDismissed: true,
     hideSaved: true,
@@ -175,6 +176,9 @@ describe("feed snapshots", () => {
     );
     expect(feedSnapshotKey(options)).not.toBe(
       feedSnapshotKey({ ...options, hideShorts: false }),
+    );
+    expect(feedSnapshotKey(options)).not.toBe(
+      feedSnapshotKey({ ...options, hideUpcoming: false }),
     );
     expect(feedSnapshotKey(options)).not.toBe(
       feedSnapshotKey({ ...options, pageSize: 48 }),
