@@ -65,9 +65,10 @@ function withUserLock<T>(action: () => T): T {
   }
 }
 
-/** All seen video ids, used to flag videos in other lists. */
-export function getSeenVideoIds(): string[] {
-  return readEntries().map((entry) => entry.videoId);
+/** All seen video ids, used to flag videos in other lists. Pass the user
+ *  properties when the caller already read them. */
+export function getSeenVideoIds(all?: { [key: string]: string }): string[] {
+  return readEntries(all).map((entry) => entry.videoId);
 }
 
 /** The watch history as Video[], newest first. */
@@ -85,8 +86,11 @@ export function getHistory(): Video[] {
     }));
 }
 
-function readEntries(): HistoryEntry[] {
-  const all = PropertiesService.getUserProperties().getProperties();
+function readEntries(
+  all: {
+    [key: string]: string;
+  } = PropertiesService.getUserProperties().getProperties(),
+): HistoryEntry[] {
   const chunkKeys = Object.keys(all)
     .filter((key) => key.startsWith(CHUNK_PREFIX))
     .sort((a, b) => chunkIndex(a) - chunkIndex(b));

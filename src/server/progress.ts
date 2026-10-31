@@ -52,10 +52,13 @@ export function saveVideoProgress(videoId: string, seconds: number): void {
   });
 }
 
-/** All stored positions as a videoId → seconds map, used to flag video lists. */
-export function getProgressSeconds(): { [videoId: string]: number } {
+/** All stored positions as a videoId → seconds map, used to flag video lists.
+ *  Pass the user properties when the caller already read them. */
+export function getProgressSeconds(all?: { [key: string]: string }): {
+  [videoId: string]: number;
+} {
   const progress: { [videoId: string]: number } = {};
-  for (const entry of readEntries()) progress[entry.videoId] = entry.seconds;
+  for (const entry of readEntries(all)) progress[entry.videoId] = entry.seconds;
   return progress;
 }
 
@@ -72,8 +75,11 @@ function withUserLock<T>(action: () => T): T {
   }
 }
 
-function readEntries(): ProgressEntry[] {
-  const all = PropertiesService.getUserProperties().getProperties();
+function readEntries(
+  all: {
+    [key: string]: string;
+  } = PropertiesService.getUserProperties().getProperties(),
+): ProgressEntry[] {
   const chunkKeys = Object.keys(all)
     .filter((key) => key.startsWith(CHUNK_PREFIX))
     .sort((a, b) => chunkIndex(a) - chunkIndex(b));

@@ -28,6 +28,8 @@ function utf8Bytes(value: string): number {
 
 class FakeProperties {
   private store: { [key: string]: string };
+  /** How many times getProperties() read the whole store. */
+  getPropertiesCalls = 0;
 
   constructor(initial: { [key: string]: string } = {}) {
     this.store = { ...initial };
@@ -50,6 +52,7 @@ class FakeProperties {
   }
 
   getProperties(): { [key: string]: string } {
+    this.getPropertiesCalls += 1;
     return { ...this.store };
   }
 
@@ -255,6 +258,7 @@ export function httpResponse(code: number, body: string): FakeHttpResponse {
 interface FetchRequest {
   url: string;
   muteHttpExceptions?: boolean;
+  headers?: { [name: string]: string };
 }
 
 // ---------------------------------------------------------------------------
@@ -303,6 +307,8 @@ export interface AppsScriptMocks {
   rejectFavicon: boolean;
   /** The values doGet assigned on the index template before evaluate(). */
   templateValues: { [key: string]: string };
+  /** What ScriptApp.getOAuthToken() returns: the user's access token. */
+  oauthToken: string;
 }
 
 /**
@@ -328,6 +334,7 @@ export function installAppsScriptMocks(): AppsScriptMocks {
     htmlCalls: [],
     rejectFavicon: false,
     templateValues: {},
+    oauthToken: "fake-oauth-token",
   };
 
   const g = globalThis as Record<string, unknown>;
@@ -379,6 +386,8 @@ export function installAppsScriptMocks(): AppsScriptMocks {
   };
 
   g.XmlService = fakeXmlService;
+
+  g.ScriptApp = { getOAuthToken: () => mocks.oauthToken };
 
   const htmlOutput: Record<string, (arg: string) => unknown> = {};
   for (const name of ["setTitle", "setXFrameOptionsMode"]) {
@@ -433,6 +442,7 @@ export function uninstallAppsScriptMocks(): void {
     "YouTube",
     "LockService",
     "HtmlService",
+    "ScriptApp",
   ]) {
     delete g[key];
   }
