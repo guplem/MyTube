@@ -3,6 +3,7 @@ import { countLabel, groupedNumber } from "../../src/shared/countLabel";
 
 afterEach((): void => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   vi.resetModules();
 });
 
@@ -45,6 +46,14 @@ describe("grouping in a non-English browser", (): void => {
       ): Intl.NumberFormat {
         return new RealNumberFormat(locale ?? "de-DE", options);
       },
+    });
+    // toLocaleString with no locale reads the browser locale too.
+    vi.spyOn(Number.prototype, "toLocaleString").mockImplementation(function (
+      this: number,
+      locale?: string | string[],
+      options?: Intl.NumberFormatOptions,
+    ): string {
+      return new RealNumberFormat(locale ?? "de-DE", options).format(this);
     });
     vi.resetModules();
     const fresh: typeof import("../../src/shared/countLabel") =

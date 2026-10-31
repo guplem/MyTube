@@ -171,6 +171,7 @@ describe("toast entrance", (): void => {
       .find((rule: StyleRule): boolean => rule.selectors.includes(".toast"))
       ?.declarations.get("transition");
     expect(reduced).toBeDefined();
+    expect(reduced).toContain("opacity");
     expect(reduced).not.toContain("transform");
   });
 });

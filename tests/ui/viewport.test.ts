@@ -34,7 +34,11 @@ describe("viewport tags", (): void => {
   it("never block zoom (an accessibility failure; fix input font size instead)", (): void => {
     for (const content of viewportContents()) {
       expect(content).not.toMatch(/user-scalable\s*=\s*(no|0)/i);
-      expect(content).not.toMatch(/maximum-scale/i);
+      // maximum-scale at the browser default of 5 or above still zooms.
+      const maximum: RegExpMatchArray | null = content.match(
+        /maximum-scale\s*=\s*([\d.]+)/i,
+      );
+      if (maximum) expect(Number(maximum[1])).toBeGreaterThanOrEqual(5);
     }
   });
 });
@@ -72,7 +76,7 @@ describe("form fields", (): void => {
     expect(fieldRules.length).toBeGreaterThan(3);
   });
 
-  it("never set a font size under 16px", (): void => {
+  it("never set their own font size under 16px", (): void => {
     const small: string[] = fieldRules
       .filter((rule: StyleRule): boolean => {
         // The font shorthand carries a size too: "font: 14px/1 sans-serif".

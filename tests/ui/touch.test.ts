@@ -90,6 +90,15 @@ function declarationsFor(selector: string): Map<string, string> {
   return merged;
 }
 
+// Whether a selector can match a .ts-link timestamp button: its last part
+// is a plain `button` (with no :not(.ts-link)), or names .ts-link outside a
+// :not().
+function isTimestampSelector(selector: string): boolean {
+  if (/\.ts-link(?![^(]*\))/.test(selector)) return true;
+  const last: string = selector.split(/\s|>|\+|~/).pop() ?? "";
+  return /^button(?![\w.#[-])/.test(last) && !last.includes(":not(.ts-link)");
+}
+
 describe("touch baseline", (): void => {
   it("turns off the grey tap flash and the landscape font inflation", (): void => {
     const html: Map<string, string> = declarationsFor("html");
@@ -130,15 +139,11 @@ describe("touch baseline", (): void => {
           rule.declarations.get("-webkit-user-select") === "none",
       )
       .flatMap((rule: StyleRule): string[] => rule.selectors)
-      .filter(
-        (selector: string): boolean =>
-          // A bare `button`, or a selector naming .ts-link outside a :not().
-          selector === "button" || /\.ts-link(?![^(]*\))/.test(selector),
-      );
+      .filter((selector: string): boolean => isTimestampSelector(selector));
     expect(unselectable).toEqual([]);
   });
 
-  it("never selects body text as a whole", (): void => {
+  it("never makes body text unselectable as a whole", (): void => {
     expect(declarationsFor("body").get("user-select")).toBeUndefined();
   });
 });
@@ -154,7 +159,11 @@ describe("press feedback on iOS", (): void => {
 
 describe("horizontal scroll strips", (): void => {
   const strips: StyleRule[] = rules.filter((rule: StyleRule): boolean =>
-    /^(auto|scroll)$/.test(rule.declarations.get("overflow-x") ?? ""),
+    /(^|\s)(auto|scroll)$/.test(
+      rule.declarations.get("overflow-x") ??
+        rule.declarations.get("overflow") ??
+        "",
+    ),
   );
 
   it("exist (the check below is not vacuous)", (): void => {
@@ -165,7 +174,8 @@ describe("horizontal scroll strips", (): void => {
     const leaking: string[] = strips
       .filter(
         (rule: StyleRule): boolean =>
-          rule.declarations.get("overscroll-behavior-x") !== "contain",
+          (rule.declarations.get("overscroll-behavior-x") ??
+            rule.declarations.get("overscroll-behavior")) !== "contain",
       )
       .flatMap((rule: StyleRule): string[] => rule.selectors);
     expect(leaking).toEqual([]);
