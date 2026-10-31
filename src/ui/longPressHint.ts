@@ -33,6 +33,9 @@ export function installLongPressHints(): void {
       cancel();
       hinted = null;
       if (event.pointerType !== "touch") return;
+      // In fullscreen only the video shows: a hint in the page would be
+      // invisible, so the press just runs.
+      if (document.fullscreenElement) return;
       const target: Element | null = event.target as Element | null;
       const button: HTMLButtonElement | null =
         target?.closest<HTMLButtonElement>("button[title]") ?? null;
@@ -67,7 +70,22 @@ export function installLongPressHints(): void {
     },
     { passive: true },
   );
-  document.addEventListener("pointerup", cancel, { passive: true });
+  document.addEventListener(
+    "pointerup",
+    (): void => {
+      cancel();
+      // iOS can fire no click after a long press. Forget the hinted button
+      // soon after the finger lifts, so a later keyboard or assistive click
+      // on it is never swallowed.
+      if (hinted) {
+        const lifted: HTMLButtonElement = hinted;
+        window.setTimeout((): void => {
+          if (hinted === lifted) hinted = null;
+        }, 600);
+      }
+    },
+    { passive: true },
+  );
   document.addEventListener("pointercancel", cancel, { passive: true });
 
   // The finger lifts after the hint and the browser still fires a click:
@@ -87,9 +105,9 @@ export function installLongPressHints(): void {
   );
 
   // Android opens a context menu on a long press; on a button it has nothing
-  // to offer, and it would cover the hint.
+  // to offer, and it would cover the hint. Only during a touch press: a
+  // desktop right-click keeps its menu.
   document.addEventListener("contextmenu", (event: MouseEvent): void => {
-    const target: Element | null = event.target as Element | null;
-    if (target?.closest("button[title]")) event.preventDefault();
+    if (press || hinted) event.preventDefault();
   });
 }
