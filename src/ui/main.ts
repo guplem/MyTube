@@ -71,7 +71,7 @@ import {
   watchLaterSnapshotVideos,
 } from "../shared/listSnapshot";
 import { showToast } from "./toast";
-import { communityTitlesOn } from "./titlePreferences";
+import { communityTitlesOn, sentenceCaseOn } from "./titlePreferences";
 import { getBoolPreference, getStringPreference } from "./preferences";
 import {
   pushUrlState,
@@ -856,13 +856,19 @@ function sortVideos(videos: Video[], key: SortKey): Video[] {
   else if (key === "oldest")
     sorted.sort((a, b) => a.publishedAt.localeCompare(b.publishedAt));
   // Sort by the title on show, so "A–Z" matches what the cards read. Read the
-  // preference once: a comparator runs thousands of times on a long playlist.
+  // preferences and compute each title once: a comparator runs thousands of
+  // times on a long playlist, and sentence case rewrites the whole title.
   else {
     const useCommunity: boolean = communityTitlesOn();
+    const sentenceCase: boolean = sentenceCaseOn();
+    const shown: Map<Video, string> = new Map<Video, string>(
+      videos.map((video: Video): [Video, string] => [
+        video,
+        pickDisplayTitle(video, useCommunity, sentenceCase),
+      ]),
+    );
     sorted.sort((a: Video, b: Video): number =>
-      pickDisplayTitle(a, useCommunity).localeCompare(
-        pickDisplayTitle(b, useCommunity),
-      ),
+      (shown.get(a) as string).localeCompare(shown.get(b) as string),
     );
   }
   return sorted;

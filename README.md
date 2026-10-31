@@ -48,7 +48,8 @@ quota. See [One-time Google setup](#one-time-google-setup) below.
   fullscreen buttons, a Watch Later toggle, a watched toggle, the description,
   a Chapters tab, comments, and no end-screen recommendations. An Info
   tab shows the video's facts, its YouTube and DeArrow titles with the reason
-  for the pick, and its sponsor segments.
+  for the pick, the title before and after sentence case, and its sponsor
+  segments.
 - **Sponsor skip** — jumps past the sponsor and self-promotion parts of a video
   using the community SponsorBlock database, with a one-tap Undo. On by
   default; switch it in Settings.
@@ -56,8 +57,13 @@ quota. See [One-time Google setup](#one-time-google-setup) below.
   title from the DeArrow database when one exists. On by default. On a
   computer, hover a title to see the YouTube one; turn the switch off in
   Settings to see YouTube titles everywhere.
+- **Sentence case titles** — rewrites shouted or title-case titles ("THIS IS
+  INSANE!!") in sentence case ("This is insane!!"). Words that look like
+  acronyms ("GPU") or have mixed case ("iPhone") keep their case. On by
+  default, separate from community titles; switch it in Settings. On a
+  computer, hover a title to see the YouTube one.
 - **Settings** — a link in the footer of every screen opens one page with every
-  preference: the feed filters, community titles, and the player settings
+  preference: the feed filters, the title switches, and the player settings
   (theater mode, sponsor skip, autoplay, playback speed). The feed toolbar keeps its own
   toggles, and both views show the same values.
 - **Duration badge** on every thumbnail.

@@ -126,9 +126,13 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   `src/shared/dearrow.ts`. `main.ts` sets `Video.communityTitle`, page-only in
   `getFeedPage` because no filter reads it. The browser picks the shown title
   at render time (`displayTitle` in `src/ui/titlePreferences.ts`), so the
-  Settings switch needs no refetch. The player Info tab lists every
-  submission of one video through `getDeArrowSubmissions`, which asks only
-  when the tab opens and reports a failure (ADR 0009).
+  Settings switch needs no refetch. A second switch rewrites the title on show
+  in sentence case (`toSentenceCase` in `src/shared/sentenceCase.ts`), also at
+  render time. Every caller of `pickDisplayTitle` (the cards, the player,
+  the "Title (A–Z)" sort, the Info tab) passes both switches. The player
+  Info tab lists every submission of one video through
+  `getDeArrowSubmissions`, which asks only when the tab opens and reports a
+  failure (ADR 0009).
 - **Seen = watch history only.** `flagSeen` sets it from the history ids;
   "Hide watched" filters on it. In UI copy the flag is always called
   **watched** (matching the History tab); `seen` stays the name in code and

@@ -2,8 +2,8 @@
 // Preferences live in src/ui/preferences.ts (per account), and this screen
 // reads and writes the very same keys as the controls that already exist (the
 // feed toolbar and the player's own buttons), so the two views can never hold
-// different values. It owns no preference of its own: even the title switch,
-// which has no other control, keeps its key in src/ui/titlePreferences.ts.
+// different values. It owns no preference of its own: even the title switches,
+// which have no other control, keep their keys in src/ui/titlePreferences.ts.
 //
 // The feed filters need more than a write: the feed remembers which page it
 // showed, and that page number belongs to the old filters. The caller passes
@@ -28,6 +28,8 @@ import {
 import {
   COMMUNITY_TITLES_PREF,
   COMMUNITY_TITLES_DEFAULT,
+  SENTENCE_CASE_PREF,
+  SENTENCE_CASE_DEFAULT,
 } from "./titlePreferences";
 import {
   DEFAULT_PLAYBACK_RATE,
@@ -60,6 +62,11 @@ export function SettingsView(onFeedFilterChange: () => void): HTMLElement {
         "Show community titles (DeArrow)",
         COMMUNITY_TITLES_PREF,
         COMMUNITY_TITLES_DEFAULT,
+      ),
+      preferenceToggle(
+        "Write titles in sentence case",
+        SENTENCE_CASE_PREF,
+        SENTENCE_CASE_DEFAULT,
       ),
     ]),
   );
