@@ -76,6 +76,7 @@ import {
 } from "./skeleton";
 import { formatDate, formatDuration } from "./videoListView";
 import { formatUploadTime } from "../shared/uploadTime";
+import { upcomingLabel } from "../shared/upcoming";
 import { compactNumber } from "../shared/countLabel";
 import { scrollBehavior } from "./motion";
 
@@ -889,7 +890,12 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     prevButton.disabled = currentIndex <= 0;
     nextButton.disabled = currentIndex >= queue.length - 1;
     meta.textContent = video
-      ? [video.channelTitle, formatUploadTime(video.publishedAt)]
+      ? [
+          video.channelTitle,
+          video.scheduledStartAt !== undefined
+            ? upcomingLabel(video.scheduledStartAt)
+            : formatUploadTime(video.publishedAt),
+        ]
           .filter((part: string): boolean => part !== "")
           .join(" · ")
       : "";
