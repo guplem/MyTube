@@ -301,20 +301,49 @@ const video: Video = {
 describe("pickDisplayTitle", () => {
   it("shows the community title when the switch is on", () => {
     expect(
-      pickDisplayTitle({ ...video, communityTitle: "A calm title" }, true),
+      pickDisplayTitle(
+        { ...video, communityTitle: "A calm title" },
+        true,
+        false,
+      ),
     ).toBe("A calm title");
   });
 
   it("shows the YouTube title when the switch is off", () => {
     expect(
-      pickDisplayTitle({ ...video, communityTitle: "A calm title" }, false),
+      pickDisplayTitle(
+        { ...video, communityTitle: "A calm title" },
+        false,
+        false,
+      ),
     ).toBe(video.title);
   });
 
   it("shows the YouTube title when there is no community title", () => {
-    expect(pickDisplayTitle(video, true)).toBe(video.title);
-    expect(pickDisplayTitle({ ...video, communityTitle: "" }, true)).toBe(
-      video.title,
+    expect(pickDisplayTitle(video, true, false)).toBe(video.title);
+    expect(
+      pickDisplayTitle({ ...video, communityTitle: "" }, true, false),
+    ).toBe(video.title);
+  });
+
+  it("keeps the casing of the title on show when sentence case is off", () => {
+    const loud: Video = { ...video, title: "THIS IS INSANE!!" };
+    expect(pickDisplayTitle(loud, true, false)).toBe("THIS IS INSANE!!");
+  });
+
+  it("applies sentence case to the YouTube title on show", () => {
+    const loud: Video = { ...video, title: "THIS IS INSANE!!" };
+    expect(pickDisplayTitle(loud, false, true)).toBe("This is insane!!");
+  });
+
+  it("applies sentence case to the community title on show", () => {
+    const loud: Video = {
+      ...video,
+      title: "Untouched YouTube Title",
+      communityTitle: "A Calm Title About The GPU",
+    };
+    expect(pickDisplayTitle(loud, true, true)).toBe(
+      "A calm title about the GPU",
     );
   });
 });

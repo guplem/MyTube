@@ -58,11 +58,16 @@ import { shouldResumeAfterHide } from "../shared/backgroundPlay";
 import { optimistic } from "./optimistic";
 import { showToast } from "./toast";
 import { createScreenWakeLockHolder } from "./screenWakeLock";
-import { communityTitlesOn, displayTitle } from "./titlePreferences";
+import {
+  communityTitlesOn,
+  displayTitle,
+  sentenceCaseOn,
+} from "./titlePreferences";
 import {
   communityTitleDisagrees,
   explainCommunityTitle,
   originalTitleHint,
+  pickDisplayTitle,
 } from "../shared/dearrow";
 import {
   skeletonComments,
@@ -1082,12 +1087,18 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
       ["Resumed from", resume],
     ]);
 
-    // No "title on show" row: the switch row and the two titles already say
-    // which one is on show, and a third title made the section hard to scan.
+    // No "title on show" row: the switch rows and the titles already say
+    // which one is on show, and one more title made the section hard to scan.
+    // Both sentence case rows show even with that switch off, so the viewer
+    // can see what the switch would change before turning it on.
+    const useCommunity: boolean = communityTitlesOn();
     const titleSection = infoSection("Titles", [
       ["YouTube title", video.title],
       ["DeArrow title", video.communityTitle || INFO_EMPTY],
-      ["DeArrow titles switch", communityTitlesOn() ? "on" : "off"],
+      ["DeArrow titles switch", useCommunity ? "on" : "off"],
+      ["Sentence case switch", sentenceCaseOn() ? "on" : "off"],
+      ["Before sentence case", pickDisplayTitle(video, useCommunity, false)],
+      ["After sentence case", pickDisplayTitle(video, useCommunity, true)],
     ]);
     titleSection.appendChild(infoHeading("DeArrow submissions", "h4"));
     if (infoSubmissions === null) {
@@ -1123,7 +1134,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
           : "No DeArrow title, because " +
             TITLE_REASON_TEXT[choice.reason] +
             ".";
-      if (choice.index >= 0 && !communityTitlesOn())
+      if (choice.index >= 0 && !useCommunity)
         outcome +=
           " It is not on show, because the DeArrow titles switch is off.";
       titleSection.appendChild(infoNote(outcome));
