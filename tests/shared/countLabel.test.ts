@@ -78,4 +78,10 @@ describe("compactNumber", (): void => {
     expect(compactNumber(1200000)).toBe("1.2M");
     expect(compactNumber(3000000)).toBe("3M");
   });
+
+  it("moves up a unit when rounding would reach 1000 of the smaller one", (): void => {
+    expect(compactNumber(999950)).toBe("1M");
+    expect(compactNumber(999949)).toBe("999.9K");
+    expect(compactNumber(999)).toBe("999");
+  });
 });
