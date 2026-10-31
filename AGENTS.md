@@ -293,6 +293,14 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   `playAt` and `loadSponsorSegments` in `src/ui/playerView.ts`). A late answer
   otherwise installs an interval that `destroy()` already ran past, so nothing
   can ever clear it, and each visit to the screen leaks another one.
+- **Motion is rare, and press feedback is colour.** Animate only an occasional
+  moment that would otherwise jump (the toast entrance). Add no motion to what
+  the user sees tens of times a day: cards, tabs, toggles, screen changes. Give
+  a pressed control its hover colour through `:active`, not a scale. The
+  stylesheet rules (hover gate, `:active` twin, transform/opacity only,
+  `motion-exception:` comments, reduced motion, long-text wrap) are tests in
+  `tests/ui/`. **Check a touch or motion change on a real phone**: desktop
+  emulation shows no sticky hover, tap flash, notch, or iOS `:active` quirk.
 
 ## Testing & development protocol (TDD)
 
@@ -325,6 +333,8 @@ conversion could be deleted with every test still green (see the
   the faked globals, so almost all of it is reachable. The `src/ui/` layer is
   not unit-tested (it needs a browser + the `google.script.run` bridge); keep UI
   logic thin and push anything worth testing into `src/server/` or `src/shared/`.
+  `tests/ui/` holds static checks only: it reads `src/ui/index.html` (parsed
+  with postcss through `tests/helpers/stylesheet.ts`) and the UI source as text.
 - **New data source / filter / persistence path → add tests with it**, in the
   same PR. A new `Video[]` adapter (see Conventions) ships with a test that
   feeds it a fake API/RSS response and asserts the normalized `Video[]`.
