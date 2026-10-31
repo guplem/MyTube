@@ -22,7 +22,7 @@ import * as sponsorBlock from "./sponsorBlock";
 import * as dearrow from "./dearrow";
 import * as preferences from "./preferences";
 import { startStopwatch, type Stopwatch } from "./timing";
-import { preferencesScriptLiteral } from "../shared/preferences";
+import { preferencesScriptLiteral, scriptLiteral } from "../shared/preferences";
 
 // The PWA wrapper on GitHub Pages (pages/) serves the icon and frames this page.
 // setFaviconUrl only accepts a public PNG/ICO that Google fetches itself, so the
@@ -40,6 +40,11 @@ export function doGet(): GoogleAppsScript.HTML.HtmlOutput {
   template.preferencesJson = preferencesScriptLiteral(
     preferences.getPreferences(),
   );
+  // The browser saves the last copy of each list under this key, so one
+  // browser shared by two Google accounts never previews the wrong account's
+  // list (src/shared/listSnapshot.ts). It names the user without revealing
+  // who they are, and needs no OAuth scope.
+  template.accountKeyJson = scriptLiteral(temporaryUserKey());
   const output: GoogleAppsScript.HTML.HtmlOutput = template
     .evaluate()
     .setTitle("MyTube")
@@ -55,6 +60,15 @@ export function doGet(): GoogleAppsScript.HTML.HtmlOutput {
     console.warn("Favicon not set: " + String(error));
   }
   return output;
+}
+
+// "" turns the list previews off; a missing key must never break the page.
+function temporaryUserKey(): string {
+  try {
+    return Session.getTemporaryActiveUserKey();
+  } catch {
+    return "";
+  }
 }
 
 /** Inlines another HTML file into a template (used by index.html for the UI bundle). */

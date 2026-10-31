@@ -126,7 +126,10 @@ one page (only the page on show) for up to 30 minutes, so leaving the feed for
 the player or another tab and coming back usually needs no call at all. Paging
 away and back re-fetches, and so does a change made on another screen, which
 keeps the page honest instead of frozen. This moves the same fetches earlier
-rather than adding volume, and RSS costs no API quota either way.
+rather than adding volume, and RSS costs no API quota either way. The browser
+also keeps the last copy of the feed's first page and of Watch Later, so the
+next visit shows a list at once while the fresh one loads; the fresh list
+never moves a card without a tap (ADR 0011 has the rules).
 
 ---
 

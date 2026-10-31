@@ -18,6 +18,8 @@ import { formatUploadTime } from "../shared/uploadTime";
 import { skeletonVideoCard } from "./skeleton";
 import { displayTitle } from "./titlePreferences";
 import { originalTitleHint } from "../shared/dearrow";
+import { freshListMovesNothing, newVideoCount } from "../shared/listSnapshot";
+import { createListUpdatePill } from "./listUpdatePill";
 
 export interface VideoAction {
   /** Optional machine-readable tag, set as data-action on the button, so a
@@ -50,9 +52,15 @@ export interface VideoListOptions {
    *  feed load-health warning. */
   onPageLoaded?: (result: VideoPage) => void;
   paging?: ListPaging;
+  /** A saved copy of the first page to show at once, while the loader runs
+   *  (ADR 0011). It stays read-only until the fresh page replaces it. */
+  preview?: VideoPage;
+  /** Makes the list read-only (no play, no toggle, no paging): the cards
+   *  come from a saved copy. */
+  inert?: boolean;
 }
 
-interface VideoPage {
+export interface VideoPage {
   videos: Video[];
   total: number;
   /** Feed only: channels that failed to load fresh and the total tried. */
@@ -179,6 +187,13 @@ function renderList(
     window.scrollTo({ top: 0 });
   }
 
+  // The saved copy is shown by the first load only (ADR 0011).
+  let preview: VideoPage | null =
+    options.preview && options.preview.videos.length > 0
+      ? options.preview
+      : null;
+  const pill = createListUpdatePill();
+
   async function render(): Promise<void> {
     const request = (requestId += 1);
     const isSuperseded = (): boolean => isDiscarded() || request !== requestId;
@@ -191,16 +206,40 @@ function renderList(
     // Disabled with the paging buttons: changing the size mid-load would start a
     // second load in this same list, and the two would race.
     sizeSelect.disabled = true;
-    // Replace the old page with placeholders right away so stale cards never
-    // linger during the load. An in-memory load resolves on the same task, so
-    // its skeletons never paint; only a real server fetch shows them.
-    fillWithSkeletons(grid, Math.min(loadedPageSize, SKELETON_COUNT));
+    const shownPreview: VideoPage | null = preview;
+    preview = null;
+    // Set by the next animation frame, which comes just before the browser
+    // paints the preview. A load that answers sooner (the kept feed page, an
+    // in-memory list) replaces a preview nobody saw, so it never asks to be
+    // shown.
+    let previewPainted = false;
+    if (shownPreview) {
+      paintCards(shownPreview, loadedPage, loadedPageSize, true);
+      pill.showUpdating();
+      window.requestAnimationFrame((): void => {
+        previewPainted = true;
+      });
+    } else {
+      // Replace the old page with placeholders right away so stale cards
+      // never linger during the load. An in-memory load resolves on the same
+      // task, so its skeletons never paint; only a real server fetch shows
+      // them.
+      fillWithSkeletons(grid, Math.min(loadedPageSize, SKELETON_COUNT));
+    }
     let result: VideoPage;
     try {
       result = await load(loadedPage, loadedPageSize);
     } catch (error) {
       if (isSuperseded()) return;
       sizeSelect.disabled = false;
+      if (shownPreview) {
+        // Keep the saved copy on screen: it beats an error in its place.
+        pill.showFailed((): void => {
+          preview = shownPreview;
+          void render();
+        });
+        return;
+      }
       grid.innerHTML = "";
       const failure = document.createElement("p");
       failure.className = "muted";
@@ -209,11 +248,41 @@ function renderList(
       return;
     }
     if (isSuperseded()) return;
-    sizeSelect.disabled = false;
+
+    if (shownPreview && previewPainted) {
+      const shownIds: string[] = shownPreview.videos.map(videoIdOf);
+      const freshIds: string[] = result.videos.map(videoIdOf);
+      if (!freshListMovesNothing(shownIds, freshIds)) {
+        const fresh: VideoPage = result;
+        const added: number = newVideoCount(shownIds, freshIds);
+        pill.showReady(
+          added > 0
+            ? countLabel(added, "new video", "new videos")
+            : "This list changed",
+          (): void => {
+            if (!isSuperseded()) showResult(fresh, loadedPage, loadedPageSize);
+          },
+        );
+        return;
+      }
+    }
+    pill.hide();
+    showResult(result, loadedPage, loadedPageSize);
+  }
+
+  function showResult(
+    result: VideoPage,
+    loadedPage: number,
+    loadedPageSize: number,
+  ): void {
+    // A saved copy keeps its paging off too: a page turned on the copy would
+    // be lost when the fresh list replaces it (ADR 0011).
+    const inert: boolean = options.inert === true;
+    sizeSelect.disabled = inert;
 
     options.onPageLoaded?.(result);
 
-    const { videos, total } = result;
+    const { total } = result;
     const pageCount = Math.max(1, Math.ceil(total / loadedPageSize));
     if (loadedPage > pageCount - 1) {
       // The page no longer exists (e.g. a filter shrank the list); clamp and reload.
@@ -225,8 +294,8 @@ function renderList(
     // a page number the clamp above just corrected.
     options.paging?.onChange(loadedPage, loadedPageSize);
 
-    grid.innerHTML = "";
     if (total === 0) {
+      grid.innerHTML = "";
       controls.style.display = "none";
       const empty = document.createElement("p");
       empty.className = "muted";
@@ -234,8 +303,23 @@ function renderList(
       grid.appendChild(empty);
       return;
     }
-    controls.style.display = "";
+    paintCards(result, loadedPage, loadedPageSize, inert);
+    prevButton.disabled = inert || loadedPage <= 0;
+    nextButton.disabled = inert || loadedPage >= pageCount - 1;
+  }
 
+  // Fills the grid and the count line. The paging buttons stay as they are:
+  // a preview leaves them off, showResult turns them on.
+  function paintCards(
+    result: VideoPage,
+    loadedPage: number,
+    loadedPageSize: number,
+    inert: boolean,
+  ): void {
+    const { videos, total } = result;
+    const pageCount = Math.max(1, Math.ceil(total / loadedPageSize));
+    grid.innerHTML = "";
+    controls.style.display = "";
     videos.forEach((video, indexInPage): void => {
       const queue = fullQueue ?? videos;
       const index = fullQueue
@@ -247,17 +331,16 @@ function renderList(
           (): void => options.onPlay(index, queue),
           actions,
           options.cornerAction,
+          inert,
         ),
       );
     });
 
     info.textContent = `Page ${loadedPage + 1} of ${pageCount} · ${countLabel(total, "video", "videos")}`;
-    prevButton.disabled = loadedPage <= 0;
-    nextButton.disabled = loadedPage >= pageCount - 1;
   }
 
   // Controls go below the grid so paging lives at the bottom of the list.
-  root.append(grid, controls);
+  root.append(pill.element, grid, controls);
   void render();
   return root;
 }
@@ -266,7 +349,8 @@ function videoCard(
   video: Video,
   onPlay: () => void,
   actions: VideoAction[],
-  cornerAction?: VideoAction,
+  cornerAction: VideoAction | undefined,
+  inert: boolean,
 ): HTMLElement {
   const card = document.createElement("div");
   card.className = "video-card";
@@ -278,6 +362,9 @@ function videoCard(
   play.type = "button";
   play.className = "video-play";
   play.addEventListener("click", onPlay);
+  // A saved copy is read-only: its flags and resume position may be stale, so
+  // the player must open on the fresh list's own Video (ADR 0011).
+  play.disabled = inert;
 
   const thumbWrap = document.createElement("div");
   thumbWrap.className = "video-thumb-wrap";
@@ -342,6 +429,7 @@ function videoCard(
     const corner = document.createElement("button");
     corner.type = "button";
     corner.className = "video-card-corner";
+    corner.disabled = inert;
     if (cornerAction.name) corner.dataset.action = cornerAction.name;
     corner.addEventListener("click", (): void =>
       cornerAction.onClick(video, corner),
@@ -358,6 +446,7 @@ function videoCard(
       const button = document.createElement("button");
       button.type = "button";
       button.className = "video-action";
+      button.disabled = inert;
       if (action.name) button.dataset.action = action.name;
       button.addEventListener("click", (): void =>
         action.onClick(video, button),
@@ -387,4 +476,8 @@ export function formatDuration(totalSeconds: number): string {
   return hours > 0
     ? `${hours}:${pad(minutes)}:${pad(seconds)}`
     : `${minutes}:${pad(seconds)}`;
+}
+
+function videoIdOf(video: Video): string {
+  return video.videoId;
 }

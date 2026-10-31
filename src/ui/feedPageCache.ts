@@ -35,6 +35,8 @@ import {
   type FeedMutationScreen,
 } from "../shared/feedPageStaleness";
 import { getFeedPage } from "./serverBridge";
+import { keepListSnapshot } from "./listSnapshots";
+import { feedSnapshotKey, feedSnapshotPage } from "../shared/listSnapshot";
 
 // The same length as the server's per-channel RSS cache
 // (CHANNEL_VIDEOS_TTL_SECONDS in src/server/feed.ts), but NOT the same window:
@@ -59,7 +61,7 @@ const cache = createPageCache<FeedPageOptions, FeedPage>({
  *  them, like any other load. Also the warm-up call: a non-feed screen asks for
  *  the page in the background and reads its `total` for the Feed nav badge. */
 export function loadFeedPage(options: FeedPageOptions): Promise<FeedPage> {
-  return cache.use(options);
+  return keepFirstPageSnapshot(options, cache.use(options));
 }
 
 /** Throws the kept page away and loads this one fresh (the Force refresh
@@ -68,7 +70,28 @@ export function forceReloadFeedPage(
   options: FeedPageOptions,
 ): Promise<FeedPage> {
   cache.clear();
-  return cache.use(options);
+  return keepFirstPageSnapshot(options, cache.use(options));
+}
+
+// Saves the first page as the copy the next visit previews (ADR 0011), but
+// only while it is still the kept page: a slow load that the cache already
+// replaced must not overwrite the copy of a newer one. The cache marks a page
+// resolved before this runs, because its own handler was attached first.
+function keepFirstPageSnapshot(
+  options: FeedPageOptions,
+  load: Promise<FeedPage>,
+): Promise<FeedPage> {
+  if (options.page !== 0) return load;
+  load.then(
+    (page: FeedPage): void => {
+      if (cache.resolved() !== page) return;
+      keepListSnapshot("feed", feedSnapshotKey(options), () =>
+        feedSnapshotPage(page.videos, page.total, options),
+      );
+    },
+    (): void => undefined,
+  );
+  return load;
 }
 
 /** True when this exact array IS the kept page's Video array, right now — so

@@ -309,6 +309,8 @@ export interface AppsScriptMocks {
   templateValues: { [key: string]: string };
   /** What ScriptApp.getOAuthToken() returns: the user's access token. */
   oauthToken: string;
+  /** What Session.getTemporaryActiveUserKey() returns. */
+  userKey: string;
 }
 
 /**
@@ -335,6 +337,7 @@ export function installAppsScriptMocks(): AppsScriptMocks {
     rejectFavicon: false,
     templateValues: {},
     oauthToken: "fake-oauth-token",
+    userKey: "fake-user-key",
   };
 
   const g = globalThis as Record<string, unknown>;
@@ -388,6 +391,7 @@ export function installAppsScriptMocks(): AppsScriptMocks {
   g.XmlService = fakeXmlService;
 
   g.ScriptApp = { getOAuthToken: () => mocks.oauthToken };
+  g.Session = { getTemporaryActiveUserKey: () => mocks.userKey };
 
   const htmlOutput: Record<string, (arg: string) => unknown> = {};
   for (const name of ["setTitle", "setXFrameOptionsMode"]) {
@@ -443,6 +447,7 @@ export function uninstallAppsScriptMocks(): void {
     "LockService",
     "HtmlService",
     "ScriptApp",
+    "Session",
   ]) {
     delete g[key];
   }

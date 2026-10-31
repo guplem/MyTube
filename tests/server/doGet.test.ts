@@ -51,4 +51,20 @@ describe("doGet", () => {
     doGet();
     expect(mocks.templateValues.preferencesJson).toBe("null");
   });
+
+  it("embeds the account key that the list previews are saved under", () => {
+    mocks.userKey = "key-<1>";
+    doGet();
+    expect(mocks.templateValues.accountKeyJson).toBe('"key-\\u003c1>"');
+  });
+
+  it("embeds an empty key, which turns the previews off, when Session fails", () => {
+    (globalThis as Record<string, unknown>).Session = {
+      getTemporaryActiveUserKey: (): string => {
+        throw new Error("no session");
+      },
+    };
+    expect(() => doGet()).not.toThrow();
+    expect(mocks.templateValues.accountKeyJson).toBe('""');
+  });
 });

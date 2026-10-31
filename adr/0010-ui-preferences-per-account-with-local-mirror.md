@@ -31,3 +31,4 @@ The server and the browser share one validation policy in `src/shared/preference
 - The page loads with the account set already in place, so no extra request delays the first feed request.
 - A failed server write leaves the local value in place, so the device can differ from the account until the next write or page load. The next page load then replaces the local copy with the account copy.
 - Every new preference key must start with the `mytube.` prefix, or the policy refuses it.
+- `localStorage` has a second user: the list copies of ADR 0011, under the `mytubeSnapshot:` prefix. That prefix must never start with `mytube.`, because the preferences mirror deletes the `mytube.` keys that the account set lacks. `doGet` also embeds the account key (`accountKeyJson`) next to the preferences, so the copies stay tied to one account.
