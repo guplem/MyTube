@@ -82,3 +82,31 @@ export function rulesOf(root: Root): StyleRule[] {
 export function appStyleRules(): StyleRule[] {
   return rulesOf(parseCss(styleBlockOf(readRepoFile("src/ui/index.html"))));
 }
+
+/** The properties a rule transitions, in order. */
+export function transitionedProperties(rule: StyleRule): string[] {
+  const value: string | undefined =
+    rule.declarations.get("transition-property") ??
+    rule.declarations.get("transition");
+  if (value === undefined || value.trim() === "none") return [];
+  // Split on the commas between transitions, not those inside a function
+  // such as cubic-bezier(0.23, 1, 0.32, 1).
+  return value
+    .split(/,(?![^(]*\))/)
+    .map((part: string): string => propertyOf(part.trim()));
+}
+
+// The property is the token that is not a time or a timing function, so
+// "0.2s ease transform" names transform, like "transform 0.2s ease".
+function propertyOf(single: string): string {
+  const tokens: string[] = single.match(/[\w-]+\([^)]*\)|\S+/g) ?? [];
+  const property: string | undefined = tokens.find(
+    (token: string): boolean =>
+      !/^-?[\d.]+m?s$/.test(token) &&
+      !/^(ease|ease-in|ease-out|ease-in-out|linear|step-start|step-end)$/.test(
+        token,
+      ) &&
+      !token.includes("("),
+  );
+  return property ?? "all";
+}
