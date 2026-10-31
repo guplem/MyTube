@@ -38,8 +38,10 @@ quota. See [One-time Google setup](#one-time-google-setup) below.
   player). History is private and never sent to YouTube. "Hide watched" uses it.
   When you have watched a video to (effectively) the end but not marked it, the
   button shows a red dot suggesting the tap — on cards and in the player.
-- **Playlists** — open any of your playlists, with a sort selector (playlist
-  order, upload date newest/oldest first, or title).
+- **Playlists** — your playlists as a list with covers and video counts, and a
+  field to filter them by name. Open one to see its videos with a sort selector
+  (playlist order, upload date newest/oldest first, or title), Play all (in the
+  order on show), and Shuffle. Watch Later has the same Play all and Shuffle.
 - **Watch Later** — a real YouTube playlist the app creates and manages. Add or
   remove videos from any list; a video already saved shows a pressed
   "✓ Watch Later" button. The app opens on Watch Later, or on the feed when

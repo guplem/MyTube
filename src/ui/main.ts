@@ -877,8 +877,10 @@ function sortVideos(videos: Video[], key: SortKey): Video[] {
   return sorted;
 }
 
-// Like renderVideoScreen, but with a sort-order selector at the top. Re-sorting
-// re-renders only the list. The player queue follows the displayed order.
+// Like renderVideoScreen, but with a toolbar at the top: a sort-order
+// selector, Play all and Shuffle. Re-sorting re-renders only the list. A tap
+// on a card, and Play all, queue the displayed order; Shuffle queues a random
+// order of the same videos.
 //
 // With a preview (a saved copy, ADR 0011) the screen shows the copy at once,
 // its toggles off, and loads the fresh list behind it. The fresh list replaces
