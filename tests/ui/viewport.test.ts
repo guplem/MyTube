@@ -4,6 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  appStyleRules,
   parseCss,
   readRepoFile,
   rulesOf,
@@ -50,5 +51,35 @@ describe("the installable wrapper", (): void => {
     for (const side of ["top", "right", "bottom", "left"]) {
       expect(padding, side).toContain("env(safe-area-inset-" + side);
     }
+  });
+});
+
+describe("form fields", (): void => {
+  // iOS zooms the page when focus lands on a field under 16px and does not
+  // zoom back. Fields inherit the 16px body font today.
+  const fieldRules: StyleRule[] = appStyleRules().filter(
+    (rule: StyleRule): boolean =>
+      rule.selectors.some((selector: string): boolean =>
+        /\b(input|select|textarea)\b|-select\b|\.feed-date\b/.test(selector),
+      ),
+  );
+
+  it("exist (the check below is not vacuous)", (): void => {
+    expect(fieldRules.length).toBeGreaterThan(3);
+  });
+
+  it("never set a font size under 16px", (): void => {
+    const small: string[] = fieldRules
+      .filter((rule: StyleRule): boolean => {
+        const size: string | undefined = rule.declarations.get("font-size");
+        if (size === undefined || size === "inherit") return false;
+        const match: RegExpMatchArray | null = size.match(/^([\d.]+)(px|rem)$/);
+        if (!match) return true;
+        const pixels: number =
+          match[2] === "rem" ? Number(match[1]) * 16 : Number(match[1]);
+        return pixels < 16;
+      })
+      .flatMap((rule: StyleRule): string[] => rule.selectors);
+    expect(small).toEqual([]);
   });
 });
