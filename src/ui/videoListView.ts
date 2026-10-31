@@ -14,6 +14,7 @@
 import type { Video } from "../shared/video";
 import { progressFraction } from "../shared/videoProgress";
 import { countLabel } from "../shared/countLabel";
+import { formatUploadTime } from "../shared/uploadTime";
 import { skeletonVideoCard } from "./skeleton";
 import { displayTitle } from "./titlePreferences";
 import { originalTitleHint } from "../shared/dearrow";
@@ -328,7 +329,7 @@ function videoCard(
 
   const date = document.createElement("span");
   date.className = "video-date";
-  date.textContent = formatDate(video.publishedAt);
+  date.textContent = formatUploadTime(video.publishedAt);
 
   meta.append(title, channel, date);
   play.append(thumbWrap, meta);
@@ -369,14 +370,15 @@ function videoCard(
   return card;
 }
 
-// Exported so the player Info tab shows dates and lengths the same way as the
-// cards.
+// The player Info tab shows the full publish date with this; the cards show
+// the shorter upload time (formatUploadTime).
 export function formatDate(iso: string): string {
   const date = new Date(iso);
   return Number.isNaN(date.getTime()) ? "" : date.toLocaleDateString();
 }
 
-// Seconds to "M:SS" (or "H:MM:SS" for an hour or more).
+// Seconds to "M:SS" (or "H:MM:SS" for an hour or more). Exported so the player
+// Info tab shows lengths the same way as the cards.
 export function formatDuration(totalSeconds: number): string {
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);

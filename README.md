@@ -44,20 +44,21 @@ quota. See [One-time Google setup](#one-time-google-setup) below.
   remove videos from any list; a video already saved shows a pressed
   "✓ Watch Later" button. The app opens on Watch Later, or on the feed when
   Watch Later is empty.
-- **Player** — embedded YouTube player with previous/next, an autoplay toggle,
-  the description and comments, and no end-screen recommendations. An Info
+- **Player** — embedded YouTube player with previous/next, theater and
+  fullscreen buttons, a Watch Later toggle, a watched toggle, the description,
+  a Chapters tab, comments, and no end-screen recommendations. An Info
   tab shows the video's facts, its YouTube and DeArrow titles with the reason
   for the pick, and its sponsor segments.
 - **Sponsor skip** — jumps past the sponsor and self-promotion parts of a video
   using the community SponsorBlock database, with a one-tap Undo. On by
-  default; toggle next to the theater button.
+  default; switch it in Settings.
 - **Community titles** — replaces clickbait titles with the community-written
   title from the DeArrow database when one exists. On by default. On a
   computer, hover a title to see the YouTube one; turn the switch off in
   Settings to see YouTube titles everywhere.
 - **Settings** — a link in the footer of every screen opens one page with every
   preference: the feed filters, community titles, and the player settings
-  (theater mode, sponsor skip, playback speed). The feed toolbar keeps its own
+  (theater mode, sponsor skip, autoplay, playback speed). The feed toolbar keeps its own
   toggles, and both views show the same values.
 - **Duration badge** on every thumbnail.
 - **Search** — the search box opens YouTube's results page in a new tab.

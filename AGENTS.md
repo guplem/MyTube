@@ -129,10 +129,14 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   `getFeedPage`, a stored preference) that hides older videos but does not touch
   the `seen` flag, so playlists and Watch Later are unaffected.
 - **Every card action is a state toggle, and cards share one layout.** Each
-  card on every list shows the same two stacked buttons — the Watch Later
-  toggle ("+ Watch Later"/"✓ Watch Later") and the watched toggle
-  ("Mark watched"/"✓ Watched") — so cards look identical across the feed,
+  card on every list shows the same two buttons: the Watch Later toggle
+  ("+ Watch Later"/"✓ Watch Later") and the watched toggle
+  ("Mark watched"/"✓ Watched"). They sit side by side in two equal columns,
+  stacked on a phone, so cards look identical across the feed,
   playlists, Watch Later, and history; only the corner dismiss stays feed-only.
+  The player's action bar has the same two toggles: the watched toggle is a pill
+  with a check icon that says "Watched" in both states, and the Watch Later
+  toggle is an icon button.
   A toggle's ON state is a pressed look (`video-action--on`, the chapter-strip
   blue) plus a `✓` label that keeps the noun, and every toggle carries a
   `title` naming what a click does now plus `aria-pressed`; state changes go
@@ -255,7 +259,8 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   `feedFilterControls`; its player and title rows are built here with
   `preferenceToggle`, because those preferences need no follow-up beyond the
   write. A display preference with no other control, such as the title switch,
-  can live in Settings only.
+  can live in Settings only. Skip sponsors and Autoplay also live in Settings
+  only: the player keeps its action bar for actions on the video on show.
 - **Optimistic UI updates for every server mutation.** Any button that writes to
   the server (mark seen, dismiss, add/remove Watch Later — on cards _and_ in the
   player) must feel instant: the Apps Script bridge round-trips to Google and can
@@ -265,7 +270,9 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   the change back (`revert`) and shows a `showToast` with a one-tap refresh. Pass
   as `key` the thing that the tap changes: the button when one button serves one
   item, the video when one button serves a whole queue (`src/ui/playerView.ts`).
-  Only the latest tap on a key owns the rollback. Change every field the mutation
+  Only the latest tap on a key owns the rollback. **Two writes on the same video
+  need two keys**: the player's seen toggle owns the video, so its Watch Later
+  toggle and the toast's dismiss key on a per-video token from a `WeakMap`. Change every field the mutation
   touches inside `apply`. Restore each field in `revert` from the value that you
   read before this tap, and only while the value that `apply` wrote still stands.
   `optimisticToggle` in `src/ui/main.ts` is the card-level wrapper built on it.

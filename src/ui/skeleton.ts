@@ -142,26 +142,30 @@ export function skeletonPlaylistList(count: number = 6): HTMLElement {
 }
 
 /** Placeholder for the whole player screen, shown while a shared link rebuilds
- *  its queue: the 16:9 frame, title row, nav line, and description card. */
+ *  its queue: the context line, the 16:9 frame, the title and meta lines, the
+ *  action bar, and the description card, in the order PlayerView lays them out. */
 export function skeletonPlayerView(): HTMLElement {
   const root = document.createElement("div");
   root.className = "player-view";
 
+  const context = document.createElement("div");
+  context.className = "player-context";
+  context.appendChild(skeletonLine("40%", "0.9rem"));
+
   const frame = document.createElement("div");
   frame.className = "skeleton skeleton-player-frame";
 
-  const titleRow = document.createElement("div");
-  titleRow.className = "player-title-row";
-  titleRow.appendChild(skeletonLine("55%", "1.15rem"));
+  const title = skeletonLine("70%", "1.25rem");
+  const meta = skeletonLine("45%", "0.9rem");
 
-  const nav = document.createElement("div");
-  nav.className = "player-nav";
-  nav.appendChild(skeletonLine("30%", "0.9rem"));
+  const actions = document.createElement("div");
+  actions.className = "player-actions";
+  actions.appendChild(skeletonLine("60%", "2.75rem"));
 
   const descCard = document.createElement("div");
   descCard.className = "player-card";
   descCard.appendChild(skeletonDescription());
 
-  root.append(frame, titleRow, nav, descCard);
+  root.append(context, frame, title, meta, actions, descCard);
   return root;
 }

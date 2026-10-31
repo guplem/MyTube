@@ -207,20 +207,43 @@ function makeWatchLaterToggle(vanishesWhen: boolean | null): VideoAction {
             : "Couldn't remove from Watch Later",
       );
       if (!video.inWatchLater && !video.dismissed) {
-        showToast("Removed from Watch Later", {
-          label: "Dismiss from feed",
-          onAction: (): void => dismissAfterWatchLaterRemoval(video, button),
-        });
+        offerDismissAfterWatchLaterRemoval(video, button);
       }
     },
   };
 }
 
+// The toast a Watch Later removal shows, from a card or from the player. It
+// offers the dismiss and never applies it.
+function offerDismissAfterWatchLaterRemoval(
+  video: Video,
+  button: HTMLButtonElement,
+): void {
+  showToast("Removed from Watch Later", {
+    label: "Dismiss from feed",
+    onAction: (): void => dismissAfterWatchLaterRemoval(video, button),
+  });
+}
+
+// The rollback key of a dismiss made from the toast, one token per video. The
+// player's seen toggle already keys on the video itself, and only the latest
+// tap on a key owns its rollback, so sharing the video would let a dismiss
+// take a failed seen tap's rollback away (and the reverse).
+const dismissKeys: WeakMap<Video, object> = new WeakMap();
+function dismissKeyFor(video: Video): object {
+  let key: object | undefined = dismissKeys.get(video);
+  if (!key) {
+    key = {};
+    dismissKeys.set(video, key);
+  }
+  return key;
+}
+
 // The action of the toast that a Watch Later removal shows: a video the user
 // is done with often should not come back in the feed either. The toast
-// outlives its card. Once the card is gone, the user is on another screen, and
-// the router would judge this write by that screen, not by the one that owns
-// this Video object, so drop the kept feed page outright.
+// outlives its card (or the player). Once that button is gone, the user is on
+// another screen, and the router would judge this write by that screen, not by
+// the one that owns this Video object, so drop the kept feed page outright.
 function dismissAfterWatchLaterRemoval(
   video: Video,
   button: HTMLButtonElement,
@@ -238,7 +261,7 @@ function dismissAfterWatchLaterRemoval(
     return;
   }
   optimistic({
-    key: video,
+    key: dismissKeyFor(video),
     apply: (): void => {
       video.dismissed = true;
     },
@@ -943,6 +966,7 @@ function showPlayer(screen: PlayerScreen, queue: Video[]): void {
     ),
     contextLabel: screen.label,
     onBack: (): void => go(screenForContext(screen.context)),
+    onWatchLaterRemoved: offerDismissAfterWatchLaterRemoval,
     // prev/next/autoplay request navigation; go() pushes one history entry per
     // video, then drives this same player via goToVideo above.
     onNavigate: (videoId, navIndex): void =>
@@ -1272,6 +1296,20 @@ function setupSettingsLink(): void {
 function setupSearch(): void {
   const form = document.querySelector<HTMLFormElement>(".app-search");
   const input = form?.querySelector<HTMLInputElement>("input");
+  // Phone only (CSS shows the toggle there): the header keeps the field
+  // behind an icon, and opening it moves the focus straight into the field.
+  const header: HTMLElement | null =
+    document.querySelector<HTMLElement>(".app-header");
+  const toggle: HTMLButtonElement | null =
+    document.querySelector<HTMLButtonElement>(".app-search-toggle");
+  toggle?.addEventListener("click", (): void => {
+    const open: boolean = !header?.classList.contains(
+      "app-header--search-open",
+    );
+    header?.classList.toggle("app-header--search-open", open);
+    toggle.setAttribute("aria-expanded", String(open));
+    if (open) input?.focus();
+  });
   form?.addEventListener("submit", (event): void => {
     event.preventDefault();
     const term = input?.value.trim();

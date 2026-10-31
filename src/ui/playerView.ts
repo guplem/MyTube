@@ -1,6 +1,6 @@
 // The player screen. Embeds the YouTube IFrame player with basic controls and
 // no recommendation rabbit hole: when a video ends it shows a "next / back" card
-// (or auto-advances if the toggle is on), so the YouTube end-screen never takes
+// (or auto-advances if the Autoplay setting is on), so the YouTube end-screen never takes
 // over. Reused by every screen that plays a list. Input is an ordered Video[]
 // queue plus a start index. See PLAN.md section 13.
 //
@@ -31,6 +31,8 @@ import {
   markVideoSeen,
   removeVideoSeen,
   saveVideoProgress,
+  addToWatchLater,
+  removeFromWatchLater,
 } from "./serverBridge";
 import {
   PROGRESS_FINISHED,
@@ -45,6 +47,8 @@ import {
   THEATER_DEFAULT,
   SPONSOR_SKIP_PREF,
   SPONSOR_SKIP_DEFAULT,
+  AUTOPLAY_PREF,
+  AUTOPLAY_DEFAULT,
   BACKGROUND_PLAY_PREF,
   BACKGROUND_PLAY_DEFAULT,
   readStoredPlaybackRate,
@@ -66,6 +70,7 @@ import {
   skeletonInfoRows,
 } from "./skeleton";
 import { formatDate, formatDuration } from "./videoListView";
+import { formatUploadTime } from "../shared/uploadTime";
 import { scrollBehavior } from "./motion";
 
 // How often the live position is checked against the segment list. The check
@@ -73,12 +78,6 @@ import { scrollBehavior } from "./motion";
 // to be, because every polled millisecond is sponsor content the viewer still
 // hears before the jump.
 const SPONSOR_POLL_MS = 250;
-
-// Sponsor-skip toggle icon: the classic "skip forward" (two arrows into a
-// bar). One icon for both states — the button dims while the skip is off (see
-// .player-sponsor in src/ui/index.html).
-const ICON_SPONSOR_SKIP =
-  '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5l8 7-8 7V5z"/><path d="M13 5l7 7-7 7V5z"/></svg>';
 
 // Minimal typing for the YouTube IFrame Player API (loaded from youtube.com).
 interface YouTubePlayerEvent {
@@ -117,7 +116,7 @@ interface YouTubeNamespace {
     options: YouTubePlayerOptions,
   ) => YouTubePlayer;
 }
-type PlayerTab = "description" | "comments" | "info";
+type PlayerTab = "description" | "chapters" | "comments" | "info";
 
 // The Info tab's value for a fact that has no data. One short mark instead of
 // words like "none" or "unknown" lets the eye skip empty rows.
@@ -173,11 +172,31 @@ const ICON_ENTER_FULLSCREEN =
 const ICON_EXIT_FULLSCREEN =
   '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M16 3v3a2 2 0 0 0 2 2h3"/><path d="M8 21v-3a2 2 0 0 0-2-2H3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>';
 
+// Action-bar icons. Each icon button also carries an aria-label and a title,
+// so the icon never has to explain itself alone.
+const ICON_BACK =
+  '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>';
+const ICON_PREVIOUS =
+  '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6l-8 6 8 6z"/><path d="M6 6v12"/></svg>';
+const ICON_NEXT =
+  '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l8 6-8 6z"/><path d="M18 6v12"/></svg>';
+const ICON_WATCHED =
+  '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg>';
+// Outline when the video is not saved, filled when it is: the fill carries the
+// state for people who do not see the blue.
+const ICON_WATCH_LATER =
+  '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h12v17l-6-4-6 4z"/></svg>';
+const ICON_WATCH_LATER_SAVED =
+  '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h12v17l-6-4-6 4z"/></svg>';
+
 export interface PlayerViewProps {
   queue: Video[];
   startIndex: number;
   contextLabel: string;
   onBack: () => void;
+  /** After a Watch Later removal from the player: offers the feed dismiss,
+   *  like the card toggle does (see src/ui/main.ts). */
+  onWatchLaterRemoved: (video: Video, button: HTMLButtonElement) => void;
   /** Request navigation to another video in the queue (the router pushes history). */
   onNavigate: (videoId: string, index: number) => void;
 }
@@ -216,9 +235,9 @@ function loadYouTubeApi(): Promise<YouTubeNamespace> {
 }
 
 export function PlayerView(props: PlayerViewProps): PlayerController {
-  const { queue, contextLabel, onBack, onNavigate } = props;
+  const { queue, contextLabel, onBack, onNavigate, onWatchLaterRemoved } =
+    props;
   let currentIndex = Math.max(0, Math.min(props.startIndex, queue.length - 1));
-  let autoplayNext = false;
   let player: YouTubePlayer | null = null;
 
   // The remembered playback speed (see src/ui/playerPreferences.ts), applied to
@@ -232,6 +251,8 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   // YouTube API fires no time events, so we poll getCurrentTime on an interval.
   let chapters: Chapter[] = [];
   let chapterCards: HTMLButtonElement[] = [];
+  // The same chapters as rows of the Chapters tab, marked in step with the cards.
+  let chapterRows: HTMLButtonElement[] = [];
   let currentChapterIndex = -1;
   let chapterTimer: number | null = null;
 
@@ -315,6 +336,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
 
   const seenButton = document.createElement("button");
   seenButton.type = "button";
+  seenButton.className = "player-seen";
   // Toggles seen, like the card buttons: flip immediately and roll back +
   // toast if the request fails. See src/ui/optimistic.ts.
   seenButton.addEventListener("click", (): void => {
@@ -326,9 +348,9 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     // with removeVideoSeen, which never re-adds, so it passes
     // restoresWatchLater: false — only the Watch Later screen's card toggle
     // restores the entry (see toggleSeen in src/ui/main.ts). The mirror lives
-    // INSIDE apply/revert: the player has no Watch Later button, but the Video
-    // object is shared with the kept feed page (ADR 0008), so a failed call
-    // must put membership back or the cards show a stale flag. `wasSaved` is
+    // INSIDE apply/revert: the player's Watch Later button shows it, and the
+    // Video object is shared with the kept feed page (ADR 0008), so a failed
+    // call must put membership back or the cards show a stale flag. `wasSaved` is
     // membership as of this tap, so the revert restores that; an earlier tap
     // that has not settled yet makes it that tap's assumed value.
     const wasSaved = Boolean(video.inWatchLater);
@@ -346,6 +368,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
         video.seen = target;
         video.inWatchLater = savedAtTarget;
         updateSeenButton();
+        updateWatchLaterButton();
       },
       revert: (): void => {
         video.seen = !target;
@@ -357,6 +380,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
           video.inWatchLater = wasSaved;
         }
         updateSeenButton();
+        updateWatchLaterButton();
       },
       send: (): Promise<void> =>
         target ? markVideoSeen(video) : removeVideoSeen(video.videoId),
@@ -366,54 +390,69 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     });
   });
 
-  // Sponsor-skip toggle. Turning it on mid-video loads the segments for the
-  // video already playing, so the next sponsor part is skipped without a
-  // reload.
-  let sponsorSkip = getBoolPreference(SPONSOR_SKIP_PREF, SPONSOR_SKIP_DEFAULT);
-  const sponsorButton = document.createElement("button");
-  sponsorButton.type = "button";
-  sponsorButton.className = "player-sponsor";
-  sponsorButton.innerHTML = ICON_SPONSOR_SKIP;
-  sponsorButton.addEventListener("click", (): void => {
-    sponsorSkip = !sponsorSkip;
-    setBoolPreference(SPONSOR_SKIP_PREF, sponsorSkip);
-    updateSponsorButton();
-    if (infoLoaded) renderInfo(); // the Info tab shows the auto-skip state
-    if (!sponsorSkip) {
-      // Forget the last jump too. Otherwise the viewer can turn the skip off
-      // inside a segment, rewind, turn it back on, and never get the jump:
-      // only a poll clears the memory, and the poll is stopped.
-      lastSkippedSponsorStart = null;
-      stopSponsorTracking();
-      return;
-    }
+  // Watch Later toggle: the same optimistic flip as the card toggle, keyed on a
+  // per-video token. The video is the key when one button serves a whole
+  // queue, but the seen toggle above already keys on the video, and a Watch
+  // Later tap must not take the rollback away from a seen tap still in flight.
+  const watchLaterKeys: WeakMap<Video, object> = new WeakMap();
+  const watchLaterButton = document.createElement("button");
+  watchLaterButton.type = "button";
+  watchLaterButton.className = "player-icon-button player-watch-later";
+  watchLaterButton.setAttribute("aria-label", "Watch Later");
+  watchLaterButton.addEventListener("click", (): void => {
     const video = queue[currentIndex];
-    if (video) void loadSponsorSegments(video.videoId);
+    if (!video) return;
+    const wasSaved = Boolean(video.inWatchLater);
+    const target = !wasSaved;
+    let key: object | undefined = watchLaterKeys.get(video);
+    if (!key) {
+      key = {};
+      watchLaterKeys.set(video, key);
+    }
+    optimistic({
+      key,
+      apply: (): void => {
+        video.inWatchLater = target;
+        updateWatchLaterButton();
+      },
+      revert: (): void => {
+        // Only while the value this tap wrote still stands: a seen tap can
+        // have changed membership since.
+        if (Boolean(video.inWatchLater) === target) {
+          video.inWatchLater = wasSaved;
+        }
+        updateWatchLaterButton();
+      },
+      send: (): Promise<void> =>
+        target
+          ? addToWatchLater(video.videoId)
+          : removeFromWatchLater(video.videoId),
+      failMessage: target
+        ? "Couldn't add to Watch Later"
+        : "Couldn't remove from Watch Later",
+    });
+    if (!target && !video.dismissed)
+      onWatchLaterRemoved(video, watchLaterButton);
   });
+
+  // Sponsor skip is a Settings preference (src/ui/settingsView.ts), read once
+  // per player: the Settings note says it applies to the next video opened.
+  const sponsorSkip = getBoolPreference(
+    SPONSOR_SKIP_PREF,
+    SPONSOR_SKIP_DEFAULT,
+  );
 
   // Theater mode toggle. Hidden on mobile (where the player is already
   // full-width) via CSS; the class on the root drives the layout change.
   let theaterMode = getBoolPreference(THEATER_PREF, THEATER_DEFAULT);
   const theaterButton = document.createElement("button");
   theaterButton.type = "button";
-  theaterButton.className = "player-theater";
+  theaterButton.className = "player-icon-button player-theater";
   theaterButton.addEventListener("click", (): void => {
     theaterMode = !theaterMode;
     setBoolPreference(THEATER_PREF, theaterMode);
     updateTheater();
   });
-
-  const autoplayLabel = document.createElement("label");
-  autoplayLabel.className = "player-autoplay";
-  const autoplayCheckbox = document.createElement("input");
-  autoplayCheckbox.type = "checkbox";
-  autoplayCheckbox.addEventListener("change", (): void => {
-    autoplayNext = autoplayCheckbox.checked;
-  });
-  autoplayLabel.append(
-    autoplayCheckbox,
-    document.createTextNode(" Autoplay next"),
-  );
 
   // Fullscreen on mobile must rotate the video to landscape like the native
   // YouTube app, and the real API for that is unavailable here: the Apps
@@ -465,7 +504,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
 
   const fullscreenButton = document.createElement("button");
   fullscreenButton.type = "button";
-  fullscreenButton.className = "player-fullscreen";
+  fullscreenButton.className = "player-icon-button player-fullscreen";
   fullscreenButton.innerHTML = ICON_ENTER_FULLSCREEN;
   fullscreenButton.title = "Fullscreen";
   fullscreenButton.setAttribute("aria-label", "Fullscreen");
@@ -500,42 +539,57 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   const title = document.createElement("h2");
   title.className = "player-title";
 
-  // Title row: the video title on the left, with the watched toggle and the
-  // theater toggle right-aligned beside it.
-  const titleRow = document.createElement("div");
-  titleRow.className = "player-title-row";
-  const titleActions = document.createElement("div");
-  titleActions.className = "player-title-actions";
-  titleActions.append(
-    seenButton,
-    sponsorButton,
-    fullscreenButton,
-    theaterButton,
-  );
-  titleRow.append(title, titleActions);
+  // Context row above the video: back to the list, and where this video sits
+  // in it.
+  const backButton = document.createElement("button");
+  backButton.type = "button";
+  backButton.className = "player-icon-button player-back";
+  backButton.innerHTML = ICON_BACK;
+  backButton.setAttribute("aria-label", "Back to " + contextLabel);
+  backButton.title = "Back to " + contextLabel;
+  backButton.addEventListener("click", (): void => onBack());
+  const contextRow = document.createElement("div");
+  contextRow.className = "player-context";
+  contextRow.append(backButton, position);
 
-  // Nav row: the context label / position sit next to the prev/next buttons,
-  // with "Autoplay next" pushed to the right.
-  const nav = document.createElement("div");
-  nav.className = "player-nav";
+  // Channel and upload time under the title. No duration: the embedded
+  // player already shows it.
+  const meta = document.createElement("div");
+  meta.className = "player-meta";
+
   const prevButton = document.createElement("button");
   prevButton.type = "button";
-  prevButton.textContent = "← Previous";
+  prevButton.className = "player-icon-button";
+  prevButton.innerHTML = ICON_PREVIOUS;
+  prevButton.setAttribute("aria-label", "Previous video");
+  prevButton.title = "Previous video";
   prevButton.addEventListener("click", (): void =>
     requestNavigate(currentIndex - 1),
   );
   const nextButton = document.createElement("button");
   nextButton.type = "button";
-  nextButton.textContent = "Next →";
+  nextButton.className = "player-icon-button";
+  nextButton.innerHTML = ICON_NEXT;
+  nextButton.setAttribute("aria-label", "Next video");
+  nextButton.title = "Next video";
   nextButton.addEventListener("click", (): void =>
     requestNavigate(currentIndex + 1),
   );
-  // Keep prev/next together so they wrap as a single unit — either both stay on
-  // the row or both move to the next line, never one above the other.
-  const navButtons = document.createElement("div");
-  navButtons.className = "player-nav-buttons";
-  navButtons.append(prevButton, nextButton);
-  nav.append(position, navButtons, autoplayLabel);
+
+  // One action bar, three groups spread across the row: what you do with this
+  // video, moving through the list, and how the video is shown.
+  const actions = document.createElement("div");
+  actions.className = "player-actions";
+  const videoGroup = document.createElement("div");
+  videoGroup.className = "player-actions-group";
+  videoGroup.append(seenButton, watchLaterButton);
+  const listGroup = document.createElement("div");
+  listGroup.className = "player-actions-group";
+  listGroup.append(prevButton, nextButton);
+  const viewGroup = document.createElement("div");
+  viewGroup.className = "player-actions-group";
+  viewGroup.append(theaterButton, fullscreenButton);
+  actions.append(videoGroup, listGroup, viewGroup);
 
   // Chapter strip: a horizontally scrollable row of the description's chapters,
   // sitting above the tabs so it stays visible on both the Description and
@@ -574,6 +628,15 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   descTab.textContent = "Description";
   descTab.addEventListener("click", (): void => setActiveTab("description"));
 
+  // Shown only when the description has chapters (renderChapters).
+  const chaptersTab = document.createElement("button");
+  chaptersTab.type = "button";
+  chaptersTab.className = "player-tab";
+  chaptersTab.setAttribute("role", "tab");
+  chaptersTab.textContent = "Chapters";
+  chaptersTab.hidden = true;
+  chaptersTab.addEventListener("click", (): void => setActiveTab("chapters"));
+
   const commentsTab = document.createElement("button");
   commentsTab.type = "button";
   commentsTab.className = "player-tab";
@@ -588,13 +651,19 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   infoTab.textContent = "Info";
   infoTab.addEventListener("click", (): void => setActiveTab("info"));
 
-  tabStrip.append(descTab, commentsTab, infoTab);
+  tabStrip.append(descTab, chaptersTab, commentsTab, infoTab);
 
   // Description tab panel: holds the description card.
   const descPanel = document.createElement("div");
   descPanel.className = "player-tab-panel";
   descPanel.setAttribute("role", "tabpanel");
   descPanel.appendChild(descCard);
+
+  // Chapters tab panel: every chapter as a row with its full title, which the
+  // one-line cards of the strip above cut short.
+  const chaptersPanel = document.createElement("div");
+  chaptersPanel.className = "player-tab-panel chapter-list";
+  chaptersPanel.setAttribute("role", "tabpanel");
 
   // Comments tab panel: the sort order is part of this panel's contents (it
   // only applies to comments), sitting above the comment list.
@@ -651,12 +720,15 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   endCard.hidden = true;
 
   root.append(
+    contextRow,
     frame,
-    titleRow,
-    nav,
+    title,
+    meta,
+    actions,
     chaptersSection,
     tabStrip,
     descPanel,
+    chaptersPanel,
     commentsPanel,
     infoPanel,
     endCard,
@@ -693,14 +765,22 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   }
 
   // Rebuild the chapter strip for a video (or hide it when there are none).
-  function renderChapters(list: Chapter[]): void {
+  // `settled` is false only for the clear before a description loads: the
+  // next video may have chapters too, so an open Chapters tab stays open
+  // until the answer says otherwise.
+  function renderChapters(list: Chapter[], settled: boolean = true): void {
     stopChapterTracking();
     chapters = list;
     chapterCards = [];
+    chapterRows = [];
     currentChapterIndex = -1;
     chaptersTrack.innerHTML = "";
+    chaptersPanel.replaceChildren();
+    chaptersTab.hidden = list.length === 0;
     if (list.length === 0) {
       chaptersSection.hidden = true;
+      // A video without chapters cannot stay on an empty Chapters tab.
+      if (settled && activeTab === "chapters") setActiveTab("description");
       return;
     }
     for (const chapter of list) {
@@ -718,6 +798,24 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
       card.addEventListener("click", (): void => seek(chapter.seconds));
       chaptersTrack.appendChild(card);
       chapterCards.push(card);
+
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "chapter-row";
+      const rowTime = document.createElement("span");
+      rowTime.className = "chapter-row-time";
+      rowTime.textContent = chapter.timestampText;
+      const rowLabel = document.createElement("span");
+      rowLabel.className = "chapter-row-label";
+      rowLabel.textContent = chapter.label;
+      // Shown only on the current row (CSS), so the list says which one plays.
+      const playing = document.createElement("span");
+      playing.className = "chapter-row-playing";
+      playing.textContent = "Playing";
+      row.append(rowTime, rowLabel, playing);
+      row.addEventListener("click", (): void => seek(chapter.seconds));
+      chaptersPanel.appendChild(row);
+      chapterRows.push(row);
     }
     chaptersSection.hidden = false;
     startChapterTracking();
@@ -759,6 +857,12 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
       chapterCards[i].classList.toggle("current", i === index);
       chapterCards[i].classList.toggle("past", i < index);
     }
+    for (let i = 0; i < chapterRows.length; i++) {
+      chapterRows[i].classList.toggle("current", i === index);
+      chapterRows[i].classList.toggle("past", i < index);
+      if (i === index) chapterRows[i].setAttribute("aria-current", "true");
+      else chapterRows[i].removeAttribute("aria-current");
+    }
     const card = chapterCards[index];
     if (card) {
       // Keep the current chapter at the start of the track, which scrolls
@@ -778,7 +882,13 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     title.title = video ? originalTitleHint(video, title.textContent) : "";
     prevButton.disabled = currentIndex <= 0;
     nextButton.disabled = currentIndex >= queue.length - 1;
+    meta.textContent = video
+      ? [video.channelTitle, formatUploadTime(video.publishedAt)]
+          .filter((part: string): boolean => part !== "")
+          .join(" · ")
+      : "";
     updateSeenButton();
+    updateWatchLaterButton();
   }
 
   // "You should probably mark this watched": the stored position says the
@@ -811,7 +921,9 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     const video = queue[currentIndex];
     const seen = Boolean(video && video.seen);
     const nudge = watchedNudge();
-    seenButton.textContent = seen ? "✓ Watched" : "Mark watched";
+    // "Watched" in both states: the pressed look and aria-pressed carry the
+    // state, because the player's action bar has no room for "Mark watched".
+    seenButton.innerHTML = ICON_WATCHED + "<span>Watched</span>";
     seenButton.classList.toggle("player-toggle--on", seen);
     seenButton.classList.toggle("toggle-nudge", nudge);
     seenButton.disabled = !video;
@@ -823,16 +935,20 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     seenButton.setAttribute("aria-pressed", String(seen));
   }
 
-  // Same pressed-toggle treatment as the theater button, and the title always
-  // names what the next click does.
-  function updateSponsorButton(): void {
-    sponsorButton.classList.toggle("active", sponsorSkip);
-    const label = sponsorSkip
-      ? "Stop skipping sponsor segments"
-      : "Skip sponsor segments";
-    sponsorButton.title = label;
-    sponsorButton.setAttribute("aria-label", label);
-    sponsorButton.setAttribute("aria-pressed", String(sponsorSkip));
+  // Same treatment as the seen toggle: a pressed look, a filled icon, and a
+  // title naming what a click does now.
+  function updateWatchLaterButton(): void {
+    const video = queue[currentIndex];
+    const saved = Boolean(video && video.inWatchLater);
+    watchLaterButton.innerHTML = saved
+      ? ICON_WATCH_LATER_SAVED
+      : ICON_WATCH_LATER;
+    watchLaterButton.classList.toggle("player-toggle--on", saved);
+    watchLaterButton.disabled = !video;
+    watchLaterButton.title = saved
+      ? "Remove from Watch Later"
+      : "Save to Watch Later";
+    watchLaterButton.setAttribute("aria-pressed", String(saved));
   }
 
   function updateTheater(): void {
@@ -849,7 +965,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
 
   async function loadDescription(videoId: string): Promise<void> {
     description.replaceChildren(skeletonDescription());
-    renderChapters([]); // clear any previous video's chapters while loading
+    renderChapters([], false); // clear the previous video's chapters while loading
     try {
       const text = await getVideoDescription(videoId);
       if (queue[currentIndex]?.videoId !== videoId) return; // video changed mid-load
@@ -858,15 +974,19 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
         renderChapters(parseChapters(text));
       } else {
         description.textContent = "(no description)";
+        renderChapters([]);
       }
     } catch {
+      if (queue[currentIndex]?.videoId !== videoId) return;
       description.textContent = "(could not load description)";
+      renderChapters([]);
     }
   }
 
   function updateTabsUi(): void {
     const tabs: [PlayerTab, HTMLButtonElement, HTMLElement][] = [
       ["description", descTab, descPanel],
+      ["chapters", chaptersTab, chaptersPanel],
       ["comments", commentsTab, commentsPanel],
       ["info", infoTab, infoPanel],
     ];
@@ -1439,7 +1559,11 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
       saveProgress();
     }
     if (event.data !== PLAYER_STATE_ENDED) return;
-    if (autoplayNext && currentIndex < queue.length - 1) {
+    // The Settings switch (AUTOPLAY_PREF), read when it is needed.
+    if (
+      getBoolPreference(AUTOPLAY_PREF, AUTOPLAY_DEFAULT) &&
+      currentIndex < queue.length - 1
+    ) {
       requestNavigate(currentIndex + 1);
     } else {
       showEndCard();
@@ -1509,7 +1633,6 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     startNudgeTracking();
   }
 
-  updateSponsorButton();
   updateTheater();
   void playAt(currentIndex);
 

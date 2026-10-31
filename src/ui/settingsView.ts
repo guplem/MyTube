@@ -18,6 +18,8 @@ import {
   THEATER_DEFAULT,
   SPONSOR_SKIP_PREF,
   SPONSOR_SKIP_DEFAULT,
+  AUTOPLAY_PREF,
+  AUTOPLAY_DEFAULT,
   BACKGROUND_PLAY_PREF,
   BACKGROUND_PLAY_DEFAULT,
   readStoredPlaybackRate,
@@ -69,6 +71,11 @@ export function SettingsView(onFeedFilterChange: () => void): HTMLElement {
         "Skip sponsor segments",
         SPONSOR_SKIP_PREF,
         SPONSOR_SKIP_DEFAULT,
+      ),
+      preferenceToggle(
+        "Play the next video when one ends",
+        AUTOPLAY_PREF,
+        AUTOPLAY_DEFAULT,
       ),
       preferenceToggle(
         "Keep playing when the screen locks",
