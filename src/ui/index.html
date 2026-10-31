@@ -12,9 +12,36 @@
       type="image/svg+xml"
       href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%230f0f0f%22%2F%3E%3Crect%20x%3D%228%22%20y%3D%2215%22%20width%3D%2248%22%20height%3D%2234%22%20rx%3D%229%22%20fill%3D%22%23ff0033%22%2F%3E%3Ccircle%20cx%3D%2232%22%20cy%3D%2227.5%22%20r%3D%225.5%22%20fill%3D%22%23fff%22%2F%3E%3Cpath%20d%3D%22M21%2042%20a11%209%200%200%201%2022%200%20Z%22%20fill%3D%22%23fff%22%2F%3E%3C%2Fsvg%3E"
     />
+    <!-- Inter, the UI typeface. The system font stands in until it loads
+         (display=swap), so text never waits for the network. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+    />
     <style>
       :root {
         color-scheme: dark;
+      }
+      /* Thin, dark scrollbars that match the page instead of the browser's
+         light default. Touch screens use overlay scrollbars and ignore this;
+         the horizontal strips hide theirs there (see the phone rules). */
+      html {
+        scrollbar-width: thin;
+        scrollbar-color: #3a3a3a #0f0f0f;
+      }
+      ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #0f0f0f;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #3a3a3a;
+        border: 2px solid #0f0f0f;
+        border-radius: 5px;
       }
       /* Make the `hidden` attribute win over element rules that set `display`
          (e.g. the flex layouts on the chapters section, comments body and end
@@ -52,6 +79,7 @@
       }
       body {
         font-family:
+          Inter,
           system-ui,
           -apple-system,
           sans-serif;
@@ -62,18 +90,37 @@
       .app-header {
         display: flex;
         align-items: center;
-        gap: 1rem 1.5rem;
+        gap: 0.75rem 1.75rem;
         flex-wrap: wrap;
-        padding: 1rem 1.5rem;
+        padding: 0.85rem 1.5rem;
         border-bottom: 1px solid #222;
       }
-      .app-header h1 {
-        margin: 0;
-        font-size: 1.3rem;
+      .app-brand {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        font-size: 1.2rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
       }
+      .app-brand-mark {
+        display: block;
+        width: 1.9rem;
+        height: 1.9rem;
+      }
+      /* The phone-only button that opens the search field (see the phone
+         rules); wider screens always show the field. */
+      .app-search-toggle {
+        display: none;
+      }
+      /* Sections as a segmented control: one dark track, the active section
+         a lighter pill on it. */
       .app-nav {
         display: flex;
-        gap: 0.5rem;
+        gap: 0.25rem;
+        padding: 0.25rem;
+        border-radius: 12px;
+        background: #181818;
         max-width: 100%;
         overflow-x: auto;
         overscroll-behavior-x: contain;
@@ -86,11 +133,14 @@
       .app-nav button {
         background: none;
         border: none;
-        color: #aaa;
+        color: #b5b5b5;
         font: inherit;
+        font-size: 0.9rem;
+        font-weight: 500;
         cursor: pointer;
-        padding: 0.3rem 0.6rem;
-        border-radius: 6px;
+        height: 2.25rem;
+        padding: 0 1rem;
+        border-radius: 9px;
         flex: 0 0 auto;
         white-space: nowrap;
       }
@@ -104,7 +154,8 @@
       }
       .app-nav button.active {
         color: #fff;
-        background: #272727;
+        font-weight: 600;
+        background: #2a2a2a;
       }
       /* Feed button states, all driven by feedNavState in
          src/shared/feedNavState.ts. Dimmed until the session has loaded a feed
@@ -158,36 +209,62 @@
         border-radius: 50%;
         background: #3ea6ff;
       }
+      /* One rounded field; the search button sits inside it as an icon. */
       .app-search {
         margin-left: auto;
         display: flex;
-        gap: 0.4rem;
+        align-items: center;
+        flex: 0 1 22rem;
+        min-width: 13rem;
+        height: 2.5rem;
+        padding: 0 0.3rem 0 1rem;
+        box-sizing: border-box;
+        border: 1px solid #2e2e2e;
+        border-radius: 1.25rem;
+        background: #141414;
+      }
+      .app-search:focus-within {
+        border-color: #3ea6ff;
       }
       .app-search input {
-        background: #1c1c1c;
-        border: 1px solid #3a3a3a;
-        border-radius: 6px;
-        padding: 0.4rem 0.6rem;
+        flex: 1;
+        min-width: 0;
+        border: 0;
+        outline: none;
+        background: none;
         color: #f1f1f1;
         font: inherit;
-        min-width: 0;
+      }
+      .app-search button,
+      .app-search-toggle {
+        align-items: center;
+        justify-content: center;
+        width: 2.75rem;
+        height: 2.75rem;
+        padding: 0;
+        border: 0;
+        border-radius: 50%;
+        background: none;
+        color: #b5b5b5;
+        font-size: 1.15rem;
+        cursor: pointer;
       }
       .app-search button {
-        background: #272727;
-        color: #f1f1f1;
-        border: 1px solid #3a3a3a;
-        border-radius: 6px;
-        padding: 0.4rem 0.7rem;
-        font: inherit;
-        cursor: pointer;
+        display: flex;
+        width: 2.2rem;
+        height: 2.2rem;
+      }
+      .app-search button svg,
+      .app-search-toggle svg {
+        display: block;
       }
       @media (hover: hover) and (pointer: fine) {
         .app-search button:hover {
-          background: #333;
+          color: #fff;
         }
       }
       .app-search button:active {
-        background: #333;
+        color: #fff;
       }
       #app {
         padding: 1.5rem;
@@ -1427,23 +1504,48 @@
          grid into smaller cards so two fit side by side on a phone. */
       @media (max-width: 600px) {
         .app-header {
-          gap: 0.6rem 1rem;
-          padding: 0.75rem 1rem;
+          gap: 0.5rem;
+          padding: 0.4rem 0.75rem 0.6rem;
         }
-        .app-header h1 {
+        .app-brand {
           font-size: 1.15rem;
         }
-        /* Don't wrap the tabs onto a second line on a phone; let the row
-           scroll horizontally when they don't all fit. */
+        /* On a phone the field hides behind a search icon at the end of the
+           brand row; tapping it opens the field below the tabs. */
+        .app-search-toggle {
+          display: flex;
+          margin-left: auto;
+        }
+        .app-header:not(.app-header--search-open) .app-search {
+          display: none;
+        }
+        /* The tabs become separate chips on the full width of the row. Don't
+           wrap them onto a second line; let the row scroll horizontally, and
+           fade its right edge so a cut-off chip reads as "more". */
         .app-nav {
+          flex: 1 1 100%;
           flex-wrap: nowrap;
+          gap: 0.4rem;
+          padding: 0;
+          background: none;
+          -webkit-mask-image: linear-gradient(to right, #000 88%, transparent);
+          mask-image: linear-gradient(to right, #000 88%, transparent);
+        }
+        .app-nav button {
+          height: 2.5rem;
+          padding: 0 1rem;
+          border-radius: 1.25rem;
+          background: #1c1c1c;
+          color: #d4d4d4;
+        }
+        .app-nav button.active {
+          background: #f1f1f1;
+          color: #0f0f0f;
         }
         .app-search {
+          flex: 1 1 100%;
           margin-left: 0;
-          width: 100%;
-        }
-        .app-search input {
-          flex: 1;
+          min-width: 0;
         }
         #app {
           padding: 0.75rem;
@@ -1484,19 +1586,64 @@
   </head>
   <body>
     <header class="app-header">
-      <nav class="app-nav">
+      <div class="app-brand">
+        <svg class="app-brand-mark" viewBox="0 0 64 64" aria-hidden="true">
+          <rect width="64" height="64" rx="14" fill="#1a1a1a" />
+          <rect x="8" y="15" width="48" height="34" rx="9" fill="#ff0033" />
+          <circle cx="32" cy="27.5" r="5.5" fill="#fff" />
+          <path d="M21 42 a11 9 0 0 1 22 0 Z" fill="#fff" />
+        </svg>
+        <span>MyTube</span>
+      </div>
+      <button
+        type="button"
+        class="app-search-toggle"
+        aria-label="Search YouTube"
+        aria-controls="app-search"
+        aria-expanded="false"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          width="1em"
+          height="1em"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          aria-hidden="true"
+        >
+          <circle cx="11" cy="11" r="7" />
+          <path d="M20 20l-3.5-3.5" />
+        </svg>
+      </button>
+      <nav class="app-nav" aria-label="Sections">
         <button type="button" data-view="feed" class="active">Feed</button>
         <button type="button" data-view="watchlater">Watch Later</button>
         <button type="button" data-view="playlists">Playlists</button>
         <button type="button" data-view="history">History</button>
       </nav>
-      <form class="app-search">
+      <form class="app-search" id="app-search" role="search">
         <input
           type="search"
+          enterkeyhint="search"
           placeholder="Search YouTube…"
           aria-label="Search YouTube"
         />
-        <button type="submit">Search</button>
+        <button type="submit" aria-label="Search" title="Search">
+          <svg
+            viewBox="0 0 24 24"
+            width="1em"
+            height="1em"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            aria-hidden="true"
+          >
+            <circle cx="11" cy="11" r="7" />
+            <path d="M20 20l-3.5-3.5" />
+          </svg>
+        </button>
       </form>
     </header>
     <!-- Filled with a skeleton grid by the bundle the moment it runs (see the

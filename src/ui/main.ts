@@ -1282,6 +1282,17 @@ function setupSettingsLink(): void {
 function setupSearch(): void {
   const form = document.querySelector<HTMLFormElement>(".app-search");
   const input = form?.querySelector<HTMLInputElement>("input");
+  // Phone only (CSS shows the toggle there): the header keeps the field
+  // behind an icon, and opening it moves the focus straight into the field.
+  const header = document.querySelector<HTMLElement>(".app-header");
+  const toggle =
+    document.querySelector<HTMLButtonElement>(".app-search-toggle");
+  toggle?.addEventListener("click", (): void => {
+    const open = !header?.classList.contains("app-header--search-open");
+    header?.classList.toggle("app-header--search-open", open);
+    toggle.setAttribute("aria-expanded", String(open));
+    if (open) input?.focus();
+  });
   form?.addEventListener("submit", (event): void => {
     event.preventDefault();
     const term = input?.value.trim();
