@@ -732,6 +732,16 @@
       .feed-filters .toggle-label:active {
         background: #1c1c1c;
       }
+      /* The checked chip outranks the plain hover and press rules, so it
+         carries its own darker blue for both. */
+      @media (hover: hover) and (pointer: fine) {
+        .feed-filters .toggle-label:has(input:checked):hover {
+          background: #22395a;
+        }
+      }
+      .feed-filters .toggle-label:has(input:checked):active {
+        background: #22395a;
+      }
       .feed-filters .toggle-label:has(input:focus-visible) {
         outline: 2px solid #3ea6ff;
         outline-offset: 2px;
@@ -1039,10 +1049,18 @@
       /* Tab strip: the "Description" / "Comments" / "Info" tabs above the
          panel, styled as an underlined segmented control. Only the selected
          panel shows. */
+      /* Four tabs can outgrow a narrow phone: the strip then scrolls on its
+         own instead of widening the page. */
       .player-tab-strip {
         display: flex;
         gap: 0.25rem;
         border-bottom: 1px solid #2a2a2a;
+        overflow-x: auto;
+        overscroll-behavior-x: contain;
+        scrollbar-width: none;
+      }
+      .player-tab-strip::-webkit-scrollbar {
+        display: none;
       }
       .player-view button.player-tab {
         background: none;
@@ -1651,10 +1669,39 @@
         .list-size {
           margin-left: 0;
         }
-        /* Smaller side padding keeps the three player tabs on one row on a
-           320px phone. The selector mirrors the base rule so it wins. */
+        /* Smaller side padding keeps the four player tabs on one row on most
+           phones; the strip scrolls on the narrowest. The selector mirrors
+           the base rule so it wins. */
         .player-view button.player-tab {
-          padding: 0.5rem 0.6rem;
+          flex: 0 0 auto;
+          padding: 0.5rem 0.55rem;
+        }
+        /* Touch targets: every control on a phone is at least 44px tall
+           (2.75rem), the size a fingertip hits without a second try. */
+        .app-nav button,
+        .feed-filters .toggle-label,
+        .refresh-button,
+        .video-action,
+        .list-controls button,
+        .list-size select {
+          height: 2.75rem;
+        }
+        .app-search button {
+          width: 2.75rem;
+          height: 2.75rem;
+        }
+        /* The dismiss cross keeps its 2rem dark circle but takes a 44px tap
+           area: the rest of the button is transparent. */
+        .video-card-corner {
+          top: 0.15rem;
+          right: 0.15rem;
+          width: 2.75rem;
+          height: 2.75rem;
+          background: radial-gradient(
+            circle,
+            rgba(0, 0, 0, 0.65) 0.95rem,
+            transparent 1rem
+          );
         }
         /* A 320px phone has no room for a wide label column: cap it at a
            part of the row instead. */
