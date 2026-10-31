@@ -18,6 +18,12 @@ export const THEATER_DEFAULT = false;
 export const SPONSOR_SKIP_PREF = "mytube.player.sponsorSkip";
 export const SPONSOR_SKIP_DEFAULT = true;
 
+// Autoplay: play the next video of the list when one ends. Default off, like
+// the per-session checkbox it replaces: an unasked jump to another video is
+// worse than a stop.
+export const AUTOPLAY_PREF = "mytube.player.autoplay";
+export const AUTOPLAY_DEFAULT = false;
+
 // Background play: keep the video playing when the phone locks, by undoing
 // the pause that YouTube's embed makes when the page hides (rule in
 // src/shared/backgroundPlay.ts). Default on: that pause is never wanted.

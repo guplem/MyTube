@@ -45,6 +45,8 @@ import {
   THEATER_DEFAULT,
   SPONSOR_SKIP_PREF,
   SPONSOR_SKIP_DEFAULT,
+  AUTOPLAY_PREF,
+  AUTOPLAY_DEFAULT,
   BACKGROUND_PLAY_PREF,
   BACKGROUND_PLAY_DEFAULT,
   readStoredPlaybackRate,
@@ -73,12 +75,6 @@ import { scrollBehavior } from "./motion";
 // to be, because every polled millisecond is sponsor content the viewer still
 // hears before the jump.
 const SPONSOR_POLL_MS = 250;
-
-// Sponsor-skip toggle icon: the classic "skip forward" (two arrows into a
-// bar). One icon for both states — the button dims while the skip is off (see
-// .player-sponsor in src/ui/index.html).
-const ICON_SPONSOR_SKIP =
-  '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5l8 7-8 7V5z"/><path d="M13 5l7 7-7 7V5z"/></svg>';
 
 // Minimal typing for the YouTube IFrame Player API (loaded from youtube.com).
 interface YouTubePlayerEvent {
@@ -218,7 +214,6 @@ function loadYouTubeApi(): Promise<YouTubeNamespace> {
 export function PlayerView(props: PlayerViewProps): PlayerController {
   const { queue, contextLabel, onBack, onNavigate } = props;
   let currentIndex = Math.max(0, Math.min(props.startIndex, queue.length - 1));
-  let autoplayNext = false;
   let player: YouTubePlayer | null = null;
 
   // The remembered playback speed (see src/ui/playerPreferences.ts), applied to
@@ -366,30 +361,12 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     });
   });
 
-  // Sponsor-skip toggle. Turning it on mid-video loads the segments for the
-  // video already playing, so the next sponsor part is skipped without a
-  // reload.
-  let sponsorSkip = getBoolPreference(SPONSOR_SKIP_PREF, SPONSOR_SKIP_DEFAULT);
-  const sponsorButton = document.createElement("button");
-  sponsorButton.type = "button";
-  sponsorButton.className = "player-sponsor";
-  sponsorButton.innerHTML = ICON_SPONSOR_SKIP;
-  sponsorButton.addEventListener("click", (): void => {
-    sponsorSkip = !sponsorSkip;
-    setBoolPreference(SPONSOR_SKIP_PREF, sponsorSkip);
-    updateSponsorButton();
-    if (infoLoaded) renderInfo(); // the Info tab shows the auto-skip state
-    if (!sponsorSkip) {
-      // Forget the last jump too. Otherwise the viewer can turn the skip off
-      // inside a segment, rewind, turn it back on, and never get the jump:
-      // only a poll clears the memory, and the poll is stopped.
-      lastSkippedSponsorStart = null;
-      stopSponsorTracking();
-      return;
-    }
-    const video = queue[currentIndex];
-    if (video) void loadSponsorSegments(video.videoId);
-  });
+  // Sponsor skip is a Settings preference (src/ui/settingsView.ts), read once
+  // per player: the Settings note says it applies to the next video opened.
+  const sponsorSkip = getBoolPreference(
+    SPONSOR_SKIP_PREF,
+    SPONSOR_SKIP_DEFAULT,
+  );
 
   // Theater mode toggle. Hidden on mobile (where the player is already
   // full-width) via CSS; the class on the root drives the layout change.
@@ -402,18 +379,6 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     setBoolPreference(THEATER_PREF, theaterMode);
     updateTheater();
   });
-
-  const autoplayLabel = document.createElement("label");
-  autoplayLabel.className = "player-autoplay";
-  const autoplayCheckbox = document.createElement("input");
-  autoplayCheckbox.type = "checkbox";
-  autoplayCheckbox.addEventListener("change", (): void => {
-    autoplayNext = autoplayCheckbox.checked;
-  });
-  autoplayLabel.append(
-    autoplayCheckbox,
-    document.createTextNode(" Autoplay next"),
-  );
 
   // Fullscreen on mobile must rotate the video to landscape like the native
   // YouTube app, and the real API for that is unavailable here: the Apps
@@ -506,12 +471,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   titleRow.className = "player-title-row";
   const titleActions = document.createElement("div");
   titleActions.className = "player-title-actions";
-  titleActions.append(
-    seenButton,
-    sponsorButton,
-    fullscreenButton,
-    theaterButton,
-  );
+  titleActions.append(seenButton, fullscreenButton, theaterButton);
   titleRow.append(title, titleActions);
 
   // Nav row: the context label / position sit next to the prev/next buttons,
@@ -535,7 +495,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   const navButtons = document.createElement("div");
   navButtons.className = "player-nav-buttons";
   navButtons.append(prevButton, nextButton);
-  nav.append(position, navButtons, autoplayLabel);
+  nav.append(position, navButtons);
 
   // Chapter strip: a horizontally scrollable row of the description's chapters,
   // sitting above the tabs so it stays visible on both the Description and
@@ -821,18 +781,6 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
         ? "Mark as watched — you finished this video"
         : "Mark as watched";
     seenButton.setAttribute("aria-pressed", String(seen));
-  }
-
-  // Same pressed-toggle treatment as the theater button, and the title always
-  // names what the next click does.
-  function updateSponsorButton(): void {
-    sponsorButton.classList.toggle("active", sponsorSkip);
-    const label = sponsorSkip
-      ? "Stop skipping sponsor segments"
-      : "Skip sponsor segments";
-    sponsorButton.title = label;
-    sponsorButton.setAttribute("aria-label", label);
-    sponsorButton.setAttribute("aria-pressed", String(sponsorSkip));
   }
 
   function updateTheater(): void {
@@ -1439,7 +1387,12 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
       saveProgress();
     }
     if (event.data !== PLAYER_STATE_ENDED) return;
-    if (autoplayNext && currentIndex < queue.length - 1) {
+    // Read at the end, not at mount: a change in Settings during a long
+    // video still applies to this one.
+    if (
+      getBoolPreference(AUTOPLAY_PREF, AUTOPLAY_DEFAULT) &&
+      currentIndex < queue.length - 1
+    ) {
       requestNavigate(currentIndex + 1);
     } else {
       showEndCard();
@@ -1509,7 +1462,6 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     startNudgeTracking();
   }
 
-  updateSponsorButton();
   updateTheater();
   void playAt(currentIndex);
 
