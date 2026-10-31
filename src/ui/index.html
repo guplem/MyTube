@@ -1195,10 +1195,13 @@
          "current chapter" highlight arriving as playback moves on. It also
          softens hover and the release of a press (the press itself is
          instant, below). Both properties repaint, but a chapter card is
-         small, so the paint cost is negligible. */
+         small, so the paint cost is negligible.
+         The width fits 2.75 cards per view: the cut-off card says "there is
+         more, swipe". 0.5rem is the track's gap, twice for the two gaps. */
       .player-view button.chapter-card {
-        flex: 0 0 auto;
-        max-width: 220px;
+        flex: 0 0 calc((100% - 2 * 0.5rem) / 2.75);
+        box-sizing: border-box;
+        min-width: 0;
         display: flex;
         flex-direction: column;
         gap: 0.15rem;
@@ -1232,10 +1235,12 @@
         color: #3ea6ff;
         font-variant-numeric: tabular-nums;
       }
+      /* One line, cut with "…": the Chapters tab shows the full title. */
       .chapter-label {
+        display: block;
+        max-width: 100%;
         font-size: 0.85rem;
         color: #ddd;
-        max-width: 200px;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -1261,6 +1266,74 @@
       }
       .player-view button.chapter-card.current .chapter-label {
         color: #fff;
+      }
+      /* The Chapters tab: every chapter on its own row, full title. The
+         selector repeats the box-style :not() chain so it wins over it. */
+      .chapter-list {
+        display: flex;
+        flex-direction: column;
+      }
+      .player-view
+        button.chapter-row:not(.ts-link):not(.player-tab):not(.chapter-card) {
+        display: flex;
+        align-items: baseline;
+        gap: 0.9rem;
+        min-height: 2.75rem;
+        padding: 0.6rem 0.25rem;
+        border: 0;
+        border-bottom: 1px solid #222;
+        border-radius: 0;
+        background: none;
+        text-align: left;
+      }
+      @media (hover: hover) and (pointer: fine) {
+        .player-view
+          button.chapter-row:not(.ts-link):not(.player-tab):not(
+            .chapter-card
+          ):hover {
+          background: #1a1a1a;
+        }
+      }
+      .player-view
+        button.chapter-row:not(.ts-link):not(.player-tab):not(
+          .chapter-card
+        ):active {
+        background: #1a1a1a;
+      }
+      .player-view button.chapter-row.past {
+        opacity: 0.5;
+      }
+      .chapter-row-time {
+        flex: 0 0 2.75rem;
+        color: #aaa;
+        font-size: 0.85rem;
+        font-variant-numeric: tabular-nums;
+      }
+      .chapter-row-label {
+        flex: 1;
+        min-width: 0;
+        color: #f1f1f1;
+        line-height: 1.4;
+        overflow-wrap: anywhere;
+      }
+      .chapter-row-playing {
+        display: none;
+        flex: 0 0 auto;
+        padding: 0.1rem 0.5rem;
+        border-radius: 0.75rem;
+        background: #23334a;
+        color: #9fd0ff;
+        font-size: 0.75rem;
+        font-weight: 600;
+      }
+      .chapter-row.current .chapter-row-time {
+        color: #3ea6ff;
+      }
+      .chapter-row.current .chapter-row-label {
+        font-weight: 600;
+      }
+      .chapter-row.current .chapter-row-playing {
+        display: inline-block;
       }
       /* Round icon buttons (back, Watch Later, previous, next, theater,
          fullscreen): 44px, the smallest comfortable touch target. */

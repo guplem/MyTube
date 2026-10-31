@@ -116,7 +116,7 @@ interface YouTubeNamespace {
     options: YouTubePlayerOptions,
   ) => YouTubePlayer;
 }
-type PlayerTab = "description" | "comments" | "info";
+type PlayerTab = "description" | "chapters" | "comments" | "info";
 
 // The Info tab's value for a fact that has no data. One short mark instead of
 // words like "none" or "unknown" lets the eye skip empty rows.
@@ -251,6 +251,8 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   // YouTube API fires no time events, so we poll getCurrentTime on an interval.
   let chapters: Chapter[] = [];
   let chapterCards: HTMLButtonElement[] = [];
+  // The same chapters as rows of the Chapters tab, marked in step with the cards.
+  let chapterRows: HTMLButtonElement[] = [];
   let currentChapterIndex = -1;
   let chapterTimer: number | null = null;
 
@@ -626,6 +628,15 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   descTab.textContent = "Description";
   descTab.addEventListener("click", (): void => setActiveTab("description"));
 
+  // Shown only when the description has chapters (renderChapters).
+  const chaptersTab = document.createElement("button");
+  chaptersTab.type = "button";
+  chaptersTab.className = "player-tab";
+  chaptersTab.setAttribute("role", "tab");
+  chaptersTab.textContent = "Chapters";
+  chaptersTab.hidden = true;
+  chaptersTab.addEventListener("click", (): void => setActiveTab("chapters"));
+
   const commentsTab = document.createElement("button");
   commentsTab.type = "button";
   commentsTab.className = "player-tab";
@@ -640,13 +651,19 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   infoTab.textContent = "Info";
   infoTab.addEventListener("click", (): void => setActiveTab("info"));
 
-  tabStrip.append(descTab, commentsTab, infoTab);
+  tabStrip.append(descTab, chaptersTab, commentsTab, infoTab);
 
   // Description tab panel: holds the description card.
   const descPanel = document.createElement("div");
   descPanel.className = "player-tab-panel";
   descPanel.setAttribute("role", "tabpanel");
   descPanel.appendChild(descCard);
+
+  // Chapters tab panel: every chapter as a row with its full title, which the
+  // one-line cards of the strip above cut short.
+  const chaptersPanel = document.createElement("div");
+  chaptersPanel.className = "player-tab-panel chapter-list";
+  chaptersPanel.setAttribute("role", "tabpanel");
 
   // Comments tab panel: the sort order is part of this panel's contents (it
   // only applies to comments), sitting above the comment list.
@@ -711,6 +728,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     chaptersSection,
     tabStrip,
     descPanel,
+    chaptersPanel,
     commentsPanel,
     infoPanel,
     endCard,
@@ -751,10 +769,15 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     stopChapterTracking();
     chapters = list;
     chapterCards = [];
+    chapterRows = [];
     currentChapterIndex = -1;
     chaptersTrack.innerHTML = "";
+    chaptersPanel.replaceChildren();
+    chaptersTab.hidden = list.length === 0;
     if (list.length === 0) {
       chaptersSection.hidden = true;
+      // A video without chapters cannot stay on an empty Chapters tab.
+      if (activeTab === "chapters") setActiveTab("description");
       return;
     }
     for (const chapter of list) {
@@ -772,6 +795,24 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
       card.addEventListener("click", (): void => seek(chapter.seconds));
       chaptersTrack.appendChild(card);
       chapterCards.push(card);
+
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "chapter-row";
+      const rowTime = document.createElement("span");
+      rowTime.className = "chapter-row-time";
+      rowTime.textContent = chapter.timestampText;
+      const rowLabel = document.createElement("span");
+      rowLabel.className = "chapter-row-label";
+      rowLabel.textContent = chapter.label;
+      // Shown only on the current row (CSS), so the list says which one plays.
+      const playing = document.createElement("span");
+      playing.className = "chapter-row-playing";
+      playing.textContent = "Playing";
+      row.append(rowTime, rowLabel, playing);
+      row.addEventListener("click", (): void => seek(chapter.seconds));
+      chaptersPanel.appendChild(row);
+      chapterRows.push(row);
     }
     chaptersSection.hidden = false;
     startChapterTracking();
@@ -812,6 +853,12 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     for (let i = 0; i < chapterCards.length; i++) {
       chapterCards[i].classList.toggle("current", i === index);
       chapterCards[i].classList.toggle("past", i < index);
+    }
+    for (let i = 0; i < chapterRows.length; i++) {
+      chapterRows[i].classList.toggle("current", i === index);
+      chapterRows[i].classList.toggle("past", i < index);
+      if (i === index) chapterRows[i].setAttribute("aria-current", "true");
+      else chapterRows[i].removeAttribute("aria-current");
     }
     const card = chapterCards[index];
     if (card) {
@@ -933,6 +980,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   function updateTabsUi(): void {
     const tabs: [PlayerTab, HTMLButtonElement, HTMLElement][] = [
       ["description", descTab, descPanel],
+      ["chapters", chaptersTab, chaptersPanel],
       ["comments", commentsTab, commentsPanel],
       ["info", infoTab, infoPanel],
     ];
