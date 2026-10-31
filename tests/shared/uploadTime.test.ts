@@ -3,7 +3,10 @@
 // local parts, so the tests hold in any time zone.
 
 import { describe, expect, it } from "vitest";
-import { formatUploadTime } from "../../src/shared/uploadTime";
+import {
+  formatFullUploadTime,
+  formatUploadTime,
+} from "../../src/shared/uploadTime";
 
 const NOW: Date = new Date(2026, 9, 31, 12, 0); // Oct 31 2026, 12:00 local
 
@@ -70,5 +73,20 @@ describe("formatUploadTime", (): void => {
 
   it("treats a time a little in the future (clock skew) as just now", (): void => {
     expect(formatUploadTime(at(9, 31, 12, 3), NOW, "en-GB")).toBe("Just now");
+  });
+});
+
+describe("formatFullUploadTime", (): void => {
+  it("spells out the weekday, the full date and the time", (): void => {
+    expect(formatFullUploadTime(at(9, 30, 18, 40), "en-GB")).toBe(
+      "Friday, 30 October 2026 at 18:40",
+    );
+    expect(formatFullUploadTime(at(9, 30, 18, 40), "en-US")).toBe(
+      "Friday, October 30, 2026 at 6:40 PM",
+    );
+  });
+
+  it("returns an empty string for a date it cannot read", (): void => {
+    expect(formatFullUploadTime("not a date", "en-GB")).toBe("");
   });
 });

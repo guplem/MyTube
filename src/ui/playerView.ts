@@ -56,7 +56,7 @@ import {
 } from "./playerPreferences";
 import { shouldResumeAfterHide } from "../shared/backgroundPlay";
 import { optimistic } from "./optimistic";
-import { showToast } from "./toast";
+import { showHint, showToast } from "./toast";
 import { createScreenWakeLockHolder } from "./screenWakeLock";
 import {
   communityTitlesOn,
@@ -75,7 +75,7 @@ import {
   skeletonInfoRows,
 } from "./skeleton";
 import { formatDate, formatDuration } from "./videoListView";
-import { formatUploadTime } from "../shared/uploadTime";
+import { formatFullUploadTime, formatUploadTime } from "../shared/uploadTime";
 import { compactNumber } from "../shared/countLabel";
 import { scrollBehavior } from "./motion";
 
@@ -562,6 +562,16 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   // player already shows it.
   const meta = document.createElement("div");
   meta.className = "player-meta";
+  // "13h ago" or "Yesterday at 18:40" hides the date, so the upload time is a
+  // button: a tap shows the full date and time in a hint snackbar. Its title
+  // holds the same text, so a hover (mouse) and a long press (touch, through
+  // src/ui/longPressHint.ts) show it too.
+  const uploadTime = document.createElement("button");
+  uploadTime.type = "button";
+  uploadTime.className = "player-upload-time";
+  uploadTime.addEventListener("click", (): void => {
+    if (uploadTime.title !== "") showHint(uploadTime.title);
+  });
 
   const prevButton = document.createElement("button");
   prevButton.type = "button";
@@ -888,11 +898,14 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     title.title = video ? originalTitleHint(video, title.textContent) : "";
     prevButton.disabled = currentIndex <= 0;
     nextButton.disabled = currentIndex >= queue.length - 1;
-    meta.textContent = video
-      ? [video.channelTitle, formatUploadTime(video.publishedAt)]
-          .filter((part: string): boolean => part !== "")
-          .join(" · ")
-      : "";
+    const channel: string = video ? video.channelTitle : "";
+    const uploaded: string = video ? formatUploadTime(video.publishedAt) : "";
+    uploadTime.textContent = uploaded;
+    uploadTime.title = video ? formatFullUploadTime(video.publishedAt) : "";
+    meta.replaceChildren(
+      channel !== "" && uploaded !== "" ? channel + " · " : channel,
+    );
+    if (uploaded !== "") meta.appendChild(uploadTime);
     updateSeenButton();
     updateWatchLaterButton();
   }
