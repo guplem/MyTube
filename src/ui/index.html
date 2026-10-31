@@ -564,30 +564,152 @@
       }
 
       /* Playlists list */
+      /* The Playlists screen (src/ui/playlistsView.ts): a centered column
+         with a heading, a filter field, and one row per playlist. */
+      .playlists {
+        max-width: 760px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+      .playlists-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.75rem 1rem;
+      }
+      .playlists-title {
+        margin: 0;
+        color: #f1f1f1;
+        font-size: 1.6rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+      .playlists-count {
+        color: #8a8a8a;
+        font-size: 0.9rem;
+      }
+      .playlists-filter {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex: 0 1 16rem;
+        min-width: 0;
+        height: 2.5rem;
+        box-sizing: border-box;
+        padding: 0 0.75rem;
+        border: 1px solid #2e2e2e;
+        border-radius: 10px;
+        background: #141414;
+        color: #8a8a8a;
+      }
+      .playlists-filter:focus-within {
+        border-color: #3ea6ff;
+      }
+      .playlists-filter svg {
+        display: block;
+        flex: 0 0 auto;
+      }
+      .playlists-filter input {
+        flex: 1;
+        min-width: 0;
+        border: 0;
+        outline: none;
+        background: none;
+        color: #f1f1f1;
+        font: inherit;
+      }
       .playlist-list {
         display: flex;
         flex-direction: column;
-        gap: 0.5rem;
-        max-width: 600px;
+        border-top: 1px solid #1f1f1f;
       }
       .playlist-item {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        min-height: 2.75rem;
+        padding: 0.6rem 0.5rem;
         text-align: left;
         overflow-wrap: anywhere;
-        background: #1c1c1c;
-        border: 1px solid #2a2a2a;
-        border-radius: 12px;
-        padding: 0.8rem 1rem;
+        background-color: transparent;
+        border: 0;
+        border-bottom: 1px solid #1f1f1f;
         color: inherit;
         font: inherit;
         cursor: pointer;
       }
       @media (hover: hover) and (pointer: fine) {
         .playlist-item:hover {
-          background: #272727;
+          background-color: #181818;
         }
       }
       .playlist-item:active {
-        background: #272727;
+        background-color: #181818;
+      }
+      /* The cover, with the compact video count on a dark band at its right. */
+      .playlist-cover {
+        position: relative;
+        flex: 0 0 8rem;
+        aspect-ratio: 16 / 9;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #262626;
+      }
+      .playlist-cover img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .playlist-cover-count {
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 38%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.15rem;
+        background: rgba(0, 0, 0, 0.6);
+        color: #fff;
+        font-size: 0.75rem;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+      }
+      .playlist-cover-count svg {
+        display: block;
+        font-size: 0.9rem;
+      }
+      .playlist-text {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+      }
+      .playlist-title {
+        color: #f1f1f1;
+        font-size: 1rem;
+        font-weight: 600;
+        line-height: 1.3;
+        overflow-wrap: anywhere;
+      }
+      .playlist-meta {
+        color: #8a8a8a;
+        font-size: 0.82rem;
+      }
+      .playlist-chevron {
+        flex: 0 0 auto;
+        color: #6a6a6a;
+        font-size: 1.15rem;
+      }
+      .playlist-chevron svg {
+        display: block;
       }
       .video-thumb-wrap {
         position: relative;
@@ -1836,6 +1958,15 @@
         .player-view button.player-tab {
           flex: 0 0 auto;
           padding: 0.5rem 0.55rem;
+        }
+        /* Playlists: a smaller cover, and the filter takes its own row. */
+        .playlist-cover {
+          flex-basis: 6.5rem;
+        }
+        .playlists-filter {
+          flex: 1 1 100%;
+          margin-left: 0;
+          height: 2.75rem;
         }
         /* Touch targets: every control on a phone is at least 44px tall
            (2.75rem), the size a fingertip hits without a second try. */

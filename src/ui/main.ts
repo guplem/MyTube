@@ -10,7 +10,7 @@ import { defaultFeedBeforeDate } from "../shared/feed";
 import { shouldSuggestWatched } from "../shared/videoProgress";
 import { watchLaterAfterSeenToggle } from "../shared/watchLaterAfterSeen";
 import { pickDisplayTitle } from "../shared/dearrow";
-import { countLabel, groupedNumber } from "../shared/countLabel";
+import { countLabel } from "../shared/countLabel";
 import {
   getHistory,
   getPlaylists,
@@ -53,6 +53,8 @@ import {
 } from "./feedFilters";
 import { feedFilterControls } from "./feedFilterControls";
 import { SettingsView } from "./settingsView";
+import { PlaylistsView } from "./playlistsView";
+import type { PlaylistSummary } from "../shared/playlist";
 import { renderBuildStamp } from "./buildStamp";
 import { renderSponsorBlockCredit } from "./sponsorBlockCredit";
 import {
@@ -785,23 +787,15 @@ function showPlaylists(): void {
         app.textContent = "You have no playlists.";
         return;
       }
-      const list = document.createElement("div");
-      list.className = "playlist-list";
-      for (const playlist of playlists) {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "playlist-item";
-        button.textContent = `${playlist.title} (${groupedNumber(playlist.itemCount)})`;
-        button.addEventListener("click", (): void =>
+      app.appendChild(
+        PlaylistsView(playlists, (playlist: PlaylistSummary): void =>
           go({
             view: "playlist",
             playlistId: playlist.playlistId,
             title: playlist.title,
           }),
-        );
-        list.appendChild(button);
-      }
-      app.appendChild(list);
+        ),
+      );
     })
     .catch((error: Error): void => {
       if (movedOn()) return;
