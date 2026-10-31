@@ -207,20 +207,29 @@ function makeWatchLaterToggle(vanishesWhen: boolean | null): VideoAction {
             : "Couldn't remove from Watch Later",
       );
       if (!video.inWatchLater && !video.dismissed) {
-        showToast("Removed from Watch Later", {
-          label: "Dismiss from feed",
-          onAction: (): void => dismissAfterWatchLaterRemoval(video, button),
-        });
+        offerDismissAfterWatchLaterRemoval(video, button);
       }
     },
   };
 }
 
+// The toast a Watch Later removal shows, from a card or from the player. It
+// offers the dismiss and never applies it.
+function offerDismissAfterWatchLaterRemoval(
+  video: Video,
+  button: HTMLButtonElement,
+): void {
+  showToast("Removed from Watch Later", {
+    label: "Dismiss from feed",
+    onAction: (): void => dismissAfterWatchLaterRemoval(video, button),
+  });
+}
+
 // The action of the toast that a Watch Later removal shows: a video the user
 // is done with often should not come back in the feed either. The toast
-// outlives its card. Once the card is gone, the user is on another screen, and
-// the router would judge this write by that screen, not by the one that owns
-// this Video object, so drop the kept feed page outright.
+// outlives its card (or the player). Once that button is gone, the user is on
+// another screen, and the router would judge this write by that screen, not by
+// the one that owns this Video object, so drop the kept feed page outright.
 function dismissAfterWatchLaterRemoval(
   video: Video,
   button: HTMLButtonElement,
@@ -943,6 +952,7 @@ function showPlayer(screen: PlayerScreen, queue: Video[]): void {
     ),
     contextLabel: screen.label,
     onBack: (): void => go(screenForContext(screen.context)),
+    onWatchLaterRemoved: offerDismissAfterWatchLaterRemoval,
     // prev/next/autoplay request navigation; go() pushes one history entry per
     // video, then drives this same player via goToVideo above.
     onNavigate: (videoId, navIndex): void =>

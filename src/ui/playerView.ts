@@ -31,6 +31,8 @@ import {
   markVideoSeen,
   removeVideoSeen,
   saveVideoProgress,
+  addToWatchLater,
+  removeFromWatchLater,
 } from "./serverBridge";
 import {
   PROGRESS_FINISHED,
@@ -68,6 +70,7 @@ import {
   skeletonInfoRows,
 } from "./skeleton";
 import { formatDate, formatDuration } from "./videoListView";
+import { formatUploadTime } from "../shared/uploadTime";
 import { scrollBehavior } from "./motion";
 
 // How often the live position is checked against the segment list. The check
@@ -169,11 +172,31 @@ const ICON_ENTER_FULLSCREEN =
 const ICON_EXIT_FULLSCREEN =
   '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M16 3v3a2 2 0 0 0 2 2h3"/><path d="M8 21v-3a2 2 0 0 0-2-2H3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>';
 
+// Action-bar icons. Each icon button also carries an aria-label and a title,
+// so the icon never has to explain itself alone.
+const ICON_BACK =
+  '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>';
+const ICON_PREVIOUS =
+  '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6l-8 6 8 6z"/><path d="M6 6v12"/></svg>';
+const ICON_NEXT =
+  '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l8 6-8 6z"/><path d="M18 6v12"/></svg>';
+const ICON_WATCHED =
+  '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg>';
+// Outline when the video is not saved, filled when it is: the fill carries the
+// state for people who do not see the blue.
+const ICON_WATCH_LATER =
+  '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h12v17l-6-4-6 4z"/></svg>';
+const ICON_WATCH_LATER_SAVED =
+  '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h12v17l-6-4-6 4z"/></svg>';
+
 export interface PlayerViewProps {
   queue: Video[];
   startIndex: number;
   contextLabel: string;
   onBack: () => void;
+  /** After a Watch Later removal from the player: offers the feed dismiss,
+   *  like the card toggle does (see src/ui/main.ts). */
+  onWatchLaterRemoved: (video: Video, button: HTMLButtonElement) => void;
   /** Request navigation to another video in the queue (the router pushes history). */
   onNavigate: (videoId: string, index: number) => void;
 }
@@ -212,7 +235,8 @@ function loadYouTubeApi(): Promise<YouTubeNamespace> {
 }
 
 export function PlayerView(props: PlayerViewProps): PlayerController {
-  const { queue, contextLabel, onBack, onNavigate } = props;
+  const { queue, contextLabel, onBack, onNavigate, onWatchLaterRemoved } =
+    props;
   let currentIndex = Math.max(0, Math.min(props.startIndex, queue.length - 1));
   let player: YouTubePlayer | null = null;
 
@@ -310,6 +334,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
 
   const seenButton = document.createElement("button");
   seenButton.type = "button";
+  seenButton.className = "player-seen";
   // Toggles seen, like the card buttons: flip immediately and roll back +
   // toast if the request fails. See src/ui/optimistic.ts.
   seenButton.addEventListener("click", (): void => {
@@ -321,9 +346,9 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     // with removeVideoSeen, which never re-adds, so it passes
     // restoresWatchLater: false — only the Watch Later screen's card toggle
     // restores the entry (see toggleSeen in src/ui/main.ts). The mirror lives
-    // INSIDE apply/revert: the player has no Watch Later button, but the Video
-    // object is shared with the kept feed page (ADR 0008), so a failed call
-    // must put membership back or the cards show a stale flag. `wasSaved` is
+    // INSIDE apply/revert: the player's Watch Later button shows it, and the
+    // Video object is shared with the kept feed page (ADR 0008), so a failed
+    // call must put membership back or the cards show a stale flag. `wasSaved` is
     // membership as of this tap, so the revert restores that; an earlier tap
     // that has not settled yet makes it that tap's assumed value.
     const wasSaved = Boolean(video.inWatchLater);
@@ -341,6 +366,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
         video.seen = target;
         video.inWatchLater = savedAtTarget;
         updateSeenButton();
+        updateWatchLaterButton();
       },
       revert: (): void => {
         video.seen = !target;
@@ -352,6 +378,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
           video.inWatchLater = wasSaved;
         }
         updateSeenButton();
+        updateWatchLaterButton();
       },
       send: (): Promise<void> =>
         target ? markVideoSeen(video) : removeVideoSeen(video.videoId),
@@ -359,6 +386,51 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
         ? "Couldn't mark as watched"
         : "Couldn't mark as not watched",
     });
+  });
+
+  // Watch Later toggle: the same optimistic flip as the card toggle, keyed on a
+  // per-video token. The video is the key when one button serves a whole
+  // queue, but the seen toggle above already keys on the video, and a Watch
+  // Later tap must not take the rollback away from a seen tap still in flight.
+  const watchLaterKeys: WeakMap<Video, object> = new WeakMap();
+  const watchLaterButton = document.createElement("button");
+  watchLaterButton.type = "button";
+  watchLaterButton.className = "player-icon-button player-watch-later";
+  watchLaterButton.setAttribute("aria-label", "Watch Later");
+  watchLaterButton.addEventListener("click", (): void => {
+    const video = queue[currentIndex];
+    if (!video) return;
+    const wasSaved = Boolean(video.inWatchLater);
+    const target = !wasSaved;
+    let key: object | undefined = watchLaterKeys.get(video);
+    if (!key) {
+      key = {};
+      watchLaterKeys.set(video, key);
+    }
+    optimistic({
+      key,
+      apply: (): void => {
+        video.inWatchLater = target;
+        updateWatchLaterButton();
+      },
+      revert: (): void => {
+        // Only while the value this tap wrote still stands: a seen tap can
+        // have changed membership since.
+        if (Boolean(video.inWatchLater) === target) {
+          video.inWatchLater = wasSaved;
+        }
+        updateWatchLaterButton();
+      },
+      send: (): Promise<void> =>
+        target
+          ? addToWatchLater(video.videoId)
+          : removeFromWatchLater(video.videoId),
+      failMessage: target
+        ? "Couldn't add to Watch Later"
+        : "Couldn't remove from Watch Later",
+    });
+    if (!target && !video.dismissed)
+      onWatchLaterRemoved(video, watchLaterButton);
   });
 
   // Sponsor skip is a Settings preference (src/ui/settingsView.ts), read once
@@ -373,7 +445,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   let theaterMode = getBoolPreference(THEATER_PREF, THEATER_DEFAULT);
   const theaterButton = document.createElement("button");
   theaterButton.type = "button";
-  theaterButton.className = "player-theater";
+  theaterButton.className = "player-icon-button player-theater";
   theaterButton.addEventListener("click", (): void => {
     theaterMode = !theaterMode;
     setBoolPreference(THEATER_PREF, theaterMode);
@@ -430,7 +502,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
 
   const fullscreenButton = document.createElement("button");
   fullscreenButton.type = "button";
-  fullscreenButton.className = "player-fullscreen";
+  fullscreenButton.className = "player-icon-button player-fullscreen";
   fullscreenButton.innerHTML = ICON_ENTER_FULLSCREEN;
   fullscreenButton.title = "Fullscreen";
   fullscreenButton.setAttribute("aria-label", "Fullscreen");
@@ -465,37 +537,57 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   const title = document.createElement("h2");
   title.className = "player-title";
 
-  // Title row: the video title on the left, with the watched toggle and the
-  // theater toggle right-aligned beside it.
-  const titleRow = document.createElement("div");
-  titleRow.className = "player-title-row";
-  const titleActions = document.createElement("div");
-  titleActions.className = "player-title-actions";
-  titleActions.append(seenButton, fullscreenButton, theaterButton);
-  titleRow.append(title, titleActions);
+  // Context row above the video: back to the list, and where this video sits
+  // in it.
+  const backButton = document.createElement("button");
+  backButton.type = "button";
+  backButton.className = "player-icon-button player-back";
+  backButton.innerHTML = ICON_BACK;
+  backButton.setAttribute("aria-label", "Back to " + contextLabel);
+  backButton.title = "Back to " + contextLabel;
+  backButton.addEventListener("click", (): void => onBack());
+  const contextRow = document.createElement("div");
+  contextRow.className = "player-context";
+  contextRow.append(backButton, position);
 
-  // Nav row: the context label / position sit next to the prev/next buttons,
-  // with "Autoplay next" pushed to the right.
-  const nav = document.createElement("div");
-  nav.className = "player-nav";
+  // Channel and upload time under the title. No duration: the embedded
+  // player already shows it.
+  const meta = document.createElement("div");
+  meta.className = "player-meta";
+
   const prevButton = document.createElement("button");
   prevButton.type = "button";
-  prevButton.textContent = "← Previous";
+  prevButton.className = "player-icon-button";
+  prevButton.innerHTML = ICON_PREVIOUS;
+  prevButton.setAttribute("aria-label", "Previous video");
+  prevButton.title = "Previous video";
   prevButton.addEventListener("click", (): void =>
     requestNavigate(currentIndex - 1),
   );
   const nextButton = document.createElement("button");
   nextButton.type = "button";
-  nextButton.textContent = "Next →";
+  nextButton.className = "player-icon-button";
+  nextButton.innerHTML = ICON_NEXT;
+  nextButton.setAttribute("aria-label", "Next video");
+  nextButton.title = "Next video";
   nextButton.addEventListener("click", (): void =>
     requestNavigate(currentIndex + 1),
   );
-  // Keep prev/next together so they wrap as a single unit — either both stay on
-  // the row or both move to the next line, never one above the other.
-  const navButtons = document.createElement("div");
-  navButtons.className = "player-nav-buttons";
-  navButtons.append(prevButton, nextButton);
-  nav.append(position, navButtons);
+
+  // One action bar, three groups spread across the row: what you do with this
+  // video, moving through the list, and how the video is shown.
+  const actions = document.createElement("div");
+  actions.className = "player-actions";
+  const videoGroup = document.createElement("div");
+  videoGroup.className = "player-actions-group";
+  videoGroup.append(seenButton, watchLaterButton);
+  const listGroup = document.createElement("div");
+  listGroup.className = "player-actions-group";
+  listGroup.append(prevButton, nextButton);
+  const viewGroup = document.createElement("div");
+  viewGroup.className = "player-actions-group";
+  viewGroup.append(theaterButton, fullscreenButton);
+  actions.append(videoGroup, listGroup, viewGroup);
 
   // Chapter strip: a horizontally scrollable row of the description's chapters,
   // sitting above the tabs so it stays visible on both the Description and
@@ -611,9 +703,11 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   endCard.hidden = true;
 
   root.append(
+    contextRow,
     frame,
-    titleRow,
-    nav,
+    title,
+    meta,
+    actions,
     chaptersSection,
     tabStrip,
     descPanel,
@@ -738,7 +832,13 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     title.title = video ? originalTitleHint(video, title.textContent) : "";
     prevButton.disabled = currentIndex <= 0;
     nextButton.disabled = currentIndex >= queue.length - 1;
+    meta.textContent = video
+      ? [video.channelTitle, formatUploadTime(video.publishedAt)]
+          .filter((part: string): boolean => part !== "")
+          .join(" · ")
+      : "";
     updateSeenButton();
+    updateWatchLaterButton();
   }
 
   // "You should probably mark this watched": the stored position says the
@@ -771,7 +871,9 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     const video = queue[currentIndex];
     const seen = Boolean(video && video.seen);
     const nudge = watchedNudge();
-    seenButton.textContent = seen ? "✓ Watched" : "Mark watched";
+    // "Watched" in both states: the pressed look and aria-pressed carry the
+    // state, because the player's action bar has no room for "Mark watched".
+    seenButton.innerHTML = ICON_WATCHED + "<span>Watched</span>";
     seenButton.classList.toggle("player-toggle--on", seen);
     seenButton.classList.toggle("toggle-nudge", nudge);
     seenButton.disabled = !video;
@@ -781,6 +883,22 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
         ? "Mark as watched — you finished this video"
         : "Mark as watched";
     seenButton.setAttribute("aria-pressed", String(seen));
+  }
+
+  // Same treatment as the seen toggle: a pressed look, a filled icon, and a
+  // title naming what a click does now.
+  function updateWatchLaterButton(): void {
+    const video = queue[currentIndex];
+    const saved = Boolean(video && video.inWatchLater);
+    watchLaterButton.innerHTML = saved
+      ? ICON_WATCH_LATER_SAVED
+      : ICON_WATCH_LATER;
+    watchLaterButton.classList.toggle("player-toggle--on", saved);
+    watchLaterButton.disabled = !video;
+    watchLaterButton.title = saved
+      ? "Remove from Watch Later"
+      : "Save to Watch Later";
+    watchLaterButton.setAttribute("aria-pressed", String(saved));
   }
 
   function updateTheater(): void {

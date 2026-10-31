@@ -742,21 +742,15 @@
         flex-direction: column;
         gap: 1rem;
       }
-      .player-title-row {
-        display: flex;
-        align-items: flex-start;
-        gap: 1rem;
-        flex-wrap: wrap;
-      }
-      .player-title-actions {
-        margin-left: auto;
+      /* Back to the list, and the position in it, above the video. */
+      .player-context {
         display: flex;
         align-items: center;
         gap: 0.5rem;
-        flex-shrink: 0;
+        margin-bottom: -0.5rem;
       }
       /* Holds the playlist title, which comes from YouTube. min-width: 0
-         lets this flex item shrink in the nav row so the title can wrap. */
+         lets this flex item shrink in the context row so the title can wrap. */
       .player-position {
         color: #bbb;
         overflow-wrap: anywhere;
@@ -846,21 +840,28 @@
         margin: 0;
         overflow-wrap: anywhere;
         font-size: 1.15rem;
-        flex: 1;
         min-width: 0;
       }
-      .player-nav {
+      /* Channel and upload time, tucked under the title. */
+      .player-meta {
+        margin-top: -0.6rem;
+        color: #bbb;
+        font-size: 0.9rem;
+        overflow-wrap: anywhere;
+      }
+      /* Three groups spread across one row: this video, the list, the view.
+         Each group stays whole when the row wraps. */
+      .player-actions {
         display: flex;
         align-items: center;
-        gap: 0.75rem;
+        justify-content: space-between;
         flex-wrap: wrap;
+        gap: 0.5rem;
       }
-      /* Prev/next stay grouped so they wrap together: both on the row or both
-         on the next line, never one splitting off above the other. */
-      .player-nav-buttons {
+      .player-actions-group {
         display: flex;
-        flex-wrap: nowrap;
-        gap: 0.75rem;
+        align-items: center;
+        gap: 0.5rem;
       }
       /* Boxed sections (description, comments) so they read as distinct
          blocks. */
@@ -1261,16 +1262,36 @@
       .player-view button.chapter-card.current .chapter-label {
         color: #fff;
       }
-      /* The theater and fullscreen toggles are compact icon buttons holding an
-         inline SVG. */
-      .player-view button.player-theater:not(.ts-link):not(.player-tab),
-      .player-view button.player-fullscreen:not(.ts-link):not(.player-tab) {
+      /* Round icon buttons (back, Watch Later, previous, next, theater,
+         fullscreen): 44px, the smallest comfortable touch target. */
+      .player-view button.player-icon-button:not(.ts-link):not(.player-tab) {
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 0.4rem 0.55rem;
+        width: 2.75rem;
+        height: 2.75rem;
+        padding: 0;
+        border-radius: 50%;
         font-size: 1.25rem;
         line-height: 1;
+      }
+      .player-view button.player-back:not(.ts-link):not(.player-tab) {
+        background: none;
+        border-color: transparent;
+      }
+      /* The watched toggle: a check icon and "Watched", pill-shaped like the
+         icon buttons beside it. */
+      .player-view button.player-seen:not(.ts-link):not(.player-tab) {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        height: 2.75rem;
+        padding: 0 1rem;
+        border-radius: 1.375rem;
+      }
+      .player-seen svg {
+        display: block;
+        font-size: 1.1rem;
       }
       /* [hidden] (no element fullscreen, i.e. iPhone) must beat the flex rule
          above, so it repeats the :not() chain. */
@@ -1278,8 +1299,7 @@
         button.player-fullscreen[hidden]:not(.ts-link):not(.player-tab) {
         display: none;
       }
-      .player-theater svg,
-      .player-fullscreen svg {
+      .player-icon-button svg {
         display: block;
       }
       /* Highlight the theater toggle while it is on. The
@@ -1385,33 +1405,6 @@
            specificity (a bare .player-theater would lose to it). */
         .player-view button.player-theater:not(.ts-link):not(.player-tab) {
           display: none;
-        }
-        /* The title has little room next to the action buttons on a narrow
-           screen (see .player-title-actions' fixed-width icons). Stack the
-           row instead: actions first (order: -1 moves them ahead of the
-           title, which stays after it in the DOM for a logical reading
-           order), title below at full width. flex-wrap must turn off here:
-           the base rule sets it to wrap for the row layout, and left on, a
-           column-direction flex container treats it as multi-column, pushing
-           the second item into a new column beside the first instead of
-           below it — the title then renders off to the side, invisible. */
-        .player-title-row {
-          flex-direction: column;
-          flex-wrap: nowrap;
-          align-items: stretch;
-        }
-        .player-title-actions {
-          order: -1;
-          margin-left: 0;
-        }
-        /* Push the icon toggles (fullscreen; theater is hidden above) to the
-           right of the row, so "Mark watched" stays pinned left instead of
-           sitting flush against them with empty space after. */
-        .player-fullscreen {
-          margin-left: auto;
-        }
-        .player-title {
-          width: 100%;
         }
       }
     </style>
