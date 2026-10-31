@@ -333,7 +333,7 @@ conversion could be deleted with every test still green (see the
   logic thin and push anything worth testing into `src/server/` or `src/shared/`.
   The one exception is `tests/ui/`: static checks that read the stylesheet in
   `src/ui/index.html` (parsed with postcss through `tests/helpers/stylesheet.ts`)
-  and the UI source as text. They pin the touch, motion, and long-text rules.
+  and the UI source as text. They pin the touch, viewport, motion, and long-text rules.
 - **New data source / filter / persistence path → add tests with it**, in the
   same PR. A new `Video[]` adapter (see Conventions) ships with a test that
   feeds it a fake API/RSS response and asserts the normalized `Video[]`.
