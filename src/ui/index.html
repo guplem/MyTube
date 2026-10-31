@@ -755,8 +755,12 @@
         gap: 0.5rem;
         flex-shrink: 0;
       }
+      /* Holds the playlist title, which comes from YouTube. min-width: 0
+         lets this flex item shrink in the nav row so the title can wrap. */
       .player-position {
         color: #bbb;
+        overflow-wrap: anywhere;
+        min-width: 0;
       }
       .player-autoplay {
         margin-left: auto;
