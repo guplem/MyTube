@@ -21,6 +21,12 @@ import { originalTitleHint } from "../shared/dearrow";
 import { freshListMovesNothing, newVideoCount } from "../shared/listSnapshot";
 import { createListUpdatePill } from "./listUpdatePill";
 
+// Pager arrows. The buttons carry an aria-label and a title as well.
+const ICON_PAGE_PREVIOUS: string =
+  '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>';
+const ICON_PAGE_NEXT: string =
+  '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
+
 export interface VideoAction {
   /** Optional machine-readable tag, set as data-action on the button, so a
    *  sibling button can be found in the DOM without matching label text. */
@@ -148,16 +154,23 @@ function renderList(
 
   const prevButton = document.createElement("button");
   prevButton.type = "button";
-  prevButton.textContent = "← Previous";
+  prevButton.innerHTML = ICON_PAGE_PREVIOUS;
+  prevButton.setAttribute("aria-label", "Previous page");
+  prevButton.title = "Previous page";
   prevButton.addEventListener("click", (): void => goToPage(page - 1));
 
   const nextButton = document.createElement("button");
   nextButton.type = "button";
-  nextButton.textContent = "Next →";
+  nextButton.innerHTML = ICON_PAGE_NEXT;
+  nextButton.setAttribute("aria-label", "Next page");
+  nextButton.title = "Next page";
   nextButton.addEventListener("click", (): void => goToPage(page + 1));
 
   const info = document.createElement("span");
   info.className = "list-info";
+
+  const count = document.createElement("span");
+  count.className = "list-count";
 
   const sizeLabel = document.createElement("label");
   sizeLabel.className = "list-size";
@@ -176,7 +189,15 @@ function renderList(
   });
   sizeLabel.append(document.createTextNode("Per page "), sizeSelect);
 
-  controls.append(prevButton, nextButton, info, sizeLabel);
+  // Two lines: the page and its arrows, then the quieter facts (how many
+  // videos, how many per page).
+  const pager = document.createElement("div");
+  pager.className = "list-pager";
+  pager.append(prevButton, info, nextButton);
+  const meta = document.createElement("div");
+  meta.className = "list-meta";
+  meta.append(count, sizeLabel);
+  controls.append(pager, meta);
 
   const grid = document.createElement("div");
   grid.className = "video-list";
@@ -336,7 +357,8 @@ function renderList(
       );
     });
 
-    info.textContent = `Page ${loadedPage + 1} of ${pageCount} · ${countLabel(total, "video", "videos")}`;
+    info.textContent = `Page ${loadedPage + 1} of ${pageCount}`;
+    count.textContent = countLabel(total, "video", "videos");
   }
 
   // Controls go below the grid so paging lives at the bottom of the list.
