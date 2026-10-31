@@ -129,10 +129,13 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   `getFeedPage`, a stored preference) that hides older videos but does not touch
   the `seen` flag, so playlists and Watch Later are unaffected.
 - **Every card action is a state toggle, and cards share one layout.** Each
-  card on every list shows the same two stacked buttons — the Watch Later
+  card on every list shows the same two buttons, side by side in two equal
+  columns (stacked on a phone) — the Watch Later
   toggle ("+ Watch Later"/"✓ Watch Later") and the watched toggle
   ("Mark watched"/"✓ Watched") — so cards look identical across the feed,
   playlists, Watch Later, and history; only the corner dismiss stays feed-only.
+  The player's action bar has the same two toggles as icon buttons, and its
+  watched toggle says "Watched" in both states.
   A toggle's ON state is a pressed look (`video-action--on`, the chapter-strip
   blue) plus a `✓` label that keeps the noun, and every toggle carries a
   `title` naming what a click does now plus `aria-pressed`; state changes go

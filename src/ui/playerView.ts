@@ -1,6 +1,6 @@
 // The player screen. Embeds the YouTube IFrame player with basic controls and
 // no recommendation rabbit hole: when a video ends it shows a "next / back" card
-// (or auto-advances if the toggle is on), so the YouTube end-screen never takes
+// (or auto-advances if the Autoplay setting is on), so the YouTube end-screen never takes
 // over. Reused by every screen that plays a list. Input is an ordered Video[]
 // queue plus a start index. See PLAN.md section 13.
 //
