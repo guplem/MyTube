@@ -853,6 +853,12 @@
         border-color: #3a3a3a;
         color: #f1f1f1;
       }
+      /* The long-press hint (showHint in src/ui/toast.ts): text only. */
+      .toast--hint {
+        justify-content: center;
+        text-align: center;
+        overflow-wrap: anywhere;
+      }
       .toast-text {
         flex: 1;
       }
@@ -1780,6 +1786,7 @@
         type="button"
         class="app-search-toggle"
         aria-label="Search YouTube"
+        title="Search YouTube"
         aria-controls="app-search"
         aria-expanded="false"
       >

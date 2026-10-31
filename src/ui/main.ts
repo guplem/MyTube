@@ -63,6 +63,7 @@ import {
 import { PlayerView, type PlayerController } from "./playerView";
 import { optimistic } from "./optimistic";
 import { showToast } from "./toast";
+import { installLongPressHints } from "./longPressHint";
 import { communityTitlesOn } from "./titlePreferences";
 import { getBoolPreference, getStringPreference } from "./preferences";
 import {
@@ -1355,6 +1356,7 @@ renderSponsorBlockCredit();
 // exists. The stylesheet's press feedback lives in :active, so this empty
 // listener switches it on. Passive, so it never delays scrolling.
 document.addEventListener("touchstart", (): void => {}, { passive: true });
+installLongPressHints();
 
 if (document.readyState === "complete") {
   start();
