@@ -1199,9 +1199,10 @@
         }
       }
       /* motion-exception: the 0.2s fade of background and border-color is the
-         "current chapter" highlight arriving as playback moves on. Both
-         repaint, but a chapter card is small and the change comes about once
-         a minute, so the paint cost is negligible. */
+         "current chapter" highlight arriving as playback moves on. It also
+         softens hover and the release of a press (the press itself is
+         instant, below). Both properties repaint, but a chapter card is
+         small, so the paint cost is negligible. */
       .player-view button.chapter-card {
         flex: 0 0 auto;
         max-width: 220px;
@@ -1226,9 +1227,12 @@
           border-color: #3a3a3a;
         }
       }
+      /* Press color at once: the card's 0.2s fade would let a short tap end
+         before the color arrives. Release still fades back. */
       .player-view button.chapter-card:active {
         background: #242424;
         border-color: #3a3a3a;
+        transition-duration: 0s;
       }
       .chapter-time {
         font-size: 0.8rem;
@@ -1260,6 +1264,7 @@
       }
       .player-view button.chapter-card.current:active {
         background: #284066;
+        transition-duration: 0s;
       }
       .player-view button.chapter-card.current .chapter-label {
         color: #fff;

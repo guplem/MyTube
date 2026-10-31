@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import {
   appStyleRules,
   readRepoFile,
+  transitionedProperties,
   type StyleRule,
 } from "../helpers/stylesheet";
 
@@ -37,6 +38,32 @@ describe("hover styles", (): void => {
       .filter(({ rule }): boolean => !isGated(rule))
       .map(({ selector }): string => selector);
     expect(ungated).toEqual([]);
+  });
+
+  it("show their press color at once, even on an element that fades its color", (): void => {
+    // A tap lasts about 100ms. If the color the :active rule sets is also
+    // transitioned, the press is over before the color arrives.
+    const slow: string[] = [];
+    for (const rule of rules) {
+      if (isGated(rule)) continue;
+      for (const selector of rule.selectors) {
+        if (!selector.includes(":active")) continue;
+        const base: string = selector.replace(
+          /:active(:not\(:disabled\))?/g,
+          "",
+        );
+        const faded: string[] = rules
+          .filter((r: StyleRule): boolean => r.selectors.includes(base))
+          .flatMap(transitionedProperties);
+        const pressed: string[] = [...rule.declarations.keys()];
+        const instant: boolean =
+          rule.declarations.get("transition-duration") === "0s" ||
+          rule.declarations.get("transition") === "none";
+        if (!instant && pressed.some((p: string): boolean => faded.includes(p)))
+          slow.push(selector);
+      }
+    }
+    expect(slow).toEqual([]);
   });
 
   it("each have an ungated :active twin, so touch gets press feedback", (): void => {
