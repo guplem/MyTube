@@ -760,12 +760,10 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     }
     const card = chapterCards[index];
     if (card) {
-      // Keep the current chapter at the start of the track. The track scrolls
-      // horizontally on narrow screens and vertically on wide ones, so scroll
-      // both axes — the off-axis offset is roughly constant and is a no-op.
+      // Keep the current chapter at the start of the track, which scrolls
+      // horizontally only.
       chaptersTrack.scrollTo({
         left: Math.max(0, card.offsetLeft - 8),
-        top: Math.max(0, card.offsetTop - 8),
         behavior: "smooth",
       });
     }
