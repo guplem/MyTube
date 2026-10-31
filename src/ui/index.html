@@ -650,30 +650,65 @@
       }
 
       /* List pagination controls */
+      /* Centered pager: round arrows around "Page X of Y", and a quieter
+         line under it with the video count and the page size. */
       .list-controls {
         display: flex;
+        flex-direction: column;
         align-items: center;
-        gap: 0.75rem;
-        flex-wrap: wrap;
-        margin-top: 1rem;
+        gap: 0.6rem;
+        margin-top: 2rem;
       }
-      .list-info {
-        color: #aaa;
-      }
-      .list-size {
-        color: #aaa;
+      .list-pager {
         display: flex;
         align-items: center;
-        gap: 0.35rem;
-        margin-left: auto;
+        gap: 0.9rem;
       }
-      .list-controls button,
-      .list-size select {
-        background: #272727;
+      .list-info {
+        min-width: 7.5rem;
+        text-align: center;
         color: #f1f1f1;
-        border: 1px solid #3a3a3a;
-        border-radius: 10px;
-        padding: 0.4rem 0.7rem;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+      }
+      .list-meta {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem 1rem;
+        flex-wrap: wrap;
+        justify-content: center;
+        color: #8a8a8a;
+        font-size: 0.85rem;
+      }
+      .list-size {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+      }
+      .list-controls button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 2.75rem;
+        height: 2.75rem;
+        padding: 0;
+        background: #1c1c1c;
+        color: #f1f1f1;
+        border: 1px solid #2e2e2e;
+        border-radius: 50%;
+        font-size: 1.2rem;
+        cursor: pointer;
+      }
+      .list-controls button svg {
+        display: block;
+      }
+      .list-size select {
+        height: 2rem;
+        padding: 0 0.5rem;
+        background: #1c1c1c;
+        color: #f1f1f1;
+        border: 1px solid #2e2e2e;
+        border-radius: 8px;
         font: inherit;
         cursor: pointer;
       }
@@ -686,7 +721,7 @@
         background: #333;
       }
       .list-controls button:disabled {
-        opacity: 0.4;
+        opacity: 0.35;
         cursor: default;
       }
       .feed-toolbar {
@@ -1722,9 +1757,6 @@
         .video-date {
           font-size: 0.75rem;
         }
-        .list-size {
-          margin-left: 0;
-        }
         /* Smaller side padding keeps the four player tabs on one row on most
            phones; the strip scrolls on the narrowest. The selector mirrors
            the base rule so it wins. */
@@ -1737,9 +1769,7 @@
         .app-nav button,
         .feed-filters .toggle-label,
         .refresh-button,
-        .video-action,
-        .list-controls button,
-        .list-size select {
+        .video-action {
           height: 2.75rem;
         }
         .app-search button {
