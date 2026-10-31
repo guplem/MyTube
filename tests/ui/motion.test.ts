@@ -30,7 +30,22 @@ function transitionedProperties(rule: StyleRule): string[] {
   // such as cubic-bezier(0.23, 1, 0.32, 1).
   return value
     .split(/,(?![^(]*\))/)
-    .map((part: string): string => part.trim().split(/\s+/)[0]);
+    .map((part: string): string => propertyOf(part.trim()));
+}
+
+// The property is the token that is not a time or a timing function, so
+// "0.2s ease transform" names transform, like "transform 0.2s ease".
+function propertyOf(single: string): string {
+  const tokens: string[] = single.match(/[\w-]+\([^)]*\)|\S+/g) ?? [];
+  const property: string | undefined = tokens.find(
+    (token: string): boolean =>
+      !/^-?[\d.]+m?s$/.test(token) &&
+      !/^(ease|ease-in|ease-out|ease-in-out|linear|step-start|step-end)$/.test(
+        token,
+      ) &&
+      !token.includes("("),
+  );
+  return property ?? "all";
 }
 
 function hasAnimation(rule: StyleRule): boolean {
@@ -46,11 +61,16 @@ function isReducedMotion(rule: StyleRule): boolean {
   );
 }
 
-const reducedSelectors: Set<string> = new Set(
-  rules
-    .filter(isReducedMotion)
-    .flatMap((rule: StyleRule): string[] => rule.selectors),
-);
+/** What the reduced-motion rules set for a selector, merged in order. */
+function reducedOverride(selector: string): Map<string, string> {
+  const merged: Map<string, string> = new Map();
+  for (const rule of rules.filter(isReducedMotion)) {
+    if (!rule.selectors.includes(selector)) continue;
+    for (const [property, value] of rule.declarations)
+      merged.set(property, value);
+  }
+  return merged;
+}
 
 describe("CSS motion", (): void => {
   it("exists (the checks below are not vacuous)", (): void => {
@@ -90,7 +110,8 @@ describe("CSS motion", (): void => {
       if (previous?.type === "comment" && previous.text.includes(EXCEPTION))
         return;
       keyframes.walkDecls((decl): void => {
-        if (!CHEAP.has(decl.prop))
+        // A step's own timing function shapes the motion; it animates nothing.
+        if (!CHEAP.has(decl.prop) && decl.prop !== "animation-timing-function")
           offenders.push(keyframes.params + " " + decl.prop);
       });
     });
@@ -98,16 +119,42 @@ describe("CSS motion", (): void => {
   });
 
   it("gives every animation and every moving transition a reduced-motion override", (): void => {
-    const missing: string[] = rules
-      .filter((rule: StyleRule): boolean => !isReducedMotion(rule))
+    // The override must really calm the motion: an animation stops, and a
+    // transform transition is replaced by one that does not move.
+    const missing: string[] = [];
+    for (const rule of rules.filter(
+      (r: StyleRule): boolean => !isReducedMotion(r),
+    )) {
+      const moves: boolean = transitionedProperties(rule).includes("transform");
+      if (!hasAnimation(rule) && !moves) continue;
+      for (const selector of rule.selectors) {
+        const override: Map<string, string> = reducedOverride(selector);
+        const calmed: StyleRule = { ...rule, declarations: override };
+        if (
+          hasAnimation(rule) &&
+          (override.get("animation") ?? override.get("animation-name")) !==
+            "none"
+        )
+          missing.push(selector + " (animation not set to none)");
+        if (
+          moves &&
+          (!override.has("transition") ||
+            transitionedProperties(calmed).includes("transform"))
+        )
+          missing.push(selector + " (transition still moves)");
+      }
+    }
+    expect(missing).toEqual([]);
+  });
+
+  it("never sets smooth scrolling in CSS, which reduced motion would not calm", (): void => {
+    const smooth: string[] = rules
       .filter(
         (rule: StyleRule): boolean =>
-          hasAnimation(rule) ||
-          transitionedProperties(rule).includes("transform"),
+          rule.declarations.get("scroll-behavior") === "smooth",
       )
-      .flatMap((rule: StyleRule): string[] => rule.selectors)
-      .filter((selector: string): boolean => !reducedSelectors.has(selector));
-    expect(missing).toEqual([]);
+      .flatMap((rule: StyleRule): string[] => rule.selectors);
+    expect(smooth).toEqual([]);
   });
 });
 
@@ -120,7 +167,7 @@ describe("script motion", (): void => {
         (name: string): boolean => name.endsWith(".ts") && name !== "motion.ts",
       )
       .filter((name: string): boolean =>
-        /["']smooth["']/.test(readRepoFile("src/ui/" + name)),
+        /["'`]smooth["'`]/.test(readRepoFile("src/ui/" + name)),
       );
     expect(offenders).toEqual([]);
   });

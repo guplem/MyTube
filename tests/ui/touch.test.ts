@@ -71,7 +71,7 @@ describe("touch baseline", (): void => {
   });
 
   it("makes controls tap at once and never double-tap zoom", (): void => {
-    for (const control of ["button", "select", "label"]) {
+    for (const control of ["button", "input", "select", "label"]) {
       expect(declarationsFor(control).get("touch-action"), control).toBe(
         "manipulation",
       );

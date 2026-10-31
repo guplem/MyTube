@@ -35,4 +35,26 @@ describe("text from YouTube", (): void => {
       expect(wraps).toBe(true);
     },
   );
+
+  it.each(REMOTE_TEXT)(
+    "%s is not made unbreakable again by a later rule",
+    (selector: string): void => {
+      const undoing: string[] = rules
+        .filter((rule: StyleRule): boolean =>
+          rule.selectors.some((candidate: string): boolean =>
+            candidate.endsWith(selector),
+          ),
+        )
+        .filter((rule: StyleRule): boolean => {
+          const wrap: string | undefined =
+            rule.declarations.get("overflow-wrap");
+          return (
+            (wrap !== undefined && wrap !== "anywhere") ||
+            rule.declarations.get("white-space") === "nowrap"
+          );
+        })
+        .flatMap((rule: StyleRule): string[] => rule.selectors);
+      expect(undoing).toEqual([]);
+    },
+  );
 });

@@ -33,8 +33,8 @@ describe("viewport tags", (): void => {
 
   it("never block zoom (an accessibility failure; fix input font size instead)", (): void => {
     for (const content of viewportContents()) {
-      expect(content).not.toMatch(/user-scalable\s*=\s*(no|0)/);
-      expect(content).not.toMatch(/maximum-scale/);
+      expect(content).not.toMatch(/user-scalable\s*=\s*(no|0)/i);
+      expect(content).not.toMatch(/maximum-scale/i);
     }
   });
 });
@@ -46,7 +46,11 @@ describe("the installable wrapper", (): void => {
     // wrapper, the top page, must hold the padding.
     const css: string = styleBlockOf(wrapperHtml);
     const padding: string = rulesOf(parseCss(css))
-      .map((rule: StyleRule): string => rule.declarations.get("padding") ?? "")
+      .flatMap((rule: StyleRule): string[] =>
+        [...rule.declarations]
+          .filter(([property]): boolean => property.startsWith("padding"))
+          .map(([, value]): string => value),
+      )
       .join(" ");
     for (const side of ["top", "right", "bottom", "left"]) {
       expect(padding, side).toContain("env(safe-area-inset-" + side);
@@ -71,7 +75,12 @@ describe("form fields", (): void => {
   it("never set a font size under 16px", (): void => {
     const small: string[] = fieldRules
       .filter((rule: StyleRule): boolean => {
-        const size: string | undefined = rule.declarations.get("font-size");
+        // The font shorthand carries a size too: "font: 14px/1 sans-serif".
+        const shorthand: string | undefined = rule.declarations
+          .get("font")
+          ?.match(/(^|\s)([\d.]+(?:px|rem))(\/|\s)/)?.[2];
+        const size: string | undefined =
+          rule.declarations.get("font-size") ?? shorthand;
         if (size === undefined || size === "inherit") return false;
         const match: RegExpMatchArray | null = size.match(/^([\d.]+)(px|rem)$/);
         if (!match) return true;
