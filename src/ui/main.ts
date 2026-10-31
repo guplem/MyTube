@@ -582,18 +582,7 @@ function showFeed(forceFirstLoad: boolean = false): void {
   filters.className = "feed-filters";
   filters.append(...feedFilterControls(feedFilterChanged));
 
-  // The cache refresh sits apart on the right: it force-fetches fresh RSS for
-  // every channel (bypassing the 30-minute cache), unlike the filters. The
-  // label keeps implementation words out; the tooltip explains the cache part.
-  const refresh = document.createElement("button");
-  refresh.type = "button";
-  refresh.className = "refresh-button refresh-button--right";
-  refresh.textContent = "↻ Force refresh";
-  refresh.title =
-    "Re-fetch every channel now instead of waiting out the 30-minute cache";
-  refresh.addEventListener("click", (): void => reloadFeedFromStart(true));
-
-  toolbar.append(filters, refresh);
+  toolbar.append(filters);
   app.appendChild(toolbar);
 
   // Warns when some channels' RSS could not be fetched this load, so a partial
@@ -652,6 +641,24 @@ function showFeed(forceFirstLoad: boolean = false): void {
       },
     ),
   );
+
+  // Force refresh sits at the very end, after the pager: it is the last
+  // resort when the feed looks stale, not a filter. It fetches fresh RSS for
+  // every channel (skipping the 30-minute cache). The label keeps
+  // implementation words out; the title, also shown on a long press
+  // (src/ui/longPressHint.ts), explains the cache part.
+  const refresh: HTMLButtonElement = document.createElement("button");
+  refresh.type = "button";
+  refresh.className = "refresh-button";
+  refresh.textContent = "↻ Force refresh";
+  refresh.title =
+    "Fetch every channel from YouTube again now. Without this, the feed " +
+    "reuses what it fetched in the last 30 minutes. Goes back to page 1.";
+  refresh.addEventListener("click", (): void => reloadFeedFromStart(true));
+  const footer: HTMLElement = document.createElement("div");
+  footer.className = "feed-footer";
+  footer.appendChild(refresh);
+  app.appendChild(footer);
 }
 
 // Shows or hides the feed load-health warning. failedChannels/totalChannels are
