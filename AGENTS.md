@@ -134,8 +134,9 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   ("Mark watched"/"✓ Watched"). They sit side by side in two equal columns,
   stacked on a phone, so cards look identical across the feed,
   playlists, Watch Later, and history; only the corner dismiss stays feed-only.
-  The player's action bar has the same two toggles as icon buttons, and its
-  watched toggle says "Watched" in both states.
+  The player's action bar has the same two toggles: the watched toggle is a pill
+  with a check icon that says "Watched" in both states, and the Watch Later
+  toggle is an icon button.
   A toggle's ON state is a pressed look (`video-action--on`, the chapter-strip
   blue) plus a `✓` label that keeps the noun, and every toggle carries a
   `title` naming what a click does now plus `aria-pressed`; state changes go
@@ -258,7 +259,8 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   `feedFilterControls`; its player and title rows are built here with
   `preferenceToggle`, because those preferences need no follow-up beyond the
   write. A display preference with no other control, such as the title switch,
-  can live in Settings only.
+  can live in Settings only. Skip sponsors and Autoplay also live in Settings
+  only: the player keeps its action bar for actions on the video on show.
 - **Optimistic UI updates for every server mutation.** Any button that writes to
   the server (mark seen, dismiss, add/remove Watch Later — on cards _and_ in the
   player) must feel instant: the Apps Script bridge round-trips to Google and can

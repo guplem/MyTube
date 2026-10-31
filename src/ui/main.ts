@@ -225,11 +225,6 @@ function offerDismissAfterWatchLaterRemoval(
   });
 }
 
-// The action of the toast that a Watch Later removal shows: a video the user
-// is done with often should not come back in the feed either. The toast
-// outlives its card (or the player). Once that button is gone, the user is on
-// another screen, and the router would judge this write by that screen, not by
-// the one that owns this Video object, so drop the kept feed page outright.
 // The rollback key of a dismiss made from the toast, one token per video. The
 // player's seen toggle already keys on the video itself, and only the latest
 // tap on a key owns its rollback, so sharing the video would let a dismiss
@@ -244,6 +239,11 @@ function dismissKeyFor(video: Video): object {
   return key;
 }
 
+// The action of the toast that a Watch Later removal shows: a video the user
+// is done with often should not come back in the feed either. The toast
+// outlives its card (or the player). Once that button is gone, the user is on
+// another screen, and the router would judge this write by that screen, not by
+// the one that owns this Video object, so drop the kept feed page outright.
 function dismissAfterWatchLaterRemoval(
   video: Video,
   button: HTMLButtonElement,

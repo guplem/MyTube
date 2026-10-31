@@ -1349,8 +1349,17 @@
         .player-chapters-track {
           scrollbar-width: none;
           -ms-overflow-style: none;
-          -webkit-mask-image: linear-gradient(to right, #000 88%, transparent);
-          mask-image: linear-gradient(to right, #000 88%, transparent);
+          -webkit-mask-image: linear-gradient(
+            to right,
+            #000 calc(100% - 1.5rem),
+            transparent
+          );
+          mask-image: linear-gradient(
+            to right,
+            #000 calc(100% - 1.5rem),
+            transparent
+          );
+          padding-right: 1.5rem;
         }
         .player-chapters-track::-webkit-scrollbar {
           display: none;
@@ -1527,6 +1536,24 @@
         padding: 0 1rem;
         border-radius: 1.375rem;
       }
+      /* The narrowest phones (320px) cannot fit the whole action bar on one
+         row with the label: the label hides visually but stays the button's
+         accessible name. */
+      @media (max-width: 359px) {
+        .player-seen span {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          overflow: hidden;
+          clip-path: inset(50%);
+          white-space: nowrap;
+        }
+        .player-view button.player-seen:not(.ts-link):not(.player-tab) {
+          width: 2.75rem;
+          padding: 0;
+          justify-content: center;
+        }
+      }
       .player-seen svg {
         display: block;
         font-size: 1.1rem;
@@ -1609,15 +1636,26 @@
         }
         /* The tabs become separate chips on the full width of the row. Don't
            wrap them onto a second line; let the row scroll horizontally, and
-           fade its right edge so a cut-off chip reads as "more". */
+           fade its right edge so a cut-off chip reads as "more". The fade
+           covers only the end padding, so at the end of the scroll the last
+           chip sits clear of it. The other strips use the same pair. */
         .app-nav {
           flex: 1 1 100%;
           flex-wrap: nowrap;
           gap: 0.4rem;
           padding: 0;
           background: none;
-          -webkit-mask-image: linear-gradient(to right, #000 88%, transparent);
-          mask-image: linear-gradient(to right, #000 88%, transparent);
+          -webkit-mask-image: linear-gradient(
+            to right,
+            #000 calc(100% - 1.5rem),
+            transparent
+          );
+          mask-image: linear-gradient(
+            to right,
+            #000 calc(100% - 1.5rem),
+            transparent
+          );
+          padding-right: 1.5rem;
         }
         .app-nav button {
           height: 2.5rem;
@@ -1642,8 +1680,17 @@
           overflow-x: auto;
           overscroll-behavior-x: contain;
           scrollbar-width: none;
-          -webkit-mask-image: linear-gradient(to right, #000 88%, transparent);
-          mask-image: linear-gradient(to right, #000 88%, transparent);
+          -webkit-mask-image: linear-gradient(
+            to right,
+            #000 calc(100% - 1.5rem),
+            transparent
+          );
+          mask-image: linear-gradient(
+            to right,
+            #000 calc(100% - 1.5rem),
+            transparent
+          );
+          padding-right: 1.5rem;
         }
         .feed-filters::-webkit-scrollbar {
           display: none;
