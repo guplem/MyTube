@@ -316,12 +316,21 @@ function bestThumbnailUrl(
 const DURATION_CACHE_PREFIX = "dur:";
 const DURATION_CACHE_TTL_SECONDS = 21600; // 6h, the CacheService maximum
 const DURATION_UNKNOWN = -1; // cached for ids the API does not return (deleted/private/live)
+const DURATION_BATCH_SIZE = 50; // videos.list accepts at most 50 ids
+const VIDEOS_API_URL = "https://www.googleapis.com/youtube/v3/videos";
 
 /**
  * Length in seconds for each video id, used to detect Shorts. RSS gives no
  * duration, so we ask the Data API (part=contentDetails, 1 quota unit per 50
  * ids). Results are cached in the shared script cache because a video's length
  * is the same for every user, so most lookups are free after the first.
+ *
+ * The 6-hour cache is the CacheService maximum, so the first feed load after a
+ * long gap misses on hundreds of ids. The advanced service can only ask one
+ * batch at a time, so the misses go out as plain HTTPS requests in ONE
+ * UrlFetchApp.fetchAll instead, signed with the user's own OAuth token. A
+ * batch whose request fails falls back to the advanced service. A batch that
+ * fails both ways is left out and NOT cached: unknown is not "no duration".
  */
 export function getVideoDurationsSeconds(videoIds: string[]): {
   [id: string]: number;
@@ -344,30 +353,23 @@ export function getVideoDurationsSeconds(videoIds: string[]): {
     else missing.push(id);
   }
 
+  const batches: string[][] = [];
+  for (let offset = 0; offset < missing.length; offset += DURATION_BATCH_SIZE)
+    batches.push(missing.slice(offset, offset + DURATION_BATCH_SIZE));
+  const parallel = fetchDurationBatchesInParallel(batches);
+
   const toCache: { [key: string]: string } = {};
-  for (let offset = 0; offset < missing.length; offset += 50) {
-    const batch = missing.slice(offset, offset + 50);
-    const response: GoogleAppsScript.YouTube.Schema.VideoListResponse =
-      YouTube.Videos!.list("contentDetails", {
-        id: batch.join(","),
-        maxResults: 50,
-      });
-    const returned = new Set<string>();
-    for (const item of response.items ?? []) {
-      if (!item.id) continue;
-      const seconds = parseIso8601Duration(item.contentDetails?.duration ?? "");
-      result[item.id] = seconds;
-      toCache[DURATION_CACHE_PREFIX + item.id] = String(seconds);
-      returned.add(item.id);
-    }
-    // Cache a sentinel for ids the API skipped so we do not re-query them.
+  batches.forEach((batch: string[], index: number): void => {
+    const durations =
+      parallel[index] ?? fetchDurationBatchWithAdvancedService(batch);
+    if (durations === null) return;
     for (const id of batch) {
-      if (!returned.has(id)) {
-        result[id] = DURATION_UNKNOWN;
-        toCache[DURATION_CACHE_PREFIX + id] = String(DURATION_UNKNOWN);
-      }
+      // Cache a sentinel for ids the API skipped so we do not re-query them.
+      const seconds = durations[id] ?? DURATION_UNKNOWN;
+      result[id] = seconds;
+      toCache[DURATION_CACHE_PREFIX + id] = String(seconds);
     }
-  }
+  });
 
   const entries = Object.keys(toCache);
   for (let offset = 0; offset < entries.length; offset += 100) {
@@ -377,6 +379,83 @@ export function getVideoDurationsSeconds(videoIds: string[]): {
     cache.putAll(chunk, DURATION_CACHE_TTL_SECONDS);
   }
   return result;
+}
+
+// One entry per batch: its durations, or null when that request failed. All
+// null when the fetch itself throws (quota, no token).
+function fetchDurationBatchesInParallel(
+  batches: string[][],
+): ({ [id: string]: number } | null)[] {
+  if (batches.length === 0) return [];
+  try {
+    const headers: { [name: string]: string } = {
+      Authorization: "Bearer " + ScriptApp.getOAuthToken(),
+    };
+    const responses: GoogleAppsScript.URL_Fetch.HTTPResponse[] =
+      UrlFetchApp.fetchAll(
+        batches.map(
+          (batch: string[]): GoogleAppsScript.URL_Fetch.URLFetchRequest => ({
+            url:
+              VIDEOS_API_URL +
+              "?part=contentDetails&maxResults=" +
+              DURATION_BATCH_SIZE +
+              "&id=" +
+              encodeURIComponent(batch.join(",")),
+            headers,
+            muteHttpExceptions: true,
+          }),
+        ),
+      );
+    return batches.map(
+      (_batch: string[], index: number): { [id: string]: number } | null =>
+        parseVideosResponse(responses[index]),
+    );
+  } catch {
+    return batches.map((): null => null);
+  }
+}
+
+function parseVideosResponse(
+  response: GoogleAppsScript.URL_Fetch.HTTPResponse | undefined,
+): { [id: string]: number } | null {
+  if (!response || response.getResponseCode() !== 200) return null;
+  try {
+    const body = JSON.parse(
+      response.getContentText(),
+    ) as GoogleAppsScript.YouTube.Schema.VideoListResponse;
+    if (!Array.isArray(body.items)) return null;
+    return durationsOf(body.items);
+  } catch {
+    return null;
+  }
+}
+
+function fetchDurationBatchWithAdvancedService(
+  batch: string[],
+): { [id: string]: number } | null {
+  try {
+    const response: GoogleAppsScript.YouTube.Schema.VideoListResponse =
+      YouTube.Videos!.list("contentDetails", {
+        id: batch.join(","),
+        maxResults: DURATION_BATCH_SIZE,
+      });
+    return durationsOf(response.items ?? []);
+  } catch {
+    return null;
+  }
+}
+
+function durationsOf(items: GoogleAppsScript.YouTube.Schema.Video[]): {
+  [id: string]: number;
+} {
+  const durations: { [id: string]: number } = {};
+  for (const item of items) {
+    if (!item.id) continue;
+    durations[item.id] = parseIso8601Duration(
+      item.contentDetails?.duration ?? "",
+    );
+  }
+  return durations;
 }
 
 // Parses an ISO 8601 duration (e.g. "PT1H2M3S", "PT45S") to whole seconds.
