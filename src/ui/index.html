@@ -692,16 +692,74 @@
       .feed-filters {
         display: flex;
         align-items: center;
-        gap: 1rem;
+        gap: 0.5rem;
         flex-wrap: wrap;
       }
+      /* Feed filters as chips. Only the toolbar: Settings shows the same
+         controls (feedFilterControls) as a plain list. The checkbox stays a
+         real checkbox, drawn as a small box with a check when on; the chip
+         turns blue around it where the browser supports :has(). */
+      .feed-filters .toggle-label {
+        height: 2.25rem;
+        box-sizing: border-box;
+        padding: 0 0.8rem;
+        gap: 0.45rem;
+        border: 1px solid #333;
+        border-radius: 10px;
+        color: #d4d4d4;
+        font-size: 0.85rem;
+        font-weight: 500;
+        white-space: nowrap;
+        flex: 0 0 auto;
+      }
+      .feed-filters .toggle-label:has(input:checked) {
+        border-color: #3ea6ff;
+        background: #1b2b3f;
+        color: #fff;
+      }
+      @media (hover: hover) and (pointer: fine) {
+        .feed-filters .toggle-label:hover {
+          background: #1c1c1c;
+        }
+      }
+      .feed-filters .toggle-label:active {
+        background: #1c1c1c;
+      }
+      .feed-filters .toggle-label:has(input:focus-visible) {
+        outline: 2px solid #3ea6ff;
+        outline-offset: 2px;
+      }
+      .feed-filters input[type="checkbox"] {
+        appearance: none;
+        -webkit-appearance: none;
+        width: 1rem;
+        height: 1rem;
+        margin: 0;
+        border: 1.5px solid #777;
+        border-radius: 4px;
+        flex: 0 0 auto;
+      }
+      .feed-filters input[type="checkbox"]:checked {
+        border-color: #3ea6ff;
+        background: #3ea6ff
+          url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230f0f0f' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12l5 5 9-10'/%3E%3C/svg%3E")
+          center / 0.75rem no-repeat;
+      }
+      .feed-filters .feed-date {
+        border: 0;
+        padding: 0;
+        background: none;
+      }
       .refresh-button {
-        background: #272727;
+        background: #1c1c1c;
         color: #f1f1f1;
-        border: 1px solid #3a3a3a;
-        border-radius: 6px;
-        padding: 0.4rem 0.8rem;
+        border: 1px solid #2e2e2e;
+        border-radius: 10px;
+        height: 2.25rem;
+        padding: 0 0.9rem;
         font: inherit;
+        font-size: 0.85rem;
+        font-weight: 500;
         cursor: pointer;
       }
       @media (hover: hover) and (pointer: fine) {
@@ -1546,6 +1604,19 @@
           flex: 1 1 100%;
           margin-left: 0;
           min-width: 0;
+        }
+        /* The filter chips scroll sideways in one row, like the tabs. */
+        .feed-filters {
+          flex: 1 1 100%;
+          flex-wrap: nowrap;
+          overflow-x: auto;
+          overscroll-behavior-x: contain;
+          scrollbar-width: none;
+          -webkit-mask-image: linear-gradient(to right, #000 88%, transparent);
+          mask-image: linear-gradient(to right, #000 88%, transparent);
+        }
+        .feed-filters::-webkit-scrollbar {
+          display: none;
         }
         #app {
           padding: 0.75rem;
