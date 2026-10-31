@@ -330,7 +330,7 @@
       .settings-select {
         background: #1c1c1c;
         border: 1px solid #3a3a3a;
-        border-radius: 6px;
+        border-radius: 10px;
         padding: 0.25rem 0.4rem;
         color: #f1f1f1;
         font: inherit;
@@ -466,7 +466,7 @@
       .skeleton-player-frame {
         width: 100%;
         aspect-ratio: 16 / 9;
-        border-radius: 8px;
+        border-radius: 12px;
       }
       .video-play {
         display: flex;
@@ -575,7 +575,7 @@
         overflow-wrap: anywhere;
         background: #1c1c1c;
         border: 1px solid #2a2a2a;
-        border-radius: 8px;
+        border-radius: 12px;
         padding: 0.8rem 1rem;
         color: inherit;
         font: inherit;
@@ -672,7 +672,7 @@
         background: #272727;
         color: #f1f1f1;
         border: 1px solid #3a3a3a;
-        border-radius: 6px;
+        border-radius: 10px;
         padding: 0.4rem 0.7rem;
         font: inherit;
         cursor: pointer;
@@ -783,7 +783,7 @@
       .feed-notice {
         margin-bottom: 1rem;
         padding: 0.6rem 0.8rem;
-        border-radius: 6px;
+        border-radius: 10px;
         background: #3a2e1c;
         border: 1px solid #6b5320;
         color: #f3d9a0;
@@ -811,7 +811,7 @@
         background: #3a1c1c;
         border: 1px solid #6b2020;
         color: #f3a0a0;
-        border-radius: 8px;
+        border-radius: 12px;
         padding: 0.6rem 0.8rem;
         font-size: 0.9rem;
         box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
@@ -851,7 +851,7 @@
         background: #272727;
         color: #f1f1f1;
         border: 1px solid #3a3a3a;
-        border-radius: 6px;
+        border-radius: 10px;
         padding: 0.3rem 0.6rem;
         font: inherit;
         font-size: 0.85rem;
@@ -903,7 +903,7 @@
         width: 100%;
         aspect-ratio: 16 / 9;
         background: #000;
-        border-radius: 8px;
+        border-radius: 12px;
         overflow: hidden;
       }
       /* The rotor sits between the frame (the element the custom button
@@ -981,7 +981,10 @@
       .player-title {
         margin: 0;
         overflow-wrap: anywhere;
-        font-size: 1.15rem;
+        color: #f1f1f1;
+        font-size: 1.25rem;
+        line-height: 1.3;
+        letter-spacing: -0.01em;
         min-width: 0;
       }
       /* Channel and upload time, tucked under the title. */
@@ -1010,7 +1013,7 @@
       .player-card {
         background: #1c1c1c;
         border: 1px solid #2a2a2a;
-        border-radius: 8px;
+        border-radius: 12px;
         padding: 1rem;
       }
       .player-desc {
@@ -1031,7 +1034,7 @@
         gap: 0.75rem;
         background: #1c1c1c;
         padding: 1rem;
-        border-radius: 8px;
+        border-radius: 12px;
       }
       /* Tab strip: the "Description" / "Comments" / "Info" tabs above the
          panel, styled as an underlined segmented control. Only the selected
@@ -1217,7 +1220,7 @@
         background: #272727;
         color: #f1f1f1;
         border: 1px solid #3a3a3a;
-        border-radius: 6px;
+        border-radius: 10px;
         padding: 0.45rem 0.8rem;
         font: inherit;
         cursor: pointer;
@@ -1241,7 +1244,7 @@
         background: #272727;
         color: #f1f1f1;
         border: 1px solid #3a3a3a;
-        border-radius: 6px;
+        border-radius: 10px;
         padding: 0.45rem 0.8rem;
         font: inherit;
         cursor: pointer;
@@ -1328,6 +1331,8 @@
         .player-chapters-track {
           scrollbar-width: none;
           -ms-overflow-style: none;
+          -webkit-mask-image: linear-gradient(to right, #000 88%, transparent);
+          mask-image: linear-gradient(to right, #000 88%, transparent);
         }
         .player-chapters-track::-webkit-scrollbar {
           display: none;
@@ -1350,7 +1355,7 @@
         text-align: left;
         background: #1c1c1c;
         border: 1px solid #2a2a2a;
-        border-radius: 8px;
+        border-radius: 12px;
         padding: 0.5rem 0.7rem;
         font: inherit;
         cursor: pointer;
