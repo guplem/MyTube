@@ -4,6 +4,7 @@
 // "motion-exception:" and the reason, right before it. Every motion also
 // has a calmer version for people who ask the system to reduce motion.
 
+import { readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { AtRule, Root } from "postcss";
 import {
@@ -105,5 +106,20 @@ describe("CSS motion", (): void => {
       .flatMap((rule: StyleRule): string[] => rule.selectors)
       .filter((selector: string): boolean => !reducedSelectors.has(selector));
     expect(missing).toEqual([]);
+  });
+});
+
+describe("script motion", (): void => {
+  it("scrolls smoothly only through the helper that honors reduced motion", (): void => {
+    const offenders: string[] = readdirSync(
+      new URL("../../src/ui", import.meta.url),
+    )
+      .filter(
+        (name: string): boolean => name.endsWith(".ts") && name !== "motion.ts",
+      )
+      .filter((name: string): boolean =>
+        /["']smooth["']/.test(readRepoFile("src/ui/" + name)),
+      );
+    expect(offenders).toEqual([]);
   });
 });
