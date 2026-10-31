@@ -264,7 +264,8 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   `src/ui/listSnapshots.ts` keeps the last copy of each in `localStorage`,
   tied to the account key that `doGet` embeds (`Session.getTemporaryActiveUserKey`,
   no scope). The screen shows the copy at once, read-only (no play, toggle or
-  paging: `VideoListOptions.inert`), and loads the fresh list behind it. The fresh list
+  paging: `VideoListOptions.inert`), and loads the fresh list behind it while
+  a thin loading bar runs across the top of the page. The fresh list
   replaces the copy only when that moves no card (`freshListMovesNothing` in
   `src/shared/listSnapshot.ts`: same list, or changes at the end only).
   Otherwise the pill (`src/ui/listUpdatePill.ts`) offers it with "Show". A
@@ -330,7 +331,9 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   checks one spies on `console.log`.
 - **Motion is rare, and press feedback is color.** Animate only an occasional
   moment that would otherwise jump (the toast entrance). Add no motion to what
-  the user sees tens of times a day: cards, tabs, toggles, screen changes. Give
+  the user sees tens of times a day: cards, tabs, toggles, screen changes. The
+  exception is an indicator that says a load is in flight: the skeleton pulse
+  and the list loading bar (`.list-loading-bar`). Give
   a pressed control its hover color through `:active`, not a scale. **Check a
   touch or motion change on a real phone**: desktop emulation shows no sticky
   hover, tap flash, notch, or iOS `:active` quirk.

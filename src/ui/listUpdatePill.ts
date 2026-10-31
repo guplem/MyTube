@@ -1,17 +1,18 @@
-// The small notice that floats over a list while it shows a saved copy
-// (ADR 0011). It says "Updating…" while the fresh list loads. When the fresh
-// list would move cards, it offers a button to show it, so nothing moves
-// until the user asks.
+// What a list shows while it holds a saved copy (ADR 0011). While the fresh
+// list loads, a thin loading bar runs across the top of the page. When the
+// fresh list would move cards, a small notice offers a button to show it, so
+// nothing moves until the user asks.
 //
-// It sits in a sticky row of zero height at the top of the list, so it
-// overlays the first cards and follows the scroll, but never pushes a card.
-// It lives INSIDE the list's own element, so a screen change, which replaces
-// #app, takes it away with the list.
+// The notice sits in a sticky row of zero height at the top of the list, so
+// it overlays the first cards and follows the scroll, but never pushes a card.
+// The bar is fixed to the top of the page. Both live INSIDE the list's own
+// element, so a screen change, which replaces #app, takes them away with the
+// list.
 
 export interface ListUpdatePill {
   /** The zero-height row to place just above the cards. */
   element: HTMLElement;
-  /** The fresh list is loading. */
+  /** The fresh list is loading: the bar runs, the notice hides. */
   showUpdating: () => void;
   /** The fresh list is ready; the button shows it. */
   showReady: (label: string, onShow: () => void) => void;
@@ -29,6 +30,18 @@ export function createListUpdatePill(): ListUpdatePill {
   element.hidden = true;
   anchor.appendChild(element);
 
+  const bar = document.createElement("div");
+  bar.className = "list-loading-bar";
+  bar.setAttribute("role", "progressbar");
+  bar.setAttribute("aria-label", "Updating this list");
+  bar.hidden = true;
+  for (const length of ["long", "short"]) {
+    const line = document.createElement("div");
+    line.className = "list-loading-line list-loading-line--" + length;
+    bar.appendChild(line);
+  }
+  anchor.appendChild(bar);
+
   const text = document.createElement("span");
   const button = document.createElement("button");
   button.type = "button";
@@ -42,21 +55,21 @@ export function createListUpdatePill(): ListUpdatePill {
     action?.();
   });
 
-  function show(
-    message: string,
-    label: string,
-    action: (() => void) | null,
-  ): void {
+  function show(message: string, label: string, action: () => void): void {
     text.textContent = message;
     button.textContent = label;
-    button.hidden = action === null;
     onClick = action;
+    bar.hidden = true;
     element.hidden = false;
   }
 
   return {
     element: anchor,
-    showUpdating: (): void => show("Updating…", "", null),
+    showUpdating: (): void => {
+      onClick = null;
+      element.hidden = true;
+      bar.hidden = false;
+    },
     showReady: (label: string, onShow: () => void): void =>
       show(label, "Show", onShow),
     showFailed: (onRetry: () => void): void =>
@@ -64,6 +77,7 @@ export function createListUpdatePill(): ListUpdatePill {
     hide: (): void => {
       onClick = null;
       element.hidden = true;
+      bar.hidden = true;
     },
   };
 }

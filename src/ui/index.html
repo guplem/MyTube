@@ -801,10 +801,77 @@
         line-height: 1.4;
       }
 
-      /* The notice over a list that shows its saved copy while the fresh one
-         loads (src/ui/listUpdatePill.ts). Its row has no height, so showing or
-         hiding it never moves a card; sticky keeps it in view on scroll. No
-         motion: it appears on most visits. */
+      /* While a list shows its saved copy and the fresh one loads
+         (src/ui/listUpdatePill.ts), a thin bar at the top of the page shows
+         two lines that cross it from left to right. It floats, so it never
+         moves a card. Each line moves only by transform. */
+      .list-loading-bar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 1000;
+        height: 3px;
+        overflow: hidden;
+        background: rgba(62, 166, 255, 0.15);
+        pointer-events: none;
+      }
+      .list-loading-bar[hidden] {
+        display: none;
+      }
+      .list-loading-line {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        background: #3ea6ff;
+      }
+      .list-loading-line--long {
+        width: 40%;
+        animation: list-loading-long 1.6s cubic-bezier(0.65, 0, 0.35, 1)
+          infinite;
+      }
+      .list-loading-line--short {
+        width: 20%;
+        animation: list-loading-short 1.6s cubic-bezier(0.65, 0, 0.35, 1) 0.8s
+          infinite;
+        transform: translateX(-100%);
+      }
+      /* Each line starts just off the left edge and ends just off the right
+         one; a percentage in translateX counts the line's own width. */
+      @keyframes list-loading-long {
+        from {
+          transform: translateX(-100%);
+        }
+        to {
+          transform: translateX(250%);
+        }
+      }
+      @keyframes list-loading-short {
+        from {
+          transform: translateX(-100%);
+        }
+        to {
+          transform: translateX(500%);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        /* A still bar: it says "loading" without moving. */
+        .list-loading-line--long {
+          animation: none;
+          width: 100%;
+          opacity: 0.6;
+        }
+        .list-loading-line--short {
+          animation: none;
+          display: none;
+        }
+      }
+
+      /* The notice that offers the fresh list when showing it would move
+         cards. Its row has no height, so showing or hiding it never moves a
+         card; sticky keeps it in view on scroll. No motion: it appears on most
+         visits. */
       .list-update-anchor {
         position: sticky;
         top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
@@ -829,8 +896,7 @@
         font-size: 0.85rem;
         box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
       }
-      .list-update-pill[hidden],
-      .list-update-pill-button[hidden] {
+      .list-update-pill[hidden] {
         display: none;
       }
       .list-update-pill-button {
