@@ -13,6 +13,7 @@
 import { showToast } from "./toast";
 import { dropStaleFeedPage } from "./feedPageCache";
 import { applyFeedNavState } from "./feedNavButton";
+import { persistListSnapshots } from "./listSnapshots";
 
 // Per-key tap counter: when a control is tapped repeatedly before its requests
 // settle, only the LATEST tap owns the rollback. A stale request that fails
@@ -55,6 +56,9 @@ export function optimistic(options: OptimisticOptions): void {
   // decides whether that page survives this one.
   dropStaleFeedPage();
   options.apply();
+  // The saved list copies hold these same objects, so the next visit's
+  // preview leaves out what this tap dropped (ADR 0011).
+  persistListSnapshots();
   // The mutation may have changed whether the video still belongs in the feed
   // (dismissed, saved, marked watched), so the Feed nav button recounts. It runs
   // after apply AND after revert, and on every screen: the button is not the
@@ -68,6 +72,7 @@ export function optimistic(options: OptimisticOptions): void {
     .catch((): void => {
       if (latestOp.get(key) !== op) return; // superseded by a newer tap
       options.revert();
+      persistListSnapshots();
       applyFeedNavState();
       showToast(options.failMessage);
     });

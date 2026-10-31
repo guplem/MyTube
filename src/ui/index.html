@@ -801,6 +801,64 @@
         line-height: 1.4;
       }
 
+      /* The notice over a list that shows its saved copy while the fresh one
+         loads (src/ui/listUpdatePill.ts). Its row has no height, so showing or
+         hiding it never moves a card; sticky keeps it in view on scroll. No
+         motion: it appears on most visits. */
+      .list-update-anchor {
+        position: sticky;
+        top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
+        z-index: 900;
+        height: 0;
+        display: flex;
+        justify-content: center;
+        /* Without it the pill stretches to the row's zero height. */
+        align-items: flex-start;
+      }
+      .list-update-pill {
+        margin-top: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        max-width: calc(100vw - 2rem);
+        padding: 0.4rem 0.5rem 0.4rem 0.9rem;
+        border-radius: 999px;
+        background: #23334a;
+        border: 1px solid #3ea6ff;
+        color: #fff;
+        font-size: 0.85rem;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+      }
+      .list-update-pill[hidden],
+      .list-update-pill-button[hidden] {
+        display: none;
+      }
+      .list-update-pill-button {
+        background: #3ea6ff;
+        color: #0f0f0f;
+        border: none;
+        border-radius: 999px;
+        padding: 0.3rem 0.8rem;
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      @media (hover: hover) and (pointer: fine) {
+        .list-update-pill-button:hover {
+          background: #65b8ff;
+        }
+      }
+      .list-update-pill-button:active {
+        background: #65b8ff;
+      }
+      /* A card from the saved copy: its toggles wait for the fresh list, so a
+         tap can never act on a state the server has moved past. */
+      .video-action:disabled,
+      .video-card-corner:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+
       /* Toast notifications (shown when an optimistic action is rolled back) */
       .toast-container {
         position: fixed;
@@ -1730,7 +1788,8 @@
         .refresh-button,
         .video-action,
         .list-controls button,
-        .list-size select {
+        .list-size select,
+        .list-update-pill-button {
           height: 2.75rem;
         }
         .app-search button {
@@ -1846,10 +1905,12 @@
     </footer>
 
     <!-- The account's stored preferences (null when it has none yet), read by
-         src/ui/preferences.ts before the bundle draws anything. doGet fills
-         preferencesJson with preferencesScriptLiteral, which is safe here. -->
+         src/ui/preferences.ts before the bundle draws anything, and the
+         account key that src/ui/listSnapshots.ts saves list previews under.
+         doGet fills both with scriptLiteral escaping, which is safe here. -->
     <script>
       window.MYTUBE_ACCOUNT_PREFERENCES = <?!= preferencesJson ?>;
+      window.MYTUBE_ACCOUNT_KEY = <?!= accountKeyJson ?>;
     </script>
 
     <!-- Browser TypeScript bundle (built from src/ui by esbuild). -->

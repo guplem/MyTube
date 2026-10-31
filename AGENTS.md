@@ -253,11 +253,26 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   match it before any screen reads it, with no extra round trip. Every write goes
   to both copies; the server write is fire-and-forget. A missing property means
   "never stored": the first device with a non-empty local set uploads it
-  (`importPreferences`, ADR 0010). Only `src/ui/preferences.ts` touches
-  `localStorage`.
+  (`importPreferences`, ADR 0010). Only `src/ui/preferences.ts` touches the
+  `mytube.` keys of `localStorage`; it uploads every key under that prefix and
+  deletes the ones the account set lacks. The one other `localStorage` user is
+  `src/ui/listSnapshots.ts`, under its own `mytubeSnapshot:` prefix.
   Each key and its default lives in one module, never in the screen that shows
   it: `src/ui/feedFilters.ts` for the feed filters, `src/ui/playerPreferences.ts`
   for the player ones, and `src/ui/titlePreferences.ts` for the title display.
+- **The feed's first page and Watch Later open on their last copy (ADR 0011).**
+  `src/ui/listSnapshots.ts` keeps the last copy of each in `localStorage`,
+  tied to the account key that `doGet` embeds (`Session.getTemporaryActiveUserKey`,
+  no scope). The screen shows the copy at once with its toggles off
+  (`VideoListOptions.inert`) and loads the fresh list behind it. The fresh list
+  replaces the copy only when that moves no card (`freshListMovesNothing` in
+  `src/shared/listSnapshot.ts`: same list, or changes at the end only).
+  Otherwise the pill (`src/ui/listUpdatePill.ts`) offers it with "Show". A
+  changed filter and Force refresh never show a copy. Each list registers its
+  live `Video` objects with `keepListSnapshot`, and `optimistic()` calls
+  `persistListSnapshots()`, so the next copy leaves out what the user just
+  dismissed, saved or removed. The feed copy has no date in its key, because the
+  default date moves every day.
 - **Settings is the one screen that lists every preference**
   (`src/ui/settingsView.ts`, routed as `{ view: "settings" }`, opened from the
   footer link). It owns no preference: it reads and writes the same keys as the
@@ -395,6 +410,7 @@ records.
 | [0008](adr/0008-single-kept-feed-page-via-shared-object-identity.md) | Feed keeps ONE loaded page, kept correct by sharing `Video` object identity                  |
 | [0009](adr/0009-third-party-lookups-hashed-and-fail-open.md)         | Third-party lookups: privacy-preserving id hash, shared cache, fail open on any error        |
 | [0010](adr/0010-ui-preferences-per-account-with-local-mirror.md)     | UI preferences: one per-account user property, mirrored in localStorage for sync reads       |
+| [0011](adr/0011-instant-list-preview-from-saved-copy.md)             | Feed and Watch Later open on a saved copy; the fresh list replaces it only if no card moves  |
 
 ## Gotchas
 
