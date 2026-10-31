@@ -71,6 +71,7 @@ import {
 } from "./skeleton";
 import { formatDate, formatDuration } from "./videoListView";
 import { formatUploadTime } from "../shared/uploadTime";
+import { compactNumber } from "../shared/countLabel";
 import { scrollBehavior } from "./motion";
 
 // How often the live position is checked against the segment list. The check
@@ -1251,7 +1252,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
 
     const meta = document.createElement("div");
     meta.className = "comment-meta";
-    meta.textContent = "👍 " + formatCount(comment.likeCount);
+    meta.textContent = "👍 " + compactNumber(comment.likeCount);
 
     body.append(head, text, meta);
     item.append(avatar, body);
@@ -1740,12 +1741,4 @@ function formatRelativeTime(iso: string): string {
   } catch {
     return new Date(iso).toLocaleDateString();
   }
-}
-
-// Compact like count: 1234 -> "1.2K", 1200000 -> "1.2M".
-function formatCount(count: number): string {
-  if (count >= 1000000)
-    return (count / 1000000).toFixed(1).replace(/\.0$/, "") + "M";
-  if (count >= 1000) return (count / 1000).toFixed(1).replace(/\.0$/, "") + "K";
-  return String(count);
 }

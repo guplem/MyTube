@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { countLabel, groupedNumber } from "../../src/shared/countLabel";
+import {
+  compactNumber,
+  countLabel,
+  groupedNumber,
+} from "../../src/shared/countLabel";
 
 afterEach((): void => {
   vi.unstubAllGlobals();
@@ -59,5 +63,19 @@ describe("grouping in a non-English browser", (): void => {
     const fresh: typeof import("../../src/shared/countLabel") =
       await import("../../src/shared/countLabel");
     expect(fresh.groupedNumber(1284)).toBe("1,284");
+  });
+});
+
+describe("compactNumber", (): void => {
+  it("keeps numbers under a thousand as they are", (): void => {
+    expect(compactNumber(0)).toBe("0");
+    expect(compactNumber(999)).toBe("999");
+  });
+
+  it("shortens thousands and millions to one decimal, dropping a .0", (): void => {
+    expect(compactNumber(1000)).toBe("1K");
+    expect(compactNumber(1284)).toBe("1.3K");
+    expect(compactNumber(1200000)).toBe("1.2M");
+    expect(compactNumber(3000000)).toBe("3M");
   });
 });

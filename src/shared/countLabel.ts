@@ -14,3 +14,12 @@ export function countLabel(
 ): string {
   return groupedNumber(count) + " " + (count === 1 ? singular : plural);
 }
+
+/** A short count for tight spots ("1.3K", "1.2M"), where the exact number
+ *  does not matter: comment likes, the count over a playlist cover. */
+export function compactNumber(count: number): string {
+  if (count >= 1000000)
+    return (count / 1000000).toFixed(1).replace(/\.0$/, "") + "M";
+  if (count >= 1000) return (count / 1000).toFixed(1).replace(/\.0$/, "") + "K";
+  return String(count);
+}
