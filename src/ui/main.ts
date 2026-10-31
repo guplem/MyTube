@@ -10,6 +10,7 @@ import { defaultFeedBeforeDate } from "../shared/feed";
 import { shouldSuggestWatched } from "../shared/videoProgress";
 import { watchLaterAfterSeenToggle } from "../shared/watchLaterAfterSeen";
 import { pickDisplayTitle } from "../shared/dearrow";
+import { groupedNumber } from "../shared/countLabel";
 import {
   getHistory,
   getPlaylists,
@@ -720,7 +721,7 @@ function showPlaylists(): void {
         const button = document.createElement("button");
         button.type = "button";
         button.className = "playlist-item";
-        button.textContent = `${playlist.title} (${playlist.itemCount})`;
+        button.textContent = `${playlist.title} (${groupedNumber(playlist.itemCount)})`;
         button.addEventListener("click", (): void =>
           go({
             view: "playlist",
@@ -1311,6 +1312,11 @@ function start(): void {
 // never touches it — so fill it once, the moment the bundle runs.
 renderBuildStamp();
 renderSponsorBlockCredit();
+
+// iOS Safari applies :active on touch only while some touchstart listener
+// exists. The stylesheet's press feedback lives in :active, so this empty
+// listener switches it on. Passive, so it never delays scrolling.
+document.addEventListener("touchstart", (): void => {}, { passive: true });
 
 if (document.readyState === "complete") {
   start();

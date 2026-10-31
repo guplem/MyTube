@@ -1,0 +1,183 @@
+// Touch rules for the app stylesheet (src/ui/index.html). A phone has no
+// hover: it applies :hover on tap and keeps it until the next tap elsewhere,
+// so a hover look must sit behind a hover-capable media query, and touch gets
+// its press feedback from :active instead.
+
+import { describe, expect, it } from "vitest";
+import {
+  appStyleRules,
+  readRepoFile,
+  transitionedProperties,
+  type StyleRule,
+} from "../helpers/stylesheet";
+
+const HOVER_GATE = "(hover: hover) and (pointer: fine)";
+
+const rules: StyleRule[] = appStyleRules();
+
+function isGated(rule: StyleRule): boolean {
+  return rule.conditions.some((condition: string): boolean =>
+    condition.includes(HOVER_GATE),
+  );
+}
+
+const hoverSelectors: { selector: string; rule: StyleRule }[] = rules.flatMap(
+  (rule: StyleRule) =>
+    rule.selectors
+      .filter((selector: string): boolean => selector.includes(":hover"))
+      .map((selector: string) => ({ selector, rule })),
+);
+
+describe("hover styles", (): void => {
+  it("exist (the checks below are not vacuous)", (): void => {
+    expect(hoverSelectors.length).toBeGreaterThan(10);
+  });
+
+  it("all sit behind the hover-capable media query", (): void => {
+    const ungated: string[] = hoverSelectors
+      .filter(({ rule }): boolean => !isGated(rule))
+      .map(({ selector }): string => selector);
+    expect(ungated).toEqual([]);
+  });
+
+  it("show their press color at once, even on an element that fades its color", (): void => {
+    // A tap lasts about 100ms. If the color the :active rule sets is also
+    // transitioned, the press is over before the color arrives.
+    const slow: string[] = [];
+    for (const rule of rules) {
+      if (isGated(rule)) continue;
+      for (const selector of rule.selectors) {
+        if (!selector.includes(":active")) continue;
+        const base: string = selector.replace(
+          /:active(:not\(:disabled\))?/g,
+          "",
+        );
+        const faded: string[] = rules
+          .filter((r: StyleRule): boolean => r.selectors.includes(base))
+          .flatMap(transitionedProperties);
+        const pressed: string[] = [...rule.declarations.keys()];
+        const instant: boolean =
+          rule.declarations.get("transition-duration") === "0s" ||
+          rule.declarations.get("transition") === "none";
+        if (!instant && pressed.some((p: string): boolean => faded.includes(p)))
+          slow.push(selector);
+      }
+    }
+    expect(slow).toEqual([]);
+  });
+
+  it("each have an ungated :active twin, so touch gets press feedback", (): void => {
+    const activeSelectors: Set<string> = new Set(
+      rules
+        .filter((rule: StyleRule): boolean => !isGated(rule))
+        .flatMap((rule: StyleRule): string[] => rule.selectors),
+    );
+    const missing: string[] = hoverSelectors
+      .map(({ selector }): string => selector.replace(/:hover/g, ":active"))
+      .filter((twin: string): boolean => !activeSelectors.has(twin));
+    expect(missing).toEqual([]);
+  });
+});
+
+function declarationsFor(selector: string): Map<string, string> {
+  const merged: Map<string, string> = new Map();
+  for (const rule of rules) {
+    if (rule.conditions.length > 0) continue;
+    if (!rule.selectors.includes(selector)) continue;
+    for (const [property, value] of rule.declarations)
+      merged.set(property, value);
+  }
+  return merged;
+}
+
+// Whether a selector can match a .ts-link timestamp button: its last part
+// is a plain `button` (with no :not(.ts-link)), or names .ts-link outside a
+// :not().
+function isTimestampSelector(selector: string): boolean {
+  if (/\.ts-link(?![^(]*\))/.test(selector)) return true;
+  const last: string = selector.split(/\s|>|\+|~/).pop() ?? "";
+  return /^button(?![\w.#[-])/.test(last) && !last.includes(":not(.ts-link)");
+}
+
+describe("touch baseline", (): void => {
+  it("turns off the grey tap flash and the landscape font inflation", (): void => {
+    const html: Map<string, string> = declarationsFor("html");
+    expect(html.get("-webkit-tap-highlight-color")).toBe("transparent");
+    expect(html.get("-webkit-text-size-adjust")).toBe("100%");
+  });
+
+  it("makes controls tap at once and never double-tap zoom", (): void => {
+    for (const control of ["button", "input", "select", "label"]) {
+      expect(declarationsFor(control).get("touch-action"), control).toBe(
+        "manipulation",
+      );
+    }
+  });
+
+  it("keeps a long press from selecting a button label", (): void => {
+    const button: Map<string, string> = declarationsFor("button:not(.ts-link)");
+    expect(button.get("user-select")).toBe("none");
+    expect(button.get("-webkit-user-select")).toBe("none");
+  });
+
+  it("keeps a long press on a button or its thumbnail from opening a callout", (): void => {
+    // -webkit-touch-callout inherits, so the card thumbnail inside
+    // .video-play is covered by the button rule.
+    expect(
+      declarationsFor("button:not(.ts-link)").get("-webkit-touch-callout"),
+    ).toBe("none");
+  });
+
+  it("keeps timestamp links selectable, so copied text keeps its times", (): void => {
+    // A timestamp is a .ts-link button inside description and comment text.
+    // Chrome leaves user-select: none content out of a copy, so "Intro 0:00"
+    // would paste as "Intro ".
+    const unselectable: string[] = rules
+      .filter(
+        (rule: StyleRule): boolean =>
+          rule.declarations.get("user-select") === "none" ||
+          rule.declarations.get("-webkit-user-select") === "none",
+      )
+      .flatMap((rule: StyleRule): string[] => rule.selectors)
+      .filter((selector: string): boolean => isTimestampSelector(selector));
+    expect(unselectable).toEqual([]);
+  });
+
+  it("never makes body text unselectable as a whole", (): void => {
+    expect(declarationsFor("body").get("user-select")).toBeUndefined();
+  });
+});
+
+describe("press feedback on iOS", (): void => {
+  it("has a passive document touchstart listener, without which iOS Safari never applies :active", (): void => {
+    const boot: string = readRepoFile("src/ui/main.ts");
+    expect(boot).toMatch(
+      /document\.addEventListener\(\s*"touchstart",[^;]*\{\s*passive: true\s*\}/,
+    );
+  });
+});
+
+describe("horizontal scroll strips", (): void => {
+  const strips: StyleRule[] = rules.filter((rule: StyleRule): boolean =>
+    /(^|\s)(auto|scroll)$/.test(
+      rule.declarations.get("overflow-x") ??
+        rule.declarations.get("overflow") ??
+        "",
+    ),
+  );
+
+  it("exist (the check below is not vacuous)", (): void => {
+    expect(strips.length).toBeGreaterThan(0);
+  });
+
+  it("keep their scroll to themselves, so the end of a strip never swipes the page back", (): void => {
+    const leaking: string[] = strips
+      .filter(
+        (rule: StyleRule): boolean =>
+          (rule.declarations.get("overscroll-behavior-x") ??
+            rule.declarations.get("overscroll-behavior")) !== "contain",
+      )
+      .flatMap((rule: StyleRule): string[] => rule.selectors);
+    expect(leaking).toEqual([]);
+  });
+});

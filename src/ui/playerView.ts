@@ -66,6 +66,7 @@ import {
   skeletonInfoRows,
 } from "./skeleton";
 import { formatDate, formatDuration } from "./videoListView";
+import { scrollBehavior } from "./motion";
 
 // How often the live position is checked against the segment list. The check
 // is local getCurrentTime polling with no request, so it can be brisk; it has
@@ -688,7 +689,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   // and scrolls back up so the player is visible.
   function seek(seconds: number): void {
     seekSilently(seconds);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, behavior: scrollBehavior() });
   }
 
   // Rebuild the chapter strip for a video (or hide it when there are none).
@@ -760,13 +761,11 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     }
     const card = chapterCards[index];
     if (card) {
-      // Keep the current chapter at the start of the track. The track scrolls
-      // horizontally on narrow screens and vertically on wide ones, so scroll
-      // both axes — the off-axis offset is roughly constant and is a no-op.
+      // Keep the current chapter at the start of the track, which scrolls
+      // horizontally only.
       chaptersTrack.scrollTo({
         left: Math.max(0, card.offsetLeft - 8),
-        top: Math.max(0, card.offsetTop - 8),
-        behavior: "smooth",
+        behavior: scrollBehavior(),
       });
     }
   }

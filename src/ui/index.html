@@ -23,6 +23,33 @@
       [hidden] {
         display: none !important;
       }
+      /* Touch baseline. The tap highlight is the grey box a phone paints over
+         every tapped control; the :active rules below give the press
+         feedback instead. text-size-adjust stops iOS from enlarging text in
+         landscape. */
+      html {
+        -webkit-tap-highlight-color: transparent;
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+      }
+      /* No double-tap zoom on a control, so a tap fires at once. */
+      button,
+      input,
+      select,
+      label {
+        touch-action: manipulation;
+      }
+      /* A long press on a control must not select its label or open the
+         copy or "save image" callout (the callout setting inherits, so it
+         covers the card thumbnail inside .video-play). Only controls: text
+         that is content stays selectable. That includes the timestamp
+         buttons (.ts-link) inside description and comment text: a copy
+         leaves unselectable text out, so the times would vanish from it. */
+      button:not(.ts-link) {
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+      }
       body {
         font-family:
           system-ui,
@@ -49,6 +76,7 @@
         gap: 0.5rem;
         max-width: 100%;
         overflow-x: auto;
+        overscroll-behavior-x: contain;
         scrollbar-width: none;
         -ms-overflow-style: none;
       }
@@ -66,7 +94,12 @@
         flex: 0 0 auto;
         white-space: nowrap;
       }
-      .app-nav button:hover {
+      @media (hover: hover) and (pointer: fine) {
+        .app-nav button:hover {
+          color: #fff;
+        }
+      }
+      .app-nav button:active {
         color: #fff;
       }
       .app-nav button.active {
@@ -148,7 +181,12 @@
         font: inherit;
         cursor: pointer;
       }
-      .app-search button:hover {
+      @media (hover: hover) and (pointer: fine) {
+        .app-search button:hover {
+          background: #333;
+        }
+      }
+      .app-search button:active {
         background: #333;
       }
       #app {
@@ -186,7 +224,12 @@
         text-decoration: underline;
         cursor: pointer;
       }
-      .footer-link:hover {
+      @media (hover: hover) and (pointer: fine) {
+        .footer-link:hover {
+          color: #f1f1f1;
+        }
+      }
+      .footer-link:active {
         color: #f1f1f1;
       }
 
@@ -276,7 +319,12 @@
         line-height: 1;
         cursor: pointer;
       }
-      .video-card-corner:hover {
+      @media (hover: hover) and (pointer: fine) {
+        .video-card-corner:hover {
+          background: rgba(0, 0, 0, 0.9);
+        }
+      }
+      .video-card-corner:active {
         background: rgba(0, 0, 0, 0.9);
       }
       .video-card--seen {
@@ -355,7 +403,12 @@
         font: inherit;
         cursor: pointer;
       }
-      .video-play:hover {
+      @media (hover: hover) and (pointer: fine) {
+        .video-play:hover {
+          background: #272727;
+        }
+      }
+      .video-play:active {
         background: #272727;
       }
       .video-actions {
@@ -383,7 +436,12 @@
         font-size: 0.8rem;
         cursor: pointer;
       }
-      .video-action:hover {
+      @media (hover: hover) and (pointer: fine) {
+        .video-action:hover {
+          background: #333;
+        }
+      }
+      .video-action:active {
         background: #333;
       }
       /* A toggled-ON card button reads as pressed: filled with the same colors
@@ -395,7 +453,12 @@
         border-color: #3ea6ff;
         color: #fff;
       }
-      .video-action--on:hover {
+      @media (hover: hover) and (pointer: fine) {
+        .video-action--on:hover {
+          background: #284066;
+        }
+      }
+      .video-action--on:active {
         background: #284066;
       }
       /* Notification dot on the watched toggle when the progress store (or,
@@ -428,6 +491,7 @@
       }
       .playlist-item {
         text-align: left;
+        overflow-wrap: anywhere;
         background: #1c1c1c;
         border: 1px solid #2a2a2a;
         border-radius: 8px;
@@ -436,7 +500,12 @@
         font: inherit;
         cursor: pointer;
       }
-      .playlist-item:hover {
+      @media (hover: hover) and (pointer: fine) {
+        .playlist-item:hover {
+          background: #272727;
+        }
+      }
+      .playlist-item:active {
         background: #272727;
       }
       .video-thumb-wrap {
@@ -483,10 +552,12 @@
       }
       .video-title {
         font-weight: 600;
+        overflow-wrap: anywhere;
         line-height: 1.25;
       }
       .video-channel {
         color: #bbb;
+        overflow-wrap: anywhere;
         font-size: 0.85rem;
       }
       .video-date {
@@ -522,7 +593,12 @@
         font: inherit;
         cursor: pointer;
       }
-      .list-controls button:hover:not(:disabled) {
+      @media (hover: hover) and (pointer: fine) {
+        .list-controls button:hover:not(:disabled) {
+          background: #333;
+        }
+      }
+      .list-controls button:active:not(:disabled) {
         background: #333;
       }
       .list-controls button:disabled {
@@ -551,7 +627,12 @@
         font: inherit;
         cursor: pointer;
       }
-      .refresh-button:hover {
+      @media (hover: hover) and (pointer: fine) {
+        .refresh-button:hover {
+          background: #333;
+        }
+      }
+      .refresh-button:active {
         background: #333;
       }
       .refresh-button--right {
@@ -592,6 +673,26 @@
         padding: 0.6rem 0.8rem;
         font-size: 0.9rem;
         box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+        /* Enter only: a toast slides up from the bottom edge and fades in, so
+           it does not pop into view. It leaves without motion when its timer
+           or a button removes it (src/ui/toast.ts). */
+        transition:
+          opacity 200ms cubic-bezier(0.23, 1, 0.32, 1),
+          transform 200ms cubic-bezier(0.23, 1, 0.32, 1);
+      }
+      /* The start state of the entrance. A transition never runs when an
+         element is inserted; @starting-style gives it a "before" to start
+         from. Browsers without it show the toast at once, as before. */
+      @starting-style {
+        .toast {
+          opacity: 0;
+          transform: translateY(100%);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .toast {
+          transition: opacity 200ms ease-out;
+        }
       }
       /* A toast that reports something that worked (the sponsor skip), not a
          failure: neutral chrome colours instead of the red failure palette. */
@@ -614,7 +715,12 @@
         font-size: 0.85rem;
         cursor: pointer;
       }
-      .toast-action:hover {
+      @media (hover: hover) and (pointer: fine) {
+        .toast-action:hover {
+          background: #333;
+        }
+      }
+      .toast-action:active {
         background: #333;
       }
       .toast-dismiss {
@@ -649,8 +755,12 @@
         gap: 0.5rem;
         flex-shrink: 0;
       }
+      /* Holds the playlist title, which comes from YouTube. min-width: 0
+         lets this flex item shrink in the nav row so the title can wrap. */
       .player-position {
         color: #bbb;
+        overflow-wrap: anywhere;
+        min-width: 0;
       }
       .player-autoplay {
         margin-left: auto;
@@ -742,6 +852,7 @@
       }
       .player-title {
         margin: 0;
+        overflow-wrap: anywhere;
         font-size: 1.15rem;
         flex: 1;
         min-width: 0;
@@ -808,7 +919,13 @@
         color: #aaa;
         cursor: pointer;
       }
-      .player-view button.player-tab:hover {
+      @media (hover: hover) and (pointer: fine) {
+        .player-view button.player-tab:hover {
+          background: none;
+          color: #ddd;
+        }
+      }
+      .player-view button.player-tab:active {
         background: none;
         color: #ddd;
       }
@@ -922,6 +1039,7 @@
       }
       .comment-author {
         font-weight: 600;
+        overflow-wrap: anywhere;
         font-size: 0.85rem;
         color: #f1f1f1;
       }
@@ -951,7 +1069,12 @@
         text-decoration: underline;
         cursor: pointer;
       }
-      .ts-link:hover {
+      @media (hover: hover) and (pointer: fine) {
+        .ts-link:hover {
+          color: #6cb8ff;
+        }
+      }
+      .ts-link:active {
         color: #6cb8ff;
       }
       .show-more {
@@ -964,7 +1087,12 @@
         font: inherit;
         cursor: pointer;
       }
-      .show-more:hover:not(:disabled) {
+      @media (hover: hover) and (pointer: fine) {
+        .show-more:hover:not(:disabled) {
+          background: #333;
+        }
+      }
+      .show-more:active:not(:disabled) {
         background: #333;
       }
       .show-more:disabled {
@@ -983,8 +1111,16 @@
         font: inherit;
         cursor: pointer;
       }
+      @media (hover: hover) and (pointer: fine) {
+        .player-view
+          button:not(.ts-link):not(.player-tab):not(.chapter-card):hover:not(
+            :disabled
+          ) {
+          background: #333;
+        }
+      }
       .player-view
-        button:not(.ts-link):not(.player-tab):not(.chapter-card):hover:not(
+        button:not(.ts-link):not(.player-tab):not(.chapter-card):active:not(
           :disabled
         ) {
         background: #333;
@@ -1005,10 +1141,18 @@
         border-color: #3ea6ff;
         color: #fff;
       }
+      @media (hover: hover) and (pointer: fine) {
+        .player-view
+          button.player-toggle--on:not(.ts-link):not(.player-tab):not(
+            .chapter-card
+          ):hover:not(:disabled) {
+          background: #284066;
+        }
+      }
       .player-view
         button.player-toggle--on:not(.ts-link):not(.player-tab):not(
           .chapter-card
-        ):hover:not(:disabled) {
+        ):active:not(:disabled) {
         background: #284066;
       }
 
@@ -1037,6 +1181,9 @@
         display: flex;
         gap: 0.5rem;
         overflow-x: auto;
+        /* Every horizontal strip contains its overscroll: past the end, a
+           trackpad swipe would otherwise reach the page and go "back". */
+        overscroll-behavior-x: contain;
         padding-bottom: 0.35rem;
       }
       /* On touch devices the overlay scrollbar can appear on load and linger
@@ -1051,6 +1198,11 @@
           display: none;
         }
       }
+      /* motion-exception: the 0.2s fade of background and border-color is the
+         "current chapter" highlight arriving as playback moves on. It also
+         softens hover and the release of a press (the press itself is
+         instant, below). Both properties repaint, but a chapter card is
+         small, so the paint cost is negligible. */
       .player-view button.chapter-card {
         flex: 0 0 auto;
         max-width: 220px;
@@ -1069,9 +1221,18 @@
           background 0.2s ease,
           border-color 0.2s ease;
       }
-      .player-view button.chapter-card:hover {
+      @media (hover: hover) and (pointer: fine) {
+        .player-view button.chapter-card:hover {
+          background: #242424;
+          border-color: #3a3a3a;
+        }
+      }
+      /* Press color at once: the card's 0.2s fade would let a short tap end
+         before the color arrives. Release still fades back. */
+      .player-view button.chapter-card:active {
         background: #242424;
         border-color: #3a3a3a;
+        transition-duration: 0s;
       }
       .chapter-time {
         font-size: 0.8rem;
@@ -1096,8 +1257,14 @@
         background: #23334a;
         border-color: #3ea6ff;
       }
-      .player-view button.chapter-card.current:hover {
+      @media (hover: hover) and (pointer: fine) {
+        .player-view button.chapter-card.current:hover {
+          background: #284066;
+        }
+      }
+      .player-view button.chapter-card.current:active {
         background: #284066;
+        transition-duration: 0s;
       }
       .player-view button.chapter-card.current .chapter-label {
         color: #fff;
@@ -1140,17 +1307,35 @@
           .chapter-card
         ),
       .player-view
+        button.player-theater.active:not(.ts-link):not(.player-tab):not(
+          .chapter-card
+        ) {
+        background: #3ea6ff;
+        border-color: #3ea6ff;
+        color: #0f0f0f;
+      }
+      @media (hover: hover) and (pointer: fine) {
+        .player-view
+          button.player-sponsor.active:not(.ts-link):not(.player-tab):not(
+            .chapter-card
+          ):hover,
+        .player-view
+          button.player-theater.active:not(.ts-link):not(.player-tab):not(
+            .chapter-card
+          ):hover {
+          background: #3ea6ff;
+          border-color: #3ea6ff;
+          color: #0f0f0f;
+        }
+      }
+      .player-view
         button.player-sponsor.active:not(.ts-link):not(.player-tab):not(
           .chapter-card
-        ):hover,
+        ):active,
       .player-view
         button.player-theater.active:not(.ts-link):not(.player-tab):not(
           .chapter-card
-        ),
-      .player-view
-        button.player-theater.active:not(.ts-link):not(.player-tab):not(
-          .chapter-card
-        ):hover {
+        ):active {
         background: #3ea6ff;
         border-color: #3ea6ff;
         color: #0f0f0f;

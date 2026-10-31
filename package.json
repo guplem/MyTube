@@ -23,6 +23,7 @@
     "@xmldom/xmldom": "^0.9.10",
     "esbuild": "^0.20.2",
     "lefthook": "^2.1.10",
+    "postcss": "^8.5.32",
     "prettier": "^3.9.5",
     "typescript": "^5.4.5",
     "vitest": "^2.1.9"

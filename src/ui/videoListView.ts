@@ -13,6 +13,7 @@
 
 import type { Video } from "../shared/video";
 import { progressFraction } from "../shared/videoProgress";
+import { countLabel } from "../shared/countLabel";
 import { skeletonVideoCard } from "./skeleton";
 import { displayTitle } from "./titlePreferences";
 import { originalTitleHint } from "../shared/dearrow";
@@ -249,7 +250,7 @@ function renderList(
       );
     });
 
-    info.textContent = `Page ${loadedPage + 1} of ${pageCount} · ${total} videos`;
+    info.textContent = `Page ${loadedPage + 1} of ${pageCount} · ${countLabel(total, "video", "videos")}`;
     prevButton.disabled = loadedPage <= 0;
     nextButton.disabled = loadedPage >= pageCount - 1;
   }
