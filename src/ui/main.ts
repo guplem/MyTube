@@ -230,6 +230,20 @@ function offerDismissAfterWatchLaterRemoval(
 // outlives its card (or the player). Once that button is gone, the user is on
 // another screen, and the router would judge this write by that screen, not by
 // the one that owns this Video object, so drop the kept feed page outright.
+// The rollback key of a dismiss made from the toast, one token per video. The
+// player's seen toggle already keys on the video itself, and only the latest
+// tap on a key owns its rollback, so sharing the video would let a dismiss
+// take a failed seen tap's rollback away (and the reverse).
+const dismissKeys: WeakMap<Video, object> = new WeakMap();
+function dismissKeyFor(video: Video): object {
+  let key: object | undefined = dismissKeys.get(video);
+  if (!key) {
+    key = {};
+    dismissKeys.set(video, key);
+  }
+  return key;
+}
+
 function dismissAfterWatchLaterRemoval(
   video: Video,
   button: HTMLButtonElement,
@@ -247,7 +261,7 @@ function dismissAfterWatchLaterRemoval(
     return;
   }
   optimistic({
-    key: video,
+    key: dismissKeyFor(video),
     apply: (): void => {
       video.dismissed = true;
     },
