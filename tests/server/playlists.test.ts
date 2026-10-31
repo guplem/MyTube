@@ -52,8 +52,8 @@ describe("getPlaylists", () => {
     };
 
     expect(getPlaylists()).toEqual([
-      { playlistId: "PL1", title: "One", itemCount: 3 },
-      { playlistId: "PL2", title: "Two", itemCount: 5 },
+      { playlistId: "PL1", title: "One", itemCount: 3, thumbnailUrl: "" },
+      { playlistId: "PL2", title: "Two", itemCount: 5, thumbnailUrl: "" },
     ]);
   });
 
@@ -73,8 +73,36 @@ describe("getPlaylists", () => {
     };
 
     expect(getPlaylists()).toEqual([
-      { playlistId: "PL2", title: "Two", itemCount: 5 },
+      { playlistId: "PL2", title: "Two", itemCount: 5, thumbnailUrl: "" },
     ]);
+  });
+});
+
+describe("getPlaylists cover", () => {
+  // The playlists screen shows each playlist's cover. It comes in the snippet
+  // the call already asks for, so it costs no extra quota.
+  it("takes the cover from the snippet, preferring the medium size", () => {
+    mocks.youtube.Playlists = {
+      list: () => ({
+        items: [
+          {
+            id: "PL1",
+            snippet: {
+              title: "One",
+              thumbnails: {
+                default: { url: "https://i.ytimg.com/d.jpg" },
+                medium: { url: "https://i.ytimg.com/m.jpg" },
+                high: { url: "https://i.ytimg.com/h.jpg" },
+              },
+            },
+            contentDetails: { itemCount: 3 },
+          },
+        ],
+      }),
+      insert: () => ({}),
+    };
+
+    expect(getPlaylists()[0].thumbnailUrl).toBe("https://i.ytimg.com/m.jpg");
   });
 });
 

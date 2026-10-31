@@ -122,23 +122,40 @@ export function skeletonSortToolbar(): HTMLElement {
 // Row widths cycled so the playlist placeholders look like titles of varied length.
 const PLAYLIST_ROW_WIDTHS = ["55%", "40%", "65%", "35%", "50%", "45%"];
 
-/** Placeholder rows shown while the playlists index loads. Each row is a real
- *  `.playlist-item` box (same padding/border) holding one title-sized line. */
+/** Placeholder rows shown while the playlists index loads, shaped like the
+ *  real screen (src/ui/playlistsView.ts): the heading line, then rows with a
+ *  cover block and two text lines, so nothing jumps when the list lands. */
 export function skeletonPlaylistList(count: number = 6): HTMLElement {
+  const root = document.createElement("div");
+  root.className = "playlists";
+  const head = document.createElement("div");
+  head.className = "playlists-head";
+  // The filter field's own size, so the rows start where the real ones do
+  // (on a phone the field takes a row of its own).
+  const filter = document.createElement("div");
+  filter.className = "skeleton playlists-filter";
+  head.append(skeletonLine("8rem", "1.95rem"), filter);
   const list = document.createElement("div");
   list.className = "playlist-list";
   for (let index = 0; index < count; index += 1) {
     const item = document.createElement("div");
     item.className = "playlist-item playlist-item--skeleton";
-    item.appendChild(
+    const cover = document.createElement("div");
+    cover.className = "skeleton playlist-cover";
+    const text = document.createElement("div");
+    text.className = "playlist-text";
+    text.append(
       skeletonLine(
         PLAYLIST_ROW_WIDTHS[index % PLAYLIST_ROW_WIDTHS.length],
-        "1.2rem",
+        "1rem",
       ),
+      skeletonLine("4.5rem", "0.8rem"),
     );
+    item.append(cover, text);
     list.appendChild(item);
   }
-  return list;
+  root.append(head, list);
+  return root;
 }
 
 /** Placeholder for the whole player screen, shown while a shared link rebuilds

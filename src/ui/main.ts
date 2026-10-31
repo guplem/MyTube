@@ -10,7 +10,8 @@ import { defaultFeedBeforeDate } from "../shared/feed";
 import { shouldSuggestWatched } from "../shared/videoProgress";
 import { watchLaterAfterSeenToggle } from "../shared/watchLaterAfterSeen";
 import { pickDisplayTitle } from "../shared/dearrow";
-import { countLabel, groupedNumber } from "../shared/countLabel";
+import { countLabel } from "../shared/countLabel";
+import { shuffled } from "../shared/shuffle";
 import {
   getHistory,
   getPlaylists,
@@ -53,6 +54,8 @@ import {
 } from "./feedFilters";
 import { feedFilterControls } from "./feedFilterControls";
 import { SettingsView } from "./settingsView";
+import { PlaylistsView } from "./playlistsView";
+import type { PlaylistSummary } from "../shared/playlist";
 import { renderBuildStamp } from "./buildStamp";
 import { renderSponsorBlockCredit } from "./sponsorBlockCredit";
 import {
@@ -785,23 +788,15 @@ function showPlaylists(): void {
         app.textContent = "You have no playlists.";
         return;
       }
-      const list = document.createElement("div");
-      list.className = "playlist-list";
-      for (const playlist of playlists) {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "playlist-item";
-        button.textContent = `${playlist.title} (${groupedNumber(playlist.itemCount)})`;
-        button.addEventListener("click", (): void =>
+      app.appendChild(
+        PlaylistsView(playlists, (playlist: PlaylistSummary): void =>
           go({
             view: "playlist",
             playlistId: playlist.playlistId,
             title: playlist.title,
           }),
-        );
-        list.appendChild(button);
-      }
-      app.appendChild(list);
+        ),
+      );
     })
     .catch((error: Error): void => {
       if (movedOn()) return;
@@ -845,6 +840,12 @@ function renderVideoScreen(
     });
 }
 
+// Icons of the Play all and Shuffle buttons on playlist screens.
+const ICON_PLAY_ALL: string =
+  '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor" aria-hidden="true"><path d="M7 4l13 8-13 8z"/></svg>';
+const ICON_SHUFFLE: string =
+  '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>';
+
 // Sort orders offered on playlist screens. "playlist" keeps YouTube's own order.
 type SortKey = "playlist" | "newest" | "oldest" | "title";
 
@@ -882,8 +883,10 @@ function sortVideos(videos: Video[], key: SortKey): Video[] {
   return sorted;
 }
 
-// Like renderVideoScreen, but with a sort-order selector at the top. Re-sorting
-// re-renders only the list. The player queue follows the displayed order.
+// Like renderVideoScreen, but with a toolbar at the top: a sort-order
+// selector, Play all and Shuffle. Re-sorting re-renders only the list. A tap
+// on a card, and Play all, queue the displayed order; Shuffle queues a random
+// order of the same videos.
 //
 // With a preview (a saved copy, ADR 0011) the screen shows the copy at once,
 // its toggles off, and loads the fresh list behind it. The fresh list replaces
@@ -922,7 +925,30 @@ function renderPlaylistScreen(
     select.appendChild(element);
   }
   label.append(document.createTextNode("Sort "), select);
-  toolbar.appendChild(label);
+
+  // Play all and Shuffle, to the right of Sort. Play all follows the order on
+  // show; Shuffle plays the whole list in a random order. The shuffled queue
+  // is not in the URL, so a reload of the player goes back to list order.
+  const playAll: HTMLButtonElement = document.createElement("button");
+  playAll.type = "button";
+  playAll.className = "list-play list-play--primary";
+  playAll.innerHTML = ICON_PLAY_ALL + "<span>Play all</span>";
+  playAll.title = "Play every video, in the order on show";
+  playAll.addEventListener("click", (): void => {
+    optionsFor().onPlay(0, sortVideos(videos, currentSort));
+  });
+  const shuffle: HTMLButtonElement = document.createElement("button");
+  shuffle.type = "button";
+  shuffle.className = "list-play";
+  shuffle.innerHTML = ICON_SHUFFLE + "<span>Shuffle</span>";
+  shuffle.title = "Play every video, in a random order";
+  shuffle.addEventListener("click", (): void => {
+    optionsFor().onPlay(0, shuffled(videos));
+  });
+  const playGroup: HTMLElement = document.createElement("div");
+  playGroup.className = "list-play-group";
+  playGroup.append(playAll, shuffle);
+  toolbar.append(label, playGroup);
   const listHost = document.createElement("div");
 
   function renderList(): void {
@@ -943,6 +969,10 @@ function renderPlaylistScreen(
   function paint(list: Video[], asPreview: boolean): void {
     videos = list;
     inert = asPreview;
+    // A saved copy keeps its toggles off (ADR 0011), and so do these: its
+    // order can change when the fresh list lands.
+    playAll.disabled = inert || list.length === 0;
+    shuffle.disabled = inert || list.length === 0;
     if (!built) {
       app.innerHTML = "";
       app.append(toolbar, pill.element, listHost);

@@ -16,6 +16,7 @@ const REMOTE_TEXT: string[] = [
   ".player-meta",
   ".chapter-row-label",
   ".playlist-item",
+  ".playlist-title",
   ".player-desc",
   ".comment-author",
   ".comment-text",

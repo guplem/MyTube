@@ -101,6 +101,7 @@ export function getPlaylists(): PlaylistSummary[] {
         playlistId: item.id,
         title: item.snippet?.title ?? "",
         itemCount: item.contentDetails?.itemCount ?? 0,
+        thumbnailUrl: bestThumbnailUrl(item.snippet?.thumbnails),
       });
     }
     pageToken = response.nextPageToken ?? undefined;
