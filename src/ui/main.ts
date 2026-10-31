@@ -10,7 +10,7 @@ import { defaultFeedBeforeDate } from "../shared/feed";
 import { shouldSuggestWatched } from "../shared/videoProgress";
 import { watchLaterAfterSeenToggle } from "../shared/watchLaterAfterSeen";
 import { pickDisplayTitle } from "../shared/dearrow";
-import { groupedNumber } from "../shared/countLabel";
+import { countLabel, groupedNumber } from "../shared/countLabel";
 import {
   getHistory,
   getPlaylists,
@@ -62,6 +62,14 @@ import {
 } from "./skeleton";
 import { PlayerView, type PlayerController } from "./playerView";
 import { optimistic } from "./optimistic";
+import { keepListSnapshot, readListSnapshot } from "./listSnapshots";
+import { createListUpdatePill } from "./listUpdatePill";
+import {
+  feedSnapshotKey,
+  freshListMovesNothing,
+  newVideoCount,
+  watchLaterSnapshotVideos,
+} from "../shared/listSnapshot";
 import { showToast } from "./toast";
 import { installLongPressHints } from "./longPressHint";
 import { communityTitlesOn } from "./titlePreferences";
@@ -528,7 +536,7 @@ let feedPageSize = DEFAULT_PAGE_SIZE;
 // and would land the user in the wrong place.
 function reloadFeedFromStart(forceRefresh: boolean): void {
   feedPage = 0;
-  showFeed(forceRefresh);
+  showFeed(forceRefresh, false);
 }
 
 // The one path for "a feed filter changed", used by the feed toolbar AND by the
@@ -542,7 +550,8 @@ function feedFilterChanged(): void {
   // Page 0 either way: the remembered page number belongs to the old filters.
   feedPage = 0;
   if (currentView === "feed") {
-    showFeed(false);
+    // No saved copy: it shows the list under the old filters.
+    showFeed(false, false);
     return;
   }
   warmFeedPageSoon();
@@ -565,10 +574,23 @@ function warmFeedPageSoon(): void {
   }, WARM_FEED_DELAY_MS);
 }
 
-function showFeed(forceFirstLoad: boolean = false): void {
+// allowPreview shows the saved copy of the first page while the page loads
+// (ADR 0011). Off for a changed filter and for Force refresh: the copy shows
+// the list the user just asked to change.
+function showFeed(
+  forceFirstLoad: boolean = false,
+  allowPreview: boolean = true,
+): void {
   const app = appContainer();
   if (!app) return;
   app.innerHTML = "";
+  const preview =
+    allowPreview && feedPage === 0
+      ? readListSnapshot(
+          "feed",
+          feedSnapshotKey(feedPageOptions(0, feedPageSize, false)),
+        )
+      : null;
 
   const toolbar = document.createElement("div");
   toolbar.className = "feed-toolbar";
@@ -626,6 +648,7 @@ function showFeed(forceFirstLoad: boolean = false): void {
           playFromList(queue, index, { source: "feed" }),
         actions: [feedWatchLaterAction, feedSeenAction],
         cornerAction: dismissAction,
+        preview: preview ?? undefined,
         onPageLoaded: (result): void => {
           updateFeedNotice(notice, result);
           recordLoadedFeedTotal(result.total);
@@ -705,8 +728,15 @@ function showHistory(): void {
 // list.
 function showWatchLater(redirectIfEmpty: boolean): void {
   const movedOn = navigationMovedOn();
+  const preview = readListSnapshot("watchlater", WATCH_LATER_SNAPSHOT_KEY);
   const load: Promise<Video[]> = getWatchLaterVideos().then(
     (videos): Video[] => {
+      // The fresh list is the truth, so save it whatever is on screen. The
+      // copy then follows every tap on these same objects.
+      keepListSnapshot("watchlater", WATCH_LATER_SNAPSHOT_KEY, () => {
+        const kept: Video[] = watchLaterSnapshotVideos(videos);
+        return { videos: kept, total: kept.length };
+      });
       if (redirectIfEmpty && videos.length === 0 && !movedOn()) {
         const feed: Screen = { view: "feed" };
         replaceUrlState(feed, paramsFor(feed));
@@ -717,12 +747,21 @@ function showWatchLater(redirectIfEmpty: boolean): void {
       return videos;
     },
   );
-  renderPlaylistScreen(load, "oldest", () => ({
-    onPlay: (index, queue): void =>
-      playFromList(queue, index, { source: "watchlater" }),
-    actions: [watchLaterRemoveAction, watchLaterSeenAction],
-  }));
+  renderPlaylistScreen(
+    load,
+    "oldest",
+    () => ({
+      onPlay: (index, queue): void =>
+        playFromList(queue, index, { source: "watchlater" }),
+      actions: [watchLaterRemoveAction, watchLaterSeenAction],
+    }),
+    preview
+      ? { videos: preview.videos, retry: (): void => showWatchLater(false) }
+      : null,
+  );
 }
+
+const WATCH_LATER_SNAPSHOT_KEY = "watchlater";
 
 function showPlaylist(playlistId: string, title: string): void {
   renderPlaylistScreen(getPlaylistVideos(playlistId), "playlist", () => ({
@@ -839,6 +878,10 @@ function sortVideos(videos: Video[], key: SortKey): Video[] {
 
 // Like renderVideoScreen, but with a sort-order selector at the top. Re-sorting
 // re-renders only the list. The player queue follows the displayed order.
+//
+// With a preview (a saved copy, ADR 0011) the screen shows the copy at once,
+// its toggles off, and loads the fresh list behind it. The fresh list replaces
+// the copy when that moves no card; otherwise the pill offers it.
 function renderPlaylistScreen(
   load: Promise<Video[]>,
   defaultSort: SortKey,
@@ -846,55 +889,112 @@ function renderPlaylistScreen(
     onPlay: (index: number, queue: Video[]) => void;
     actions: VideoAction[];
   },
+  preview: { videos: Video[]; retry: () => void } | null = null,
 ): void {
-  const app = appContainer();
-  if (!app) return;
+  const host = appContainer();
+  if (!host) return;
+  const app: HTMLElement = host;
   const movedOn = navigationMovedOn();
   app.innerHTML = "";
-  // The placeholder mirrors the loaded layout (sort toolbar + grid) so the
-  // cards don't shift down when the real toolbar appears.
-  app.append(skeletonSortToolbar(), skeletonGrid());
-  load
-    .then((videos): void => {
-      if (movedOn()) return;
+  let currentSort = defaultSort;
+  let videos: Video[] = [];
+  let inert = false;
+  let built = false;
+
+  const pill = createListUpdatePill();
+  const toolbar = document.createElement("div");
+  toolbar.className = "feed-toolbar";
+  const label = document.createElement("label");
+  label.className = "toggle-label";
+  const select = document.createElement("select");
+  select.className = "sort-select";
+  for (const option of SORT_OPTIONS) {
+    const element = document.createElement("option");
+    element.value = option.key;
+    element.textContent = option.label;
+    if (option.key === currentSort) element.selected = true;
+    select.appendChild(element);
+  }
+  label.append(document.createTextNode("Sort "), select);
+  toolbar.appendChild(label);
+  const listHost = document.createElement("div");
+
+  function renderList(): void {
+    listHost.innerHTML = "";
+    listHost.appendChild(
+      VideoListView(sortVideos(videos, currentSort), {
+        ...optionsFor(),
+        inert,
+      }),
+    );
+  }
+
+  select.addEventListener("change", (): void => {
+    currentSort = select.value as SortKey;
+    renderList();
+  });
+
+  function paint(list: Video[], asPreview: boolean): void {
+    videos = list;
+    inert = asPreview;
+    if (!built) {
       app.innerHTML = "";
-      let currentSort = defaultSort;
+      app.append(toolbar, pill.element, listHost);
+      built = true;
+    }
+    renderList();
+  }
 
-      const toolbar = document.createElement("div");
-      toolbar.className = "feed-toolbar";
-      const label = document.createElement("label");
-      label.className = "toggle-label";
-      const select = document.createElement("select");
-      select.className = "sort-select";
-      for (const option of SORT_OPTIONS) {
-        const element = document.createElement("option");
-        element.value = option.key;
-        element.textContent = option.label;
-        if (option.key === currentSort) element.selected = true;
-        select.appendChild(element);
-      }
-      label.append(document.createTextNode("Sort "), select);
-      toolbar.appendChild(label);
-
-      const listHost = document.createElement("div");
-
-      function renderList(): void {
-        listHost.innerHTML = "";
-        listHost.appendChild(
-          VideoListView(sortVideos(videos, currentSort), optionsFor()),
+  // See the same flag in src/ui/videoListView.ts: a load that answers before
+  // the preview paints replaces it without asking.
+  let previewPainted = false;
+  if (preview && preview.videos.length > 0) {
+    paint(preview.videos, true);
+    pill.showUpdating();
+    window.requestAnimationFrame((): void => {
+      previewPainted = true;
+    });
+  } else {
+    // The placeholder mirrors the loaded layout (sort toolbar + grid) so the
+    // cards don't shift down when the real toolbar appears.
+    app.append(skeletonSortToolbar(), skeletonGrid());
+  }
+  load
+    .then((fresh): void => {
+      if (movedOn()) return;
+      if (preview && previewPainted) {
+        const shownIds: string[] = sortVideos(preview.videos, currentSort).map(
+          (video: Video): string => video.videoId,
         );
+        const freshIds: string[] = sortVideos(fresh, currentSort).map(
+          (video: Video): string => video.videoId,
+        );
+        // The copy keeps its paging off, so only its first page is on show.
+        if (!freshListMovesNothing(shownIds, freshIds, DEFAULT_PAGE_SIZE)) {
+          const added: number = newVideoCount(shownIds, freshIds);
+          pill.showReady(
+            added > 0
+              ? countLabel(added, "new video", "new videos")
+              : "This list changed",
+            (): void => {
+              if (!movedOn()) paint(fresh, false);
+            },
+          );
+          return;
+        }
       }
-
-      select.addEventListener("change", (): void => {
-        currentSort = select.value as SortKey;
-        renderList();
-      });
-
-      app.append(toolbar, listHost);
-      renderList();
+      pill.hide();
+      paint(fresh, false);
     })
     .catch((error: Error): void => {
       if (movedOn()) return;
+      if (preview && built) {
+        // Keep the saved copy on screen: it beats an error in its place.
+        pill.showFailed((): void => {
+          if (!movedOn()) preview.retry();
+        });
+        return;
+      }
       app.textContent = `Could not load this list: ${error.message}`;
     });
 }
