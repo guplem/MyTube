@@ -944,6 +944,54 @@
       .refresh-button:active {
         background: #333;
       }
+      /* Play all and Shuffle, beside Sort on playlist screens. Play all is
+         the main action, so it is the light button. */
+      .list-play-group {
+        display: flex;
+        gap: 0.5rem;
+      }
+      .list-play {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        height: 2.25rem;
+        padding: 0 0.9rem;
+        border: 1px solid #2e2e2e;
+        border-radius: 10px;
+        background-color: #1c1c1c;
+        color: #f1f1f1;
+        font: inherit;
+        font-size: 0.85rem;
+        font-weight: 500;
+        cursor: pointer;
+      }
+      .list-play svg {
+        display: block;
+      }
+      .list-play--primary {
+        border-color: #f1f1f1;
+        background-color: #f1f1f1;
+        color: #0f0f0f;
+        font-weight: 600;
+      }
+      @media (hover: hover) and (pointer: fine) {
+        .list-play:hover:not(:disabled) {
+          background-color: #262626;
+        }
+        .list-play--primary:hover:not(:disabled) {
+          background-color: #d9d9d9;
+        }
+      }
+      .list-play:active:not(:disabled) {
+        background-color: #262626;
+      }
+      .list-play--primary:active:not(:disabled) {
+        background-color: #d9d9d9;
+      }
+      .list-play:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
       /* The end of the feed, after the pager: Force refresh, centered. */
       .feed-footer {
         display: flex;
@@ -1958,6 +2006,9 @@
         .player-view button.player-tab {
           flex: 0 0 auto;
           padding: 0.5rem 0.55rem;
+        }
+        .list-play {
+          height: 2.75rem;
         }
         /* Playlists: a smaller cover, and the filter takes its own row. */
         .playlist-cover {
