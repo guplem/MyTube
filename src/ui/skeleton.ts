@@ -130,7 +130,11 @@ export function skeletonPlaylistList(count: number = 6): HTMLElement {
   root.className = "playlists";
   const head = document.createElement("div");
   head.className = "playlists-head";
-  head.appendChild(skeletonLine("8rem", "1.6rem"));
+  // The filter field's own size, so the rows start where the real ones do
+  // (on a phone the field takes a row of its own).
+  const filter = document.createElement("div");
+  filter.className = "skeleton playlists-filter";
+  head.append(skeletonLine("8rem", "1.95rem"), filter);
   const list = document.createElement("div");
   list.className = "playlist-list";
   for (let index = 0; index < count; index += 1) {
