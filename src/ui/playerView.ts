@@ -1559,8 +1559,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
       saveProgress();
     }
     if (event.data !== PLAYER_STATE_ENDED) return;
-    // Read at the end, not at mount: a change in Settings during a long
-    // video still applies to this one.
+    // The Settings switch (AUTOPLAY_PREF), read when it is needed.
     if (
       getBoolPreference(AUTOPLAY_PREF, AUTOPLAY_DEFAULT) &&
       currentIndex < queue.length - 1
