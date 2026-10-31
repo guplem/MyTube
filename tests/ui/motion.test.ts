@@ -26,8 +26,10 @@ function transitionedProperties(rule: StyleRule): string[] {
     rule.declarations.get("transition-property") ??
     rule.declarations.get("transition");
   if (value === undefined || value.trim() === "none") return [];
+  // Split on the commas between transitions, not those inside a function
+  // such as cubic-bezier(0.23, 1, 0.32, 1).
   return value
-    .split(",")
+    .split(/,(?![^(]*\))/)
     .map((part: string): string => part.trim().split(/\s+/)[0]);
 }
 
@@ -121,5 +123,33 @@ describe("script motion", (): void => {
         /["']smooth["']/.test(readRepoFile("src/ui/" + name)),
       );
     expect(offenders).toEqual([]);
+  });
+});
+
+describe("toast entrance", (): void => {
+  // A toast is inserted, and a plain transition never runs on insert, so
+  // the start state lives in @starting-style.
+  const startRules: StyleRule[] = rules.filter(
+    (rule: StyleRule): boolean =>
+      rule.selectors.includes(".toast") &&
+      rule.node.parent?.type === "atrule" &&
+      (rule.node.parent as AtRule).name === "starting-style",
+  );
+
+  it("starts transparent and below its resting place", (): void => {
+    expect(startRules).toHaveLength(1);
+    expect(startRules[0].declarations.get("opacity")).toBe("0");
+    expect(startRules[0].declarations.get("transform")).toMatch(
+      /^translateY\(/,
+    );
+  });
+
+  it("only fades when the system reduces motion", (): void => {
+    const reduced: string | undefined = rules
+      .filter(isReducedMotion)
+      .find((rule: StyleRule): boolean => rule.selectors.includes(".toast"))
+      ?.declarations.get("transition");
+    expect(reduced).toBeDefined();
+    expect(reduced).not.toContain("transform");
   });
 });

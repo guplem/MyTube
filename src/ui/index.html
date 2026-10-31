@@ -668,6 +668,26 @@
         padding: 0.6rem 0.8rem;
         font-size: 0.9rem;
         box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+        /* Enter only: a toast slides up from the bottom edge and fades in, so
+           it does not pop into view. It leaves without motion when its timer
+           or a button removes it (src/ui/toast.ts). */
+        transition:
+          opacity 200ms cubic-bezier(0.23, 1, 0.32, 1),
+          transform 200ms cubic-bezier(0.23, 1, 0.32, 1);
+      }
+      /* The start state of the entrance. A transition never runs when an
+         element is inserted; @starting-style gives it a "before" to start
+         from. Browsers without it show the toast at once, as before. */
+      @starting-style {
+        .toast {
+          opacity: 0;
+          transform: translateY(100%);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .toast {
+          transition: opacity 200ms ease-out;
+        }
       }
       /* A toast that reports something that worked (the sponsor skip), not a
          failure: neutral chrome colours instead of the red failure palette. */
