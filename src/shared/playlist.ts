@@ -5,4 +5,7 @@ export interface PlaylistSummary {
   playlistId: string;
   title: string;
   itemCount: number;
+  /** The playlist's cover, from the same snippet (no extra quota). Empty when
+   *  YouTube sends none. */
+  thumbnailUrl: string;
 }
