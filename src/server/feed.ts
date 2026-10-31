@@ -9,6 +9,7 @@
 import type { Video } from "../shared/video";
 import type { UploadsFeed } from "../shared/feed";
 import { getSubscriptionChannels, type SubscriptionChannel } from "./youtube";
+import type { Stopwatch } from "./timing";
 
 const RSS_FEED_BASE = "https://www.youtube.com/feeds/videos.xml?channel_id=";
 // Freshness window: within this, a channel's cached videos are reused without
@@ -38,8 +39,12 @@ const MEDIA_NS = "http://search.yahoo.com/mrss/";
  * we could not refresh this load (whether or not a cached copy filled the gap), so
  * the UI can tell the user the list may be incomplete.
  */
-export function getUploadsFeed(forceRefresh: boolean): UploadsFeed {
+export function getUploadsFeed(
+  forceRefresh: boolean,
+  stopwatch?: Stopwatch,
+): UploadsFeed {
   const channels = getSubscriptionChannels(forceRefresh);
+  stopwatch?.lap("channels", channels.length + " subscriptions");
   if (channels.length === 0)
     return { videos: [], failedChannels: 0, totalChannels: 0 };
 
@@ -65,15 +70,28 @@ export function getUploadsFeed(forceRefresh: boolean): UploadsFeed {
     }
     toFetch.push(channel);
   }
+  stopwatch?.lap("rss cache", toFetch.length + " expired");
 
+  const fetchStats: FetchStats = { parseMs: 0, attempts: 0 };
+  const expired: number = toFetch.length;
   for (
     let attempt = 0;
     toFetch.length > 0 && attempt < MAX_FETCH_ATTEMPTS;
     attempt += 1
   ) {
     if (attempt > 0) Utilities.sleep(RETRY_BACKOFF_MS[attempt - 1] ?? 1500);
-    toFetch = fetchChannels(toFetch, cache, videos);
+    toFetch = fetchChannels(toFetch, cache, videos, fetchStats);
   }
+  if (expired > 0)
+    stopwatch?.lap(
+      "rss fetch",
+      expired +
+        " channels, " +
+        fetchStats.attempts +
+        " attempts, XML parse " +
+        fetchStats.parseMs +
+        "ms",
+    );
 
   // Anything still unfetched after retries: fall back to the last good copy so a
   // transient failure shows stale videos rather than dropping the channel.
@@ -102,6 +120,12 @@ export function getUploadsFeed(forceRefresh: boolean): UploadsFeed {
   };
 }
 
+// What fetchChannels spent, summed over the retry attempts, for the timing line.
+interface FetchStats {
+  parseMs: number;
+  attempts: number;
+}
+
 // Fetches the given channels' RSS in parallel, pushing parsed videos into
 // `videos` and caching each success (both the freshness copy and the long-lived
 // last-good copy). Returns the channels that failed (non-200 or unparseable) so
@@ -110,7 +134,9 @@ function fetchChannels(
   channels: SubscriptionChannel[],
   cache: GoogleAppsScript.Cache.Cache,
   videos: Video[],
+  stats: FetchStats,
 ): SubscriptionChannel[] {
+  stats.attempts += 1;
   const requests = channels.map((channel) => ({
     url: RSS_FEED_BASE + channel.channelId,
     muteHttpExceptions: true,
@@ -127,7 +153,9 @@ function fetchChannels(
       return;
     }
     try {
+      const parseStartedAt: number = Date.now();
       const channelVideos = parseChannelFeed(response.getContentText());
+      stats.parseMs += Date.now() - parseStartedAt;
       const serialized = JSON.stringify(channelVideos);
       videos.push(...channelVideos);
       fresh[freshKey(channel.channelId)] = serialized;

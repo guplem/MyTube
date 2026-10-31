@@ -300,6 +300,12 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   `playAt` and `loadSponsorSegments` in `src/ui/playerView.ts`). A late answer
   otherwise installs an interval that `destroy()` already ran past, so nothing
   can ever clear it, and each visit to the screen leaks another one.
+- **Every list call logs one stage-timing line.** `startStopwatch` in
+  `src/server/timing.ts` records each step, and the call ends with
+  `console.log(stopwatch.summary())`, which shows on the Executions page of
+  the Apps Script editor. Add a `lap` when you add a slow step to a list call.
+  Vitest hides these lines (`onConsoleLog` in `vitest.config.ts`); a test that
+  checks one spies on `console.log`.
 - **Motion is rare, and press feedback is color.** Animate only an occasional
   moment that would otherwise jump (the toast entrance). Add no motion to what
   the user sees tens of times a day: cards, tabs, toggles, screen changes. Give

@@ -4,7 +4,7 @@
 // cache of the id set, and the add/remove paths that keep that cache in sync.
 // See youtube.ts getWatchLaterPlaylistId/getWatchLaterVideoIds/add/remove.
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   installAppsScriptMocks,
   uninstallAppsScriptMocks,
@@ -190,6 +190,24 @@ describe("getWatchLaterVideos", () => {
 
     expect(videos.map((video) => video.videoId)).toEqual(["a", "b"]);
     expect(videos.map((video) => video.inWatchLater)).toEqual([true, true]);
+  });
+
+  it("logs one stage timing line", () => {
+    mocks.userProperties.setProperty("watchLaterPlaylistId", "WL");
+    mocks.youtube.PlaylistItems = {
+      list: () => playlistItemsPage(["a"]),
+      insert: () => ({}),
+      remove: () => ({}),
+    };
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+
+    getWatchLaterVideos();
+
+    expect(log).toHaveBeenCalledTimes(1);
+    expect(String(log.mock.calls[0][0])).toMatch(
+      /^getWatchLaterVideos \d+ms \| playlist \d+ms \(1 videos\) \| history \d+ms \| durations \d+ms \| titles \d+ms$/,
+    );
+    log.mockRestore();
   });
 });
 
