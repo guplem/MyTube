@@ -203,6 +203,11 @@ your own copy, change the app URL in `pages/index.html` and the icon URL in
   Apps Script serves the page inside an iframe that can cache aggressively.
 - **A video has no duration badge for a moment** — durations are fetched and
   cached on first view; they appear on the next load.
+- **A list loads slowly** — open the Apps Script editor, then **Executions**.
+  Each list call (`getFeedPage`, `getWatchLaterVideos`, `getPlaylistVideos`,
+  `getHistory`) logs one line with the time of each step, for example
+  `getFeedPage 3400ms | rss fetch 2100ms | durations 900ms | ...`. The
+  longest step is the one to work on.
 
 ## License
 

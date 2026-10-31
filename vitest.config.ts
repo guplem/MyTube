@@ -6,5 +6,9 @@ export default defineConfig({
   test: {
     include: ["tests/**/*.test.ts"],
     environment: "node",
+    // The list calls log one stage-timing line each (src/server/timing.ts).
+    // Tests that care spy on console.log; everywhere else the line is noise.
+    onConsoleLog: (log: string): boolean | void =>
+      /^get\w+ \d+ms/.test(log) ? false : undefined,
   },
 });

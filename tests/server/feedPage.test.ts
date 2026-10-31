@@ -4,7 +4,7 @@
 // returns a single page plus the total. Shorts are detected by duration
 // (<= 180s), not a flag. See CLAUDE.md and PLAN.md section 5.
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   installAppsScriptMocks,
   uninstallAppsScriptMocks,
@@ -314,5 +314,34 @@ describe("getFeedPage", () => {
 
     expect(page.videos.map((v) => v.videoId)).toEqual(["a", "b"]);
     expect(page.total).toBe(2);
+  });
+});
+
+describe("getFeedPage, timing line", () => {
+  it("logs one line naming every stage, with the RSS fetch counts", () => {
+    seedFeed([entry("a", "2026-06-20T10:00:00+00:00")]);
+    seedDurations({ a: "PT10M" });
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+
+    getFeedPage({ ...baseOptions, hideShorts: true, hideSaved: true });
+
+    expect(log).toHaveBeenCalledTimes(1);
+    const line = String(log.mock.calls[0][0]);
+    expect(line).toMatch(
+      /^getFeedPage \d+ms \| channels \d+ms \(1 subscriptions\)/,
+    );
+    for (const stage of [
+      "rss cache",
+      "rss fetch",
+      "merge",
+      "history",
+      "watch later",
+      "durations",
+      "page flags",
+      "titles",
+    ])
+      expect(line).toContain("| " + stage + " ");
+    expect(line).toContain("(1 channels, 1 attempts, XML parse ");
+    log.mockRestore();
   });
 });

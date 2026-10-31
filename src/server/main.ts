@@ -21,6 +21,7 @@ import * as progress from "./progress";
 import * as sponsorBlock from "./sponsorBlock";
 import * as dearrow from "./dearrow";
 import * as preferences from "./preferences";
+import { startStopwatch, type Stopwatch } from "./timing";
 import { preferencesScriptLiteral } from "../shared/preferences";
 
 // The PWA wrapper on GitHub Pages (pages/) serves the icon and frames this page.
@@ -68,10 +69,13 @@ export function include(filename: string): string {
  * so the browser never receives the whole 1000+ video list at once.
  */
 export function getFeedPage(options: FeedPageOptions): FeedPage {
-  const uploads = feed.getUploadsFeed(options.forceRefresh);
+  const stopwatch: Stopwatch = startStopwatch("getFeedPage");
+  const uploads = feed.getUploadsFeed(options.forceRefresh, stopwatch);
   const all = uploads.videos;
+  stopwatch.lap("merge", all.length + " videos");
   flagSeen(all);
   flagDismissed(all);
+  stopwatch.lap("history");
   let visible = all;
   // Cheapest filters first, so each costly step runs on an already smaller
   // list: the free ones (already-computed flags, a date string compare), then
@@ -95,20 +99,28 @@ export function getFeedPage(options: FeedPageOptions): FeedPage {
     // the whole surviving list here. Both calls read the same 10-minute cache.
     flagInWatchLater(visible);
     visible = visible.filter((video) => !video.inWatchLater);
+    stopwatch.lap("watch later");
   }
   if (options.hideShorts) {
     enrichDurations(visible);
     visible = visible.filter((video) => !isShort(video));
+    stopwatch.lap("durations", "whole list");
   }
   const start = options.page * options.pageSize;
   const pageVideos = visible.slice(start, start + options.pageSize);
   // Durations power the on-card badge. With hideShorts on they are already
   // looked up for the whole list above; otherwise fetch them just for this page.
-  if (!options.hideShorts) enrichDurations(pageVideos);
+  if (!options.hideShorts) {
+    enrichDurations(pageVideos);
+    stopwatch.lap("durations", "page");
+  }
   flagInWatchLater(pageVideos);
   flagProgress(pageVideos);
+  stopwatch.lap("page flags");
   // No filter reads the community title, so the page alone needs it.
   flagCommunityTitle(pageVideos);
+  stopwatch.lap("titles");
+  console.log(stopwatch.summary());
   return {
     videos: pageVideos,
     total: visible.length,
@@ -252,12 +264,10 @@ export function saveVideoProgress(videoId: string, seconds: number): void {
 
 /** The user's watch history as a video list, newest first. */
 export function getHistory(): Video[] {
+  const stopwatch: Stopwatch = startStopwatch("getHistory");
   const videos = history.getHistory();
-  enrichDurations(videos);
-  flagInWatchLater(videos);
-  flagProgress(videos);
-  flagCommunityTitle(videos);
-  return videos;
+  stopwatch.lap("history", videos.length + " videos");
+  return enrichList(videos, stopwatch, { flagSeen: false });
 }
 
 /** The user's own playlists. */
@@ -267,25 +277,46 @@ export function getPlaylists(): PlaylistSummary[] {
 
 /** Videos in a playlist, flagged seen, with durations for the card badge. */
 export function getPlaylistVideos(playlistId: string): Video[] {
+  const stopwatch: Stopwatch = startStopwatch("getPlaylistVideos");
   const videos = youtube.getPlaylistVideos(playlistId);
-  flagSeen(videos);
-  enrichDurations(videos);
-  flagInWatchLater(videos);
-  flagProgress(videos);
-  flagCommunityTitle(videos);
-  return videos;
+  stopwatch.lap("playlist", videos.length + " videos");
+  return enrichList(videos, stopwatch, { flagSeen: true });
 }
 
 /** Videos in the app-managed Watch Later playlist, flagged seen. */
 export function getWatchLaterVideos(): Video[] {
+  const stopwatch: Stopwatch = startStopwatch("getWatchLaterVideos");
   const videos = youtube.getWatchLaterVideos();
-  flagSeen(videos);
-  enrichDurations(videos);
+  stopwatch.lap("playlist", videos.length + " videos");
   // Every video here is in Watch Later by definition; set the flag directly
   // (no membership lookup) so the card's Watch Later toggle starts on.
   for (const video of videos) video.inWatchLater = true;
+  return enrichList(videos, stopwatch, {
+    flagSeen: true,
+    inWatchLater: true,
+  });
+}
+
+// The flags and lookups every in-memory list gets: seen (except history, where
+// every entry is seen), durations, Watch Later membership (unless already
+// known), resume positions and community titles. Logs the stopwatch line.
+function enrichList(
+  videos: Video[],
+  stopwatch: Stopwatch,
+  options: { flagSeen: boolean; inWatchLater?: boolean },
+): Video[] {
+  if (options.flagSeen) flagSeen(videos);
   flagProgress(videos);
+  stopwatch.lap("history");
+  enrichDurations(videos);
+  stopwatch.lap("durations");
+  if (!options.inWatchLater) {
+    flagInWatchLater(videos);
+    stopwatch.lap("watch later");
+  }
   flagCommunityTitle(videos);
+  stopwatch.lap("titles");
+  console.log(stopwatch.summary());
   return videos;
 }
 
