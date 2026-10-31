@@ -851,11 +851,14 @@
       .list-update-pill-button:active {
         background: #65b8ff;
       }
-      /* A card from the saved copy: its toggles wait for the fresh list, so a
-         tap can never act on a state the server has moved past. */
+      /* A card from the saved copy: it is read-only until the fresh list
+         lands, so a tap can never act on a state the server has moved past. */
       .video-action:disabled,
       .video-card-corner:disabled {
         opacity: 0.4;
+        cursor: default;
+      }
+      .video-play:disabled {
         cursor: default;
       }
 

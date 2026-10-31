@@ -961,7 +961,8 @@ function renderPlaylistScreen(
         const freshIds: string[] = sortVideos(fresh, currentSort).map(
           (video: Video): string => video.videoId,
         );
-        if (!freshListMovesNothing(shownIds, freshIds)) {
+        // The copy keeps its paging off, so only its first page is on show.
+        if (!freshListMovesNothing(shownIds, freshIds, DEFAULT_PAGE_SIZE)) {
           const added: number = newVideoCount(shownIds, freshIds);
           pill.showReady(
             added > 0

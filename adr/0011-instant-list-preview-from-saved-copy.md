@@ -13,8 +13,8 @@ Two facts shape the design. Several Google accounts can share one browser, and s
 The browser keeps the last copy of two lists in `localStorage`: the feed's first page and Watch Later. The next visit paints that copy at once and loads the fresh list behind it. This is the "stale-while-revalidate" pattern: show the old copy, then check for a new one.
 
 - **A copy belongs to one account.** `doGet` embeds `Session.getTemporaryActiveUserKey()` in the page (`accountKeyJson`, read as `window.MYTUBE_ACCOUNT_KEY`). The key names the user without revealing who they are and needs no OAuth scope. Every copy carries it. `parseListSnapshot` in `src/shared/listSnapshot.ts` refuses a copy with another account, another key, an age over 7 days, or no videos. An empty account key turns previews off.
-- **The preview is inert.** Its cards render with their toggles off (`VideoListOptions.inert`). A tap can then never act on a state the server has moved past. The preview cards are also not the kept feed page's `Video` objects, so ADR 0008's identity rule cannot break.
-- **The fresh list never moves a visible card.** The fresh list replaces the preview by itself only when `freshListMovesNothing` is true: the same list, or a list that gains or loses videos at the end only. Otherwise the pill (`src/ui/listUpdatePill.ts`) offers the fresh list with a "Show" button, and nothing moves until the user taps it.
+- **The preview is read-only.** `VideoListOptions.inert` turns off its toggles, its play target and its paging. A tap can then never act on a state the server has moved past: a player opened on the copy would show stale flags and resume from a stale position. A page turned on the copy would be lost when the fresh list replaces it. The preview cards are also not the kept feed page's `Video` objects, so ADR 0008's identity rule cannot break.
+- **The fresh list never moves a visible card.** The fresh list replaces the preview by itself only when `freshListMovesNothing` is true: the same list, or a list that gains or loses videos at the end only. Watch Later compares only its first page, because the read-only copy shows only that page. Otherwise the pill (`src/ui/listUpdatePill.ts`) offers the fresh list with a "Show" button, and nothing moves until the user taps it.
 - **A fast load skips the pill.** `previewPainted` is set by the next animation frame, just before the browser paints. A load that answers sooner replaces a preview that nobody saw, so it never asks to be shown.
 - **A failed load keeps the preview** and the pill offers "Retry".
 - **A changed filter and Force refresh never show a copy.** The copy would show the list that the user just asked to change.
@@ -33,7 +33,9 @@ The browser keeps the last copy of two lists in `localStorage`: the feed's first
 ## Consequences
 
 - The feed and Watch Later show real cards in the first frame of a visit. The fresh list follows after the Apps Script call.
-- A copy can be up to 7 days old and can lag the server. The inert toggles and the pill are the guard.
+- A copy can be up to 7 days old and can lag the server. The read-only preview and the pill are the guard.
+- For the few seconds of the load, the user can read the list but not act on it.
 - When the fresh list reorders or removes a visible card, the user must tap "Show" to see it.
 - A new list that wants a preview must register a live source with `keepListSnapshot` and keep to the key and prefix rules above.
 - A full or blocked `localStorage` only costs the preview: the next visit loads with placeholders.
+- The copy follows only the taps on its own `Video` objects. A tap on another screen (for example, mark watched on Watch Later for a video that is also on feed page 1) changes another copy of that video. The next feed preview can then differ from the fresh page, and the user taps "Show" once. This is accepted: it costs one tap and never shows a wrong state as current.

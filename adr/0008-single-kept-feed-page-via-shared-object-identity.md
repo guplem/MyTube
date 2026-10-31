@@ -91,5 +91,5 @@ identity, not by keeping more pages or invalidating more eagerly.
   last shown is ever free.
 - The instant preview of the feed's first page (ADR 0011) is not the kept page.
   It is built from a saved copy, so its `Video` objects are not the kept
-  page's objects. Its toggles stay off until the fresh list replaces it, so no
+  page's objects. It stays read-only until the fresh list replaces it, so no
   mutation can reach the kept page through it.

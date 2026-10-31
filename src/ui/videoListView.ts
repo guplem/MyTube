@@ -53,9 +53,10 @@ export interface VideoListOptions {
   onPageLoaded?: (result: VideoPage) => void;
   paging?: ListPaging;
   /** A saved copy of the first page to show at once, while the loader runs
-   *  (ADR 0011). Its toggles stay off until the fresh page replaces it. */
+   *  (ADR 0011). It stays read-only until the fresh page replaces it. */
   preview?: VideoPage;
-  /** Turns every toggle off: the cards come from a saved copy. */
+  /** Makes the list read-only (no play, no toggle, no paging): the cards
+   *  come from a saved copy. */
   inert?: boolean;
 }
 
@@ -274,7 +275,10 @@ function renderList(
     loadedPage: number,
     loadedPageSize: number,
   ): void {
-    sizeSelect.disabled = false;
+    // A saved copy keeps its paging off too: a page turned on the copy would
+    // be lost when the fresh list replaces it (ADR 0011).
+    const inert: boolean = options.inert === true;
+    sizeSelect.disabled = inert;
 
     options.onPageLoaded?.(result);
 
@@ -299,9 +303,9 @@ function renderList(
       grid.appendChild(empty);
       return;
     }
-    paintCards(result, loadedPage, loadedPageSize, options.inert === true);
-    prevButton.disabled = loadedPage <= 0;
-    nextButton.disabled = loadedPage >= pageCount - 1;
+    paintCards(result, loadedPage, loadedPageSize, inert);
+    prevButton.disabled = inert || loadedPage <= 0;
+    nextButton.disabled = inert || loadedPage >= pageCount - 1;
   }
 
   // Fills the grid and the count line. The paging buttons stay as they are:
@@ -358,6 +362,9 @@ function videoCard(
   play.type = "button";
   play.className = "video-play";
   play.addEventListener("click", onPlay);
+  // A saved copy is read-only: its flags and resume position may be stale, so
+  // the player must open on the fresh list's own Video (ADR 0011).
+  play.disabled = inert;
 
   const thumbWrap = document.createElement("div");
   thumbWrap.className = "video-thumb-wrap";

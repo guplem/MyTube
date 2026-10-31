@@ -63,12 +63,19 @@ export function parseListSnapshot(
 }
 
 /** True when showing `freshIds` in place of `previewIds` moves no card: the
- *  same list, or one that only gains or loses videos at the end. */
+ *  same list, or one that only gains or loses videos at the end. Pass
+ *  `visibleCount` when only the first cards are on show (an in-memory list
+ *  shows one page): a change past them moves nothing that the user sees. */
 export function freshListMovesNothing(
   previewIds: readonly string[],
   freshIds: readonly string[],
+  visibleCount: number = Infinity,
 ): boolean {
-  const shorter: number = Math.min(previewIds.length, freshIds.length);
+  const shorter: number = Math.min(
+    previewIds.length,
+    freshIds.length,
+    visibleCount,
+  );
   for (let index = 0; index < shorter; index += 1)
     if (previewIds[index] !== freshIds[index]) return false;
   return true;

@@ -263,8 +263,8 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
 - **The feed's first page and Watch Later open on their last copy (ADR 0011).**
   `src/ui/listSnapshots.ts` keeps the last copy of each in `localStorage`,
   tied to the account key that `doGet` embeds (`Session.getTemporaryActiveUserKey`,
-  no scope). The screen shows the copy at once with its toggles off
-  (`VideoListOptions.inert`) and loads the fresh list behind it. The fresh list
+  no scope). The screen shows the copy at once, read-only (no play, toggle or
+  paging: `VideoListOptions.inert`), and loads the fresh list behind it. The fresh list
   replaces the copy only when that moves no card (`freshListMovesNothing` in
   `src/shared/listSnapshot.ts`: same list, or changes at the end only).
   Otherwise the pill (`src/ui/listUpdatePill.ts`) offers it with "Show". A

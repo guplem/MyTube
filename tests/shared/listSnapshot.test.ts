@@ -124,6 +124,16 @@ describe("freshListMovesNothing", () => {
   it("is false when the order changed", () => {
     expect(freshListMovesNothing(["a", "b"], ["b", "a"])).toBe(false);
   });
+
+  it("looks only at the cards on show when given their count", () => {
+    // Page 1 shows two cards; a change on a later page moves none of them.
+    expect(freshListMovesNothing(["a", "b", "c"], ["a", "b", "x"], 2)).toBe(
+      true,
+    );
+    expect(freshListMovesNothing(["a", "b", "c"], ["a", "x", "c"], 2)).toBe(
+      false,
+    );
+  });
 });
 
 describe("newVideoCount", () => {
