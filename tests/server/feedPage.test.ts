@@ -46,7 +46,7 @@ function seedFeed(entries: RssEntry[]): void {
  * Stub the Data API duration lookup: videoId -> ISO 8601 duration. The returned
  * array records the ids actually sent to the Data API, so a test can assert
  * which videos reached the paid call. An id already in the duration cache never
- * appears: getVideoDurationsSeconds serves it from the cache without asking.
+ * appears: getVideoLengths serves it from the cache without asking.
  */
 function seedDurations(durations: { [videoId: string]: string }): string[] {
   const askedFor: string[] = [];
@@ -89,6 +89,7 @@ const baseOptions: FeedPageOptions = {
   pageSize: 10,
   forceRefresh: false,
   hideShorts: false,
+  hideUpcoming: false,
   hideViewed: false,
   hideDismissed: false,
   hideSaved: false,
@@ -284,6 +285,74 @@ describe("getFeedPage", () => {
 
     expect(page.videos.map((v) => v.videoId)).toEqual(["long"]);
     expect(page.videos[0].durationSeconds).toBe(600);
+  });
+
+  describe("announced videos", () => {
+    // Three hours ahead of the real clock: the cache keeps an upcoming video
+    // until its start, so the start must be in the future when the test runs.
+    const start: string = new Date(Date.now() + 3 * 3600 * 1000).toISOString();
+
+    function seedLengths(): void {
+      mocks.youtube.Videos = {
+        list: (_part: unknown, params: { id: string }) => ({
+          items: params.id.split(",").map((id) =>
+            id === "premiere"
+              ? {
+                  id,
+                  contentDetails: { duration: "P0D" },
+                  liveStreamingDetails: { scheduledStartTime: start },
+                }
+              : { id, contentDetails: { duration: "PT10M" } },
+          ),
+        }),
+      };
+    }
+
+    it("hides a video that is not out yet when hideUpcoming is on", () => {
+      seedFeed([
+        entry("premiere", "2026-06-20T00:00:00+00:00"),
+        entry("out", "2026-06-19T00:00:00+00:00"),
+      ]);
+      seedLengths();
+
+      const page = getFeedPage({ ...baseOptions, hideUpcoming: true });
+
+      expect(page.videos.map((v) => v.videoId)).toEqual(["out"]);
+      expect(page.total).toBe(1);
+    });
+
+    it("hides it on every page, not only the page it would sit on", () => {
+      seedFeed([
+        entry("out1", "2026-06-21T00:00:00+00:00"),
+        entry("premiere", "2026-06-20T00:00:00+00:00"),
+        entry("out2", "2026-06-19T00:00:00+00:00"),
+      ]);
+      seedLengths();
+
+      const page = getFeedPage({
+        ...baseOptions,
+        hideUpcoming: true,
+        page: 1,
+        pageSize: 1,
+      });
+
+      expect(page.videos.map((v) => v.videoId)).toEqual(["out2"]);
+      expect(page.total).toBe(2);
+    });
+
+    it("keeps it, marked with its scheduled start, when hideUpcoming is off", () => {
+      seedFeed([
+        entry("premiere", "2026-06-20T00:00:00+00:00"),
+        entry("out", "2026-06-19T00:00:00+00:00"),
+      ]);
+      seedLengths();
+
+      const page = getFeedPage({ ...baseOptions, hideUpcoming: false });
+
+      expect(page.videos.map((v) => v.videoId)).toEqual(["premiere", "out"]);
+      expect(page.videos[0].scheduledStartAt).toBe(start);
+      expect(page.videos[1].scheduledStartAt).toBeUndefined();
+    });
   });
 
   it("keeps Shorts and still fills the duration badge when hideShorts is off", () => {

@@ -93,11 +93,18 @@ class FakeProperties {
 }
 
 // ---------------------------------------------------------------------------
-// CacheService (string cache; TTL is irrelevant in tests so it is ignored)
+// CacheService (string cache). Entries never expire in tests; the TTL of the
+// last write to each key is kept so a test can check it (ttlOf).
 // ---------------------------------------------------------------------------
 
 class FakeCache {
   private store: { [key: string]: string } = {};
+  private ttls: { [key: string]: number | undefined } = {};
+
+  /** The TTL in seconds that the last write to this key asked for. */
+  ttlOf(key: string): number | undefined {
+    return this.ttls[key];
+  }
 
   get(key: string): string | null {
     return key in this.store ? this.store[key] : null;
@@ -110,15 +117,17 @@ class FakeCache {
     return result;
   }
 
-  put(key: string, value: string, _ttlSeconds?: number): void {
+  put(key: string, value: string, ttlSeconds?: number): void {
     this.checkValueSize(key, value);
     this.store[key] = value;
+    this.ttls[key] = ttlSeconds;
   }
 
-  putAll(values: { [key: string]: string }, _ttlSeconds?: number): void {
+  putAll(values: { [key: string]: string }, ttlSeconds?: number): void {
     for (const key of Object.keys(values))
       this.checkValueSize(key, values[key]);
     Object.assign(this.store, values);
+    for (const key of Object.keys(values)) this.ttls[key] = ttlSeconds;
   }
 
   private checkValueSize(key: string, value: string): void {

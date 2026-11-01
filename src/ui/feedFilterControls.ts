@@ -20,11 +20,13 @@ import {
 import { defaultFeedBeforeDate } from "../shared/feed";
 import {
   HIDE_SHORTS_PREF,
+  HIDE_UPCOMING_PREF,
   HIDE_VIEWED_PREF,
   HIDE_DISMISSED_PREF,
   HIDE_SAVED_PREF,
   BEFORE_DATE_PREF,
   HIDE_SHORTS_DEFAULT,
+  HIDE_UPCOMING_DEFAULT,
   HIDE_VIEWED_DEFAULT,
   HIDE_DISMISSED_DEFAULT,
   HIDE_SAVED_DEFAULT,
@@ -40,6 +42,13 @@ export function feedFilterControls(afterChange: () => void): HTMLElement[] {
       "Hide Shorts",
       HIDE_SHORTS_PREF,
       HIDE_SHORTS_DEFAULT,
+      afterChange,
+    ),
+    // Premieres and live streams that are announced but not out yet.
+    filterToggle(
+      "Hide upcoming",
+      HIDE_UPCOMING_PREF,
+      HIDE_UPCOMING_DEFAULT,
       afterChange,
     ),
     // "watched" is the UI word for the seen flag (matching the History tab);

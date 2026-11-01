@@ -15,6 +15,7 @@ import type { Video } from "../shared/video";
 import { progressFraction } from "../shared/videoProgress";
 import { countLabel } from "../shared/countLabel";
 import { formatUploadTime } from "../shared/uploadTime";
+import { upcomingLabel } from "../shared/upcoming";
 import { skeletonVideoCard } from "./skeleton";
 import { displayTitle } from "./titlePreferences";
 import { originalTitleHint } from "../shared/dearrow";
@@ -398,7 +399,14 @@ function videoCard(
   thumbnail.loading = "lazy";
   thumbWrap.appendChild(thumbnail);
 
-  if (video.durationSeconds !== undefined && video.durationSeconds > 0) {
+  // An announced video has no length yet: its badge says so instead, in the
+  // spot where the length would sit.
+  if (video.scheduledStartAt !== undefined) {
+    const upcoming = document.createElement("span");
+    upcoming.className = "video-duration video-duration--upcoming";
+    upcoming.textContent = "Upcoming";
+    thumbWrap.appendChild(upcoming);
+  } else if (video.durationSeconds !== undefined && video.durationSeconds > 0) {
     const duration = document.createElement("span");
     duration.className = "video-duration";
     duration.textContent = formatDuration(video.durationSeconds);
@@ -438,7 +446,12 @@ function videoCard(
 
   const date = document.createElement("span");
   date.className = "video-date";
-  date.textContent = formatUploadTime(video.publishedAt);
+  // RSS dates an announced video by its announcement, which reads as if it
+  // were out already. The scheduled start is the date that matters.
+  date.textContent =
+    video.scheduledStartAt !== undefined
+      ? upcomingLabel(video.scheduledStartAt)
+      : formatUploadTime(video.publishedAt);
 
   meta.append(title, channel, date);
   play.append(thumbWrap, meta);

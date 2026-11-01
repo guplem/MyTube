@@ -76,6 +76,7 @@ import {
 } from "./skeleton";
 import { formatDate, formatDuration } from "./videoListView";
 import { formatFullUploadTime, formatUploadTime } from "../shared/uploadTime";
+import { upcomingLabel } from "../shared/upcoming";
 import { compactNumber } from "../shared/countLabel";
 import { scrollBehavior } from "./motion";
 
@@ -899,9 +900,18 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     prevButton.disabled = currentIndex <= 0;
     nextButton.disabled = currentIndex >= queue.length - 1;
     const channel: string = video ? video.channelTitle : "";
-    const uploaded: string = video ? formatUploadTime(video.publishedAt) : "";
+    // An announced video shows its scheduled start, not the RSS date, which
+    // is the announcement and reads as if the video were out already.
+    const shownTime: string = video
+      ? (video.scheduledStartAt ?? video.publishedAt)
+      : "";
+    const uploaded: string = !video
+      ? ""
+      : video.scheduledStartAt !== undefined
+        ? upcomingLabel(video.scheduledStartAt)
+        : formatUploadTime(video.publishedAt);
     uploadTime.textContent = uploaded;
-    uploadTime.title = video ? formatFullUploadTime(video.publishedAt) : "";
+    uploadTime.title = video ? formatFullUploadTime(shownTime) : "";
     meta.replaceChildren(
       channel !== "" && uploaded !== "" ? channel + " · " : channel,
     );

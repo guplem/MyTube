@@ -8,6 +8,7 @@ import { getBoolPreference } from "./preferences";
 import type { FeedFlagFilters } from "../shared/feedInclusion";
 
 export const HIDE_SHORTS_PREF = "mytube.hideShorts";
+export const HIDE_UPCOMING_PREF = "mytube.hideUpcoming";
 export const HIDE_VIEWED_PREF = "mytube.hideViewed";
 export const HIDE_DISMISSED_PREF = "mytube.hideDismissed";
 export const HIDE_SAVED_PREF = "mytube.hideSaved";
@@ -17,6 +18,9 @@ export const BEFORE_DATE_PREF = "mytube.beforeDate";
 // never read the same toggle differently. "Hide watched" is the odd one out: a
 // watched video stays visible unless the user asks otherwise.
 export const HIDE_SHORTS_DEFAULT = true;
+// On by default: an announced video cannot play yet, so it only waits in the
+// way. It shares the length lookup with "Hide Shorts", so it costs no request.
+export const HIDE_UPCOMING_DEFAULT = true;
 export const HIDE_VIEWED_DEFAULT = false;
 export const HIDE_DISMISSED_DEFAULT = true;
 export const HIDE_SAVED_DEFAULT = true;

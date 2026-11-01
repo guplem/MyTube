@@ -11,6 +11,11 @@ import type {
   CommentOrder,
   CommentPage,
 } from "../shared/comment";
+import {
+  scheduledStartOf,
+  videoLengthCacheSeconds,
+  type LiveStreamingDetails,
+} from "../shared/upcoming";
 
 export interface SubscriptionChannel {
   channelId: string;
@@ -315,16 +320,35 @@ function bestThumbnailUrl(
 }
 
 const DURATION_CACHE_PREFIX = "dur:";
-const DURATION_CACHE_TTL_SECONDS = 21600; // 6h, the CacheService maximum
 const DURATION_UNKNOWN = -1; // cached for ids the API does not return (deleted/private/live)
 const DURATION_BATCH_SIZE = 50; // videos.list accepts at most 50 ids
 const VIDEOS_API_URL = "https://www.googleapis.com/youtube/v3/videos";
+// liveStreamingDetails marks an announced video. videos.list costs the same
+// quota whatever parts it returns, so asking for it is free.
+const VIDEO_LENGTH_PARTS = "contentDetails,liveStreamingDetails";
+// An upcoming video is cached as this prefix plus its scheduled start, in the
+// same entry as a duration, so one cache read answers both questions.
+const UPCOMING_CACHE_PREFIX = "upcoming:";
+
+/** One video's length lookup. */
+export interface VideoLength {
+  /** Seconds, or DURATION_UNKNOWN (-1) when YouTube gives none. */
+  durationSeconds: number;
+  /** Set while the video is announced but not out yet (shared/upcoming.ts). */
+  scheduledStartAt?: string;
+}
+
+// A fetched length plus how long the shared cache may keep it.
+interface FetchedLength extends VideoLength {
+  cacheSeconds: number;
+}
 
 /**
- * Length in seconds for each video id, used to detect Shorts. RSS gives no
- * duration, so we ask the Data API (part=contentDetails, 1 quota unit per 50
- * ids). Results are cached in the shared script cache because a video's length
- * is the same for every user, so most lookups are free after the first.
+ * Length in seconds for each video id, used to detect Shorts, plus the
+ * scheduled start of a video that is announced but not out yet. RSS gives
+ * neither, so we ask the Data API (1 quota unit per 50 ids). Results are
+ * cached in the shared script cache because a video's length is the same for
+ * every user, so most lookups are free after the first.
  *
  * The 6-hour cache is the CacheService maximum, so the first feed load after a
  * long gap misses on hundreds of ids. The advanced service can only ask one
@@ -332,11 +356,13 @@ const VIDEOS_API_URL = "https://www.googleapis.com/youtube/v3/videos";
  * UrlFetchApp.fetchAll instead, signed with the user's own OAuth token. A
  * batch whose request fails falls back to the advanced service. A batch that
  * fails both ways is left out and NOT cached: unknown is not "no duration".
+ * An upcoming or live video is cached for less time (videoLengthCacheSeconds),
+ * because its answer changes when it comes out.
  */
-export function getVideoDurationsSeconds(videoIds: string[]): {
-  [id: string]: number;
+export function getVideoLengths(videoIds: string[]): {
+  [id: string]: VideoLength;
 } {
-  const result: { [id: string]: number } = {};
+  const result: { [id: string]: VideoLength } = {};
   if (videoIds.length === 0) return result;
 
   const cache = CacheService.getScriptCache();
@@ -350,43 +376,70 @@ export function getVideoDurationsSeconds(videoIds: string[]): {
   const missing: string[] = [];
   for (const id of videoIds) {
     const hit = cached[DURATION_CACHE_PREFIX + id];
-    if (hit !== undefined && hit !== null) result[id] = Number(hit);
+    if (hit !== undefined && hit !== null) result[id] = parseCachedLength(hit);
     else missing.push(id);
   }
 
   const batches: string[][] = [];
   for (let offset = 0; offset < missing.length; offset += DURATION_BATCH_SIZE)
     batches.push(missing.slice(offset, offset + DURATION_BATCH_SIZE));
-  const parallel = fetchDurationBatchesInParallel(batches);
+  const parallel = fetchLengthBatchesInParallel(batches);
 
-  const toCache: { [key: string]: string } = {};
+  // One putAll per TTL: putAll takes a single TTL for every entry it writes.
+  const toCache: { [ttl: number]: { [key: string]: string } } = {};
   batches.forEach((batch: string[], index: number): void => {
-    const durations =
-      parallel[index] ?? fetchDurationBatchWithAdvancedService(batch);
-    if (durations === null) return;
+    const lengths =
+      parallel[index] ?? fetchLengthBatchWithAdvancedService(batch);
+    if (lengths === null) return;
     for (const id of batch) {
       // Cache a sentinel for ids the API skipped so we do not re-query them.
-      const seconds = durations[id] ?? DURATION_UNKNOWN;
-      result[id] = seconds;
-      toCache[DURATION_CACHE_PREFIX + id] = String(seconds);
+      const fetched: FetchedLength = lengths[id] ?? {
+        durationSeconds: DURATION_UNKNOWN,
+        cacheSeconds: videoLengthCacheSeconds(undefined, Date.now()),
+      };
+      const length: VideoLength = { durationSeconds: fetched.durationSeconds };
+      if (fetched.scheduledStartAt !== undefined)
+        length.scheduledStartAt = fetched.scheduledStartAt;
+      result[id] = length;
+      if (!toCache[fetched.cacheSeconds]) toCache[fetched.cacheSeconds] = {};
+      toCache[fetched.cacheSeconds][DURATION_CACHE_PREFIX + id] =
+        cachedLengthValue(length);
     }
   });
 
-  const entries = Object.keys(toCache);
-  for (let offset = 0; offset < entries.length; offset += 100) {
-    const chunk: { [key: string]: string } = {};
-    for (const key of entries.slice(offset, offset + 100))
-      chunk[key] = toCache[key];
-    cache.putAll(chunk, DURATION_CACHE_TTL_SECONDS);
+  for (const ttl of Object.keys(toCache).map(Number)) {
+    const values = toCache[ttl];
+    const entries = Object.keys(values);
+    for (let offset = 0; offset < entries.length; offset += 100) {
+      const chunk: { [key: string]: string } = {};
+      for (const key of entries.slice(offset, offset + 100))
+        chunk[key] = values[key];
+      cache.putAll(chunk, ttl);
+    }
   }
   return result;
 }
 
-// One entry per batch: its durations, or null when that request failed. All
+function cachedLengthValue(length: VideoLength): string {
+  return length.scheduledStartAt !== undefined
+    ? UPCOMING_CACHE_PREFIX + length.scheduledStartAt
+    : String(length.durationSeconds);
+}
+
+function parseCachedLength(value: string): VideoLength {
+  if (value.indexOf(UPCOMING_CACHE_PREFIX) === 0)
+    return {
+      durationSeconds: DURATION_UNKNOWN,
+      scheduledStartAt: value.slice(UPCOMING_CACHE_PREFIX.length),
+    };
+  return { durationSeconds: Number(value) };
+}
+
+// One entry per batch: its lengths, or null when that request failed. All
 // null when the fetch itself throws (quota, no token).
-function fetchDurationBatchesInParallel(
+function fetchLengthBatchesInParallel(
   batches: string[][],
-): ({ [id: string]: number } | null)[] {
+): ({ [id: string]: FetchedLength } | null)[] {
   if (batches.length === 0) return [];
   try {
     const headers: { [name: string]: string } = {
@@ -398,7 +451,9 @@ function fetchDurationBatchesInParallel(
           (batch: string[]): GoogleAppsScript.URL_Fetch.URLFetchRequest => ({
             url:
               VIDEOS_API_URL +
-              "?part=contentDetails&maxResults=" +
+              "?part=" +
+              encodeURIComponent(VIDEO_LENGTH_PARTS) +
+              "&maxResults=" +
               DURATION_BATCH_SIZE +
               "&id=" +
               encodeURIComponent(batch.join(",")),
@@ -408,7 +463,10 @@ function fetchDurationBatchesInParallel(
         ),
       );
     return batches.map(
-      (_batch: string[], index: number): { [id: string]: number } | null =>
+      (
+        _batch: string[],
+        index: number,
+      ): { [id: string]: FetchedLength } | null =>
         parseVideosResponse(responses[index]),
     );
   } catch {
@@ -418,45 +476,58 @@ function fetchDurationBatchesInParallel(
 
 function parseVideosResponse(
   response: GoogleAppsScript.URL_Fetch.HTTPResponse | undefined,
-): { [id: string]: number } | null {
+): { [id: string]: FetchedLength } | null {
   if (!response || response.getResponseCode() !== 200) return null;
   try {
     const body = JSON.parse(
       response.getContentText(),
     ) as GoogleAppsScript.YouTube.Schema.VideoListResponse;
     if (!Array.isArray(body.items)) return null;
-    return durationsOf(body.items);
+    return lengthsOf(body.items);
   } catch {
     return null;
   }
 }
 
-function fetchDurationBatchWithAdvancedService(
+function fetchLengthBatchWithAdvancedService(
   batch: string[],
-): { [id: string]: number } | null {
+): { [id: string]: FetchedLength } | null {
   try {
     const response: GoogleAppsScript.YouTube.Schema.VideoListResponse =
-      YouTube.Videos!.list("contentDetails", {
+      YouTube.Videos!.list(VIDEO_LENGTH_PARTS, {
         id: batch.join(","),
         maxResults: DURATION_BATCH_SIZE,
       });
-    return durationsOf(response.items ?? []);
+    return lengthsOf(response.items ?? []);
   } catch {
     return null;
   }
 }
 
-function durationsOf(items: GoogleAppsScript.YouTube.Schema.Video[]): {
-  [id: string]: number;
+function lengthsOf(items: GoogleAppsScript.YouTube.Schema.Video[]): {
+  [id: string]: FetchedLength;
 } {
-  const durations: { [id: string]: number } = {};
+  const lengths: { [id: string]: FetchedLength } = {};
+  const nowMs: number = Date.now();
   for (const item of items) {
     if (!item.id) continue;
-    durations[item.id] = parseIso8601Duration(
-      item.contentDetails?.duration ?? "",
-    );
+    const details: LiveStreamingDetails | undefined =
+      item.liveStreamingDetails ?? undefined;
+    const length: FetchedLength = {
+      durationSeconds: parseIso8601Duration(
+        item.contentDetails?.duration ?? "",
+      ),
+      cacheSeconds: videoLengthCacheSeconds(details, nowMs),
+    };
+    const scheduledStartAt: string | undefined = scheduledStartOf(details);
+    if (scheduledStartAt !== undefined) {
+      // An announced video has no length yet ("P0D"), whatever the API says.
+      length.durationSeconds = DURATION_UNKNOWN;
+      length.scheduledStartAt = scheduledStartAt;
+    }
+    lengths[item.id] = length;
   }
-  return durations;
+  return lengths;
 }
 
 // Parses an ISO 8601 duration (e.g. "PT1H2M3S", "PT45S") to whole seconds.

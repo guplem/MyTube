@@ -12,6 +12,8 @@ export interface FeedPageOptions {
   forceRefresh: boolean;
   /** Hide videos at or under the Shorts length threshold (detected by duration). */
   hideShorts: boolean;
+  /** Hide videos that are announced but not out yet (src/shared/upcoming.ts). */
+  hideUpcoming: boolean;
   /** Hide every video already in the watch history (seen). */
   hideViewed: boolean;
   /** Hide every video the user dismissed from the feed. */

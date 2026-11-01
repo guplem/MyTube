@@ -1,7 +1,8 @@
-// Duration lookup that powers Shorts detection: parses ISO 8601 durations from
-// the Data API, caches them in the shared script cache (a length is the same for
+// Length lookup that powers Shorts detection and the upcoming marker: parses
+// ISO 8601 durations and the scheduled start of an announced video from the
+// Data API, caches them in the shared script cache (a length is the same for
 // everyone), and caches a sentinel for ids the API does not return so they are
-// not re-queried. See youtube.ts getVideoDurationsSeconds.
+// not re-queried. See youtube.ts getVideoLengths.
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
@@ -11,7 +12,17 @@ import {
   type AppsScriptMocks,
   type FakeHttpResponse,
 } from "../helpers/appsScriptMock";
-import { getVideoDurationsSeconds } from "../../src/server/youtube";
+import { getVideoLengths, type VideoLength } from "../../src/server/youtube";
+import type { LiveStreamingDetails } from "../../src/shared/upcoming";
+
+/** The durations alone, so most tests read as plain id -> seconds maps. */
+function getVideoDurationsSeconds(ids: string[]): { [id: string]: number } {
+  const lengths: { [id: string]: VideoLength } = getVideoLengths(ids);
+  const seconds: { [id: string]: number } = {};
+  for (const id of Object.keys(lengths))
+    seconds[id] = lengths[id].durationSeconds;
+  return seconds;
+}
 
 let mocks: AppsScriptMocks;
 let apiCalls: number;
@@ -102,6 +113,119 @@ function videosBody(
 function manyIds(count: number): string[] {
   return Array.from({ length: count }, (_unused, index) => `v${index}`);
 }
+
+/** A videos.list body with one premiere or stream and its live details. */
+function liveBody(
+  id: string,
+  duration: string,
+  liveStreamingDetails: LiveStreamingDetails,
+): string {
+  return JSON.stringify({
+    items: [{ id, contentDetails: { duration }, liveStreamingDetails }],
+  });
+}
+
+describe("getVideoLengths, announced videos", () => {
+  const inThreeHours = (): string =>
+    new Date(Date.now() + 3 * 3600 * 1000).toISOString();
+
+  it("asks for liveStreamingDetails in the same request as the duration", () => {
+    const urls: string[] = [];
+    mocks.fetchAll = (requests) => {
+      urls.push(...requests.map((request) => request.url));
+      return requests.map(() => httpResponse(200, videosBody([], {})));
+    };
+    getVideoLengths(["a"]);
+    expect(urls[0]).toContain(
+      "part=" + encodeURIComponent("contentDetails,liveStreamingDetails"),
+    );
+  });
+
+  it("returns the scheduled start of a video that is not out yet", () => {
+    const start: string = inThreeHours();
+    mocks.fetchAll = (requests) =>
+      requests.map(() =>
+        httpResponse(200, liveBody("p", "P0D", { scheduledStartTime: start })),
+      );
+
+    expect(getVideoLengths(["p"])).toEqual({
+      p: { durationSeconds: -1, scheduledStartAt: start },
+    });
+  });
+
+  it("serves the scheduled start from the cache, kept only until the start", () => {
+    const start: string = inThreeHours();
+    mocks.fetchAll = (requests) =>
+      requests.map(() =>
+        httpResponse(200, liveBody("p", "P0D", { scheduledStartTime: start })),
+      );
+    getVideoLengths(["p"]);
+    mocks.fetchAll = () => {
+      throw new Error("must be served from the cache");
+    };
+
+    expect(getVideoLengths(["p"])).toEqual({
+      p: { durationSeconds: -1, scheduledStartAt: start },
+    });
+    const ttl: number | undefined = mocks.scriptCache.ttlOf("dur:p");
+    expect(ttl).toBeGreaterThan(3 * 3600 - 60);
+    expect(ttl).toBeLessThanOrEqual(3 * 3600);
+  });
+
+  it("keeps a live video only 5 minutes, so its real length shows soon", () => {
+    mocks.fetchAll = (requests) =>
+      requests.map(() =>
+        httpResponse(
+          200,
+          liveBody("l", "P0D", {
+            scheduledStartTime: "2026-10-31T11:00:00Z",
+            actualStartTime: "2026-10-31T11:00:00Z",
+          }),
+        ),
+      );
+
+    expect(getVideoLengths(["l"])).toEqual({ l: { durationSeconds: -1 } });
+    expect(mocks.scriptCache.ttlOf("dur:l")).toBe(300);
+  });
+
+  it("treats a finished premiere as a normal upload", () => {
+    mocks.fetchAll = (requests) =>
+      requests.map(() =>
+        httpResponse(
+          200,
+          liveBody("f", "PT20M", {
+            scheduledStartTime: "2026-10-30T19:00:00Z",
+            actualStartTime: "2026-10-30T19:00:00Z",
+            actualEndTime: "2026-10-30T19:20:00Z",
+          }),
+        ),
+      );
+
+    expect(getVideoLengths(["f"])).toEqual({ f: { durationSeconds: 1200 } });
+    expect(mocks.scriptCache.ttlOf("dur:f")).toBe(21600);
+  });
+
+  it("reads the scheduled start from the advanced service fallback too", () => {
+    const start: string = inThreeHours();
+    mocks.fetchAll = (requests) => requests.map(() => httpResponse(500, ""));
+    mocks.youtube.Videos = {
+      list: (part: unknown) => {
+        expect(part).toBe("contentDetails,liveStreamingDetails");
+        return {
+          items: [
+            {
+              id: "p",
+              contentDetails: { duration: "P0D" },
+              liveStreamingDetails: { scheduledStartTime: start },
+            },
+          ],
+        };
+      },
+    };
+
+    expect(getVideoLengths(["p"]).p.scheduledStartAt).toBe(start);
+  });
+});
 
 describe("getVideoDurationsSeconds, parallel lookup", () => {
   it("asks every missing batch of 50 in ONE fetchAll, with the user's token", () => {

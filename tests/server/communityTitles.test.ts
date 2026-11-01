@@ -43,6 +43,7 @@ const OPTIONS: FeedPageOptions = {
   pageSize: 10,
   forceRefresh: false,
   hideShorts: false,
+  hideUpcoming: false,
   hideViewed: false,
   hideDismissed: false,
   hideSaved: false,

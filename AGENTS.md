@@ -87,13 +87,22 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   slice.** Membership and duration are otherwise flagged on the page only.
   Flagging after the slice leaves holes in the page and inflates `total`.
 - **Shorts are detected by length, not a real flag** (RSS has none): duration
-  via `youtube.getVideoDurationsSeconds` (Data API `contentDetails`, cached in
+  via `youtube.getVideoLengths` (Data API `contentDetails`, cached in
   the shared script cache since length is the same for everyone), hidden when
   `<= 180s`. A toggle re-shows them because the length heuristic has false
   positives. The cache misses go out as ONE `UrlFetchApp.fetchAll` of plain
   Data API requests, signed with `ScriptApp.getOAuthToken()`; the advanced
   service asks one batch at a time. A failed batch falls back to the advanced
   service, and a batch that fails both ways is left out and never cached.
+- **An announced video is marked "upcoming", and the feed can hide it.** RSS
+  lists a scheduled premiere or live stream before it is out. The same
+  `getVideoLengths` request also asks for `liveStreamingDetails` (no extra
+  quota) and sets `Video.scheduledStartAt` while the video has not started.
+  The policy lives in `src/shared/upcoming.ts`. The shared cache keeps an
+  upcoming entry only until its scheduled start, and a live one 5 minutes
+  (`videoLengthCacheSeconds`), so the real length shows soon after release.
+  "Hide upcoming" (`hideUpcoming`, default on) reads the same lookup, so it
+  runs on the whole list together with "Hide Shorts".
 - **A list call reads the user property store once.** History, dismissed and
   resume positions all live there, so `getFeedPage` and `enrichList` in
   `src/server/main.ts` read it with `readUserProperties()` and pass the result
@@ -102,7 +111,7 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   YouTube.** `getSponsorSegments` (`src/server/sponsorBlock.ts`) asks by hash
   prefix (first 4 hex chars of `sha256(videoId)`), so the plain video id never
   leaves the server, and caches the answer — empty lists included — in the
-  shared script cache for 6h, like `getVideoDurationsSeconds`. A 404 is the
+  shared script cache for 6h, like `getVideoLengths`. A 404 is the
   service's "nothing here" answer and is cached like any empty list. The
   policy (`normalizeSponsorSegments`, `boundSponsorSegments`,
   `sponsorSkipDecision`, `sponsorCategoryLabel` in
