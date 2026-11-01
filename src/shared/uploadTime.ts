@@ -54,3 +54,16 @@ export function formatUploadTime(
     minute: "2-digit",
   }).format(uploaded);
 }
+
+// The whole upload moment, for when the short form above is not enough:
+// "13h ago" and "Yesterday at 18:40" both hide the date. The player shows it
+// when the viewer taps or holds the upload time.
+/** `locale` is for tests; the app passes none and gets the browser's. */
+export function formatFullUploadTime(iso: string, locale?: string): string {
+  const uploaded: Date = new Date(iso);
+  if (Number.isNaN(uploaded.getTime())) return "";
+  return new Intl.DateTimeFormat(locale, {
+    dateStyle: "full",
+    timeStyle: "short",
+  }).format(uploaded);
+}
