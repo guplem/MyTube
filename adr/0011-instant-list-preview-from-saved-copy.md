@@ -13,7 +13,8 @@ Two facts shape the design. Several Google accounts can share one browser, and s
 The browser keeps the last copy of two lists in `localStorage`: the feed's first page and Watch Later. The next visit paints that copy at once and loads the fresh list behind it. This is the "stale-while-revalidate" pattern: show the old copy, then check for a new one.
 
 - **A copy belongs to one account.** `doGet` embeds `Session.getTemporaryActiveUserKey()` in the page (`accountKeyJson`, read as `window.MYTUBE_ACCOUNT_KEY`). The key names the user without revealing who they are and needs no OAuth scope. Every copy carries it. `parseListSnapshot` in `src/shared/listSnapshot.ts` refuses a copy with another account, another key, an age over 7 days, or no videos. An empty account key turns previews off.
-- **The preview is read-only.** `VideoListOptions.inert` turns off its toggles, its play target and its paging. A tap can then never act on a state the server has moved past: a player opened on the copy would show stale flags and resume from a stale position. A page turned on the copy would be lost when the fresh list replaces it. The preview cards are also not the kept feed page's `Video` objects, so ADR 0008's identity rule cannot break.
+- **The preview cannot play or page, but its toggles act.** `VideoListOptions.inert` turns off its play target and its paging. A player opened on the copy would resume from a stale position. A page turned on the copy would be lost when the fresh list replaces it. The toggles (Watch Later, watched, dismiss) act at once through `optimistic()`, like on any card. Each server write sets a state ("mark watched"), it never flips one, so the user's last tap is the state that the server keeps.
+- **A tap on the preview carries over to the fresh list.** The tap changes the preview's own `Video` objects. The fresh list holds other objects, and the server can read it before the write lands. `previewFlagsOf` records the flags of the copy as first painted. `carryPreviewTaps` (both in `src/shared/listSnapshot.ts`) copies onto each fresh video every flag that a tap changed, and leaves every other flag at its fresh value. `src/ui/previewTaps.ts` runs it when the fresh list arrives, even when the user has moved on, and again after every later tap while the preview stays on show. The fresh feed objects are the kept page (ADR 0008), so the kept page, the saved copy and the Feed nav button all hold the tap.
 - **A loading bar shows the fresh load in flight.** Two thin lines cross the top of the page while the copy is on show. The bar is fixed to the page, so it moves no card. Reduced motion shows a still bar.
 - **The fresh list never moves a visible card.** The fresh list replaces the preview by itself only when `freshListMovesNothing` is true: the same list, or a list that gains or loses videos at the end only. Watch Later compares only its first page, because the read-only copy shows only that page. Otherwise the pill (`src/ui/listUpdatePill.ts`) offers the fresh list with a "Show" button, and nothing moves until the user taps it.
 - **A fast load skips the pill.** `previewPainted` is set by the next animation frame, just before the browser paints. A load that answers sooner replaces a preview that nobody saw, so it never asks to be shown.
@@ -27,7 +28,7 @@ The browser keeps the last copy of two lists in `localStorage`: the feed's first
 
 **Rejected alternative:** replace the preview with the fresh list at once, even when cards move. The cards jump under the user's finger. This is the case that the pill exists for.
 
-**Rejected alternative:** let the preview toggles act. A tap would race with the load in flight, and it would act on a state that the server may have changed. It would also mutate objects that are not the kept page, which ADR 0008 forbids.
+**Rejected alternative:** keep the preview toggles off until the fresh list lands. This was the first version. The user had to wait seconds to save or dismiss a video that was already on screen. The race with the load is real, but the carry-over above settles it: the last tap wins.
 
 **Deferred alternative:** a periodic background trigger that warms the server caches. It needs the `script.scriptapp` scope, and a new scope forces every user to consent again. Revisit it only if the cold load stays too slow.
 
@@ -35,7 +36,8 @@ The browser keeps the last copy of two lists in `localStorage`: the feed's first
 
 - The feed and Watch Later show real cards in the first frame of a visit. The fresh list follows after the Apps Script call.
 - A copy can be up to 7 days old and can lag the server. The read-only preview and the pill are the guard.
-- For the few seconds of the load, the user can read the list but not act on it.
+- For the few seconds of the load, the user can toggle a card but cannot play it or turn the page.
+- A tap on the preview acts on the flags of the copy, which can lag the server. The write sets what the button showed, so the last tap still wins. A failed write rolls back the preview card only. If the fresh list already took the tap, it keeps it until the next load; the failure toast offers a refresh.
 - When the fresh list reorders or removes a visible card, the user must tap "Show" to see it.
 - A new list that wants a preview must register a live source with `keepListSnapshot` and keep to the key and prefix rules above.
 - A full or blocked `localStorage` only costs the preview: the next visit loads with placeholders.
