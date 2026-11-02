@@ -1122,6 +1122,7 @@ function showPlayer(screen: PlayerScreen, queue: Video[]): void {
   app.innerHTML = "";
   const controller = PlayerView({
     queue,
+    queueLabel: queueLabelFor(screen.context),
     startIndex: Math.max(
       0,
       queue.findIndex((video) => video.videoId === screen.videoId),
@@ -1360,6 +1361,21 @@ function playerContextFromParams(params: UrlParams): PlayerContext {
         : { source: "feed" };
     default:
       return { source: "feed" };
+  }
+}
+
+// The list name the player shows beside its queue counter. A playlist opened
+// from a shared link may carry no title; the counter then stands alone.
+function queueLabelFor(context: PlayerContext): string {
+  switch (context.source) {
+    case "watchlater":
+      return "Watch Later";
+    case "history":
+      return "History";
+    case "playlist":
+      return context.title;
+    default:
+      return "Feed";
   }
 }
 

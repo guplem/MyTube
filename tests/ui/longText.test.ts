@@ -13,6 +13,7 @@ const REMOTE_TEXT: string[] = [
   ".video-channel",
   ".player-title",
   ".player-meta",
+  ".player-queue-name",
   ".chapter-row-label",
   ".playlist-item",
   ".playlist-title",
