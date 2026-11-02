@@ -1184,20 +1184,6 @@
         flex-direction: column;
         gap: 1rem;
       }
-      /* The position in the list, above the video. */
-      .player-context {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        margin-bottom: -0.5rem;
-      }
-      /* Holds the playlist title, which comes from YouTube. min-width: 0
-         lets this flex item shrink in the context row so the title can wrap. */
-      .player-position {
-        color: #bbb;
-        overflow-wrap: anywhere;
-        min-width: 0;
-      }
       .player-frame {
         position: relative;
         width: 100%;
@@ -1576,8 +1562,8 @@
         opacity: 0.4;
         cursor: default;
       }
-      /* The upload time under the title reads as text, with a dotted
-         underline that says a tap shows more. The :not() chain and the
+      /* The upload time under the title reads as plain text; a tap shows
+         the full date. The :not() chain and the
          extra classes beat the box-style rule above, including its hover
          and active backgrounds. */
       .player-view
@@ -1592,8 +1578,6 @@
         margin: 0;
         font: inherit;
         color: inherit;
-        text-decoration: underline dotted;
-        text-underline-offset: 0.2em;
         cursor: pointer;
       }
       .player-view

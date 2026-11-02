@@ -106,7 +106,6 @@ type PlayerContext =
 interface PlayerScreen {
   view: "player";
   videoId: string;
-  label: string;
   context: PlayerContext;
   queue?: Video[];
   index?: number;
@@ -1071,7 +1070,6 @@ function playFromList(
   go({
     view: "player",
     videoId: video.videoId,
-    label: labelForContext(context),
     context,
     queue,
     index,
@@ -1128,7 +1126,6 @@ function showPlayer(screen: PlayerScreen, queue: Video[]): void {
       0,
       queue.findIndex((video) => video.videoId === screen.videoId),
     ),
-    contextLabel: screen.label,
     onBack: (): void => go(screenForContext(screen.context)),
     onWatchLaterRemoved: offerDismissAfterWatchLaterRemoval,
     // prev/next/autoplay request navigation; go() pushes one history entry per
@@ -1339,7 +1336,6 @@ function screenFromParams(params: UrlParams): Screen {
       return {
         view: "player",
         videoId: params.v,
-        label: labelForContext(context),
         context,
       };
     }
@@ -1364,19 +1360,6 @@ function playerContextFromParams(params: UrlParams): PlayerContext {
         : { source: "feed" };
     default:
       return { source: "feed" };
-  }
-}
-
-function labelForContext(context: PlayerContext): string {
-  switch (context.source) {
-    case "watchlater":
-      return "Watch Later";
-    case "history":
-      return "History";
-    case "playlist":
-      return context.title;
-    default:
-      return "Subscriptions";
   }
 }
 
