@@ -20,8 +20,6 @@ import {
   SPONSOR_SKIP_DEFAULT,
   AUTOPLAY_PREF,
   AUTOPLAY_DEFAULT,
-  BACKGROUND_PLAY_PREF,
-  BACKGROUND_PLAY_DEFAULT,
   readStoredPlaybackRate,
   storePlaybackRate,
 } from "./playerPreferences";
@@ -83,11 +81,6 @@ export function SettingsView(onFeedFilterChange: () => void): HTMLElement {
         "Play the next video when one ends",
         AUTOPLAY_PREF,
         AUTOPLAY_DEFAULT,
-      ),
-      preferenceToggle(
-        "Keep playing when the screen locks",
-        BACKGROUND_PLAY_PREF,
-        BACKGROUND_PLAY_DEFAULT,
       ),
       playbackRateSetting(),
     ]),
