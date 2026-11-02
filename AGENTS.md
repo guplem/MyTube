@@ -276,9 +276,9 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
 - **The feed's first page and Watch Later open on their last copy (ADR 0011).**
   `src/ui/listSnapshots.ts` keeps the last copy of each in `localStorage`,
   tied to the account key that `doGet` embeds (`Session.getTemporaryActiveUserKey`,
-  no scope). The screen shows the copy at once, with play and paging off
-  (`VideoListOptions.inert`) but its toggles on, and loads the fresh list
-  behind it while
+  no scope). The screen shows the copy at once, with paging off
+  (`VideoListOptions.inert`) but its toggles and play on, and loads the fresh
+  list behind it while
   a thin loading bar runs across the top of the page. The fresh list
   replaces the copy only when that moves no card (`freshListMovesNothing` in
   `src/shared/listSnapshot.ts`: same list, or changes at the end only).
@@ -290,10 +290,13 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   `persistListSnapshots()`, so the next copy leaves out what the user just
   dismissed, saved or removed. A Watch Later change on any other screen calls
   `trackWatchLaterChange` first, so the Watch Later copy gains or loses that
-  video too. A tap on the copy changes the copy's own
-  objects, so `carryPreviewTaps` copies each changed flag onto the fresh list
-  (`src/ui/previewTaps.ts`): the last tap wins over a list read before the
-  write landed. The feed copy has no date in its key, because the
+  video too. A tap on the copy, or a player opened on it, changes the
+  copy's own objects, so `carryPreviewTaps` copies each changed flag and the
+  resume position onto the fresh list (`src/ui/previewTaps.ts`, run again by
+  `optimistic()` and the player's position save): the last tap wins over a
+  list read before the write landed. The player asks the server for the
+  stored position of a video played from the copy (`getVideoProgress`),
+  because the copy's own can be days old. The feed copy has no date in its key, because the
   default date moves every day.
 - **Settings is the one screen that lists every preference**
   (`src/ui/settingsView.ts`, routed as `{ view: "settings" }`, opened from the

@@ -71,7 +71,7 @@ import {
   readListSnapshot,
   trackWatchLaterChange,
 } from "./listSnapshots";
-import { carryPreviewTapsToFresh } from "./previewTaps";
+import { linkPreviewToFresh, markPreviewVideos } from "./previewTaps";
 import { createListUpdatePill } from "./listUpdatePill";
 import {
   feedSnapshotKey,
@@ -899,7 +899,7 @@ function sortVideos(videos: Video[], key: SortKey): Video[] {
 // order of the same videos.
 //
 // With a preview (a saved copy, ADR 0011) the screen shows the copy at once,
-// with play off but its toggles on, and loads the fresh list behind it. The fresh list replaces
+// with its toggles and play on but its paging off, and loads the fresh list behind it. The fresh list replaces
 // the copy when that moves no card; otherwise the snackbar counts down to it.
 function renderPlaylistScreen(
   load: Promise<Video[]>,
@@ -919,16 +919,11 @@ function renderPlaylistScreen(
   let videos: Video[] = [];
   let inert = false;
   let built = false;
-  // See the same pair in src/ui/videoListView.ts: a tap on the preview is
+  // See the same map in src/ui/videoListView.ts: a tap on the preview is
   // copied onto the fresh videos, when they arrive and after every later tap.
   const previewBefore: Map<string, PreviewFlags> | null = preview
     ? previewFlagsOf(preview.videos)
     : null;
-  let freshVideos: Video[] | null = null;
-  function carryTaps(): void {
-    if (preview && previewBefore && freshVideos)
-      carryPreviewTapsToFresh(previewBefore, preview.videos, freshVideos);
-  }
 
   const pill = createListUpdatePill();
   const toolbar = document.createElement("div");
@@ -977,7 +972,6 @@ function renderPlaylistScreen(
       VideoListView(sortVideos(videos, currentSort), {
         ...optionsFor(),
         inert,
-        afterAction: inert ? carryTaps : undefined,
       }),
     );
   }
@@ -990,10 +984,9 @@ function renderPlaylistScreen(
   function paint(list: Video[], asPreview: boolean): void {
     videos = list;
     inert = asPreview;
-    // A saved copy cannot play (ADR 0011), and neither can these: its order
-    // can change when the fresh list lands.
-    playAll.disabled = inert || list.length === 0;
-    shuffle.disabled = inert || list.length === 0;
+    if (asPreview) markPreviewVideos(list);
+    playAll.disabled = list.length === 0;
+    shuffle.disabled = list.length === 0;
     if (!built) {
       app.innerHTML = "";
       app.append(toolbar, pill.element, listHost);
@@ -1019,8 +1012,8 @@ function renderPlaylistScreen(
   load
     .then((fresh): void => {
       // Before the moved-on check: the saved copy follows the fresh objects.
-      freshVideos = fresh;
-      carryTaps();
+      if (preview && previewBefore)
+        linkPreviewToFresh(previewBefore, preview.videos, fresh);
       if (movedOn()) return;
       if (preview && previewPainted) {
         const shownIds: string[] = sortVideos(preview.videos, currentSort).map(

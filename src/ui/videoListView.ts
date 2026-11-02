@@ -26,7 +26,7 @@ import {
   type PreviewFlags,
 } from "../shared/listSnapshot";
 import { createListUpdatePill } from "./listUpdatePill";
-import { carryPreviewTapsToFresh } from "./previewTaps";
+import { linkPreviewToFresh, markPreviewVideos } from "./previewTaps";
 
 // Pager arrows. The buttons carry an aria-label and a title as well.
 const ICON_PAGE_PREVIOUS: string =
@@ -66,13 +66,11 @@ export interface VideoListOptions {
   onPageLoaded?: (result: VideoPage) => void;
   paging?: ListPaging;
   /** A saved copy of the first page to show at once, while the loader runs
-   *  (ADR 0011). Its toggles act; play and paging wait for the fresh page. */
+   *  (ADR 0011). Its toggles and play act; paging waits for the fresh page. */
   preview?: VideoPage;
-  /** Turns off play and paging: the cards come from a saved copy. The
-   *  toggles stay on (ADR 0011). */
+  /** Turns off paging: the cards come from a saved copy. The toggles and
+   *  play stay on (ADR 0011). */
   inert?: boolean;
-  /** Called after every tap on a card action or the corner action. */
-  afterAction?: () => void;
 }
 
 export interface VideoPage {
@@ -248,19 +246,9 @@ function renderList(
     // in-memory list) replaces a preview nobody saw, so it never asks to be
     // shown.
     let previewPainted = false;
-    // The fresh videos, once they arrive. A tap on the preview after that
-    // copies itself onto them at once.
-    let freshVideos: Video[] | null = null;
-    const carryTaps = (): void => {
-      if (shownPreview && previewBefore && freshVideos)
-        carryPreviewTapsToFresh(
-          previewBefore,
-          shownPreview.videos,
-          freshVideos,
-        );
-    };
     if (shownPreview) {
-      paintCards(shownPreview, loadedPage, loadedPageSize, true, carryTaps);
+      markPreviewVideos(shownPreview.videos);
+      paintCards(shownPreview, loadedPage, loadedPageSize);
       pill.showUpdating();
       window.requestAnimationFrame((): void => {
         previewPainted = true;
@@ -295,8 +283,8 @@ function renderList(
     }
     // Before the superseded check: the fresh objects can be the kept feed
     // page, which must hold the user's taps even when this list is gone.
-    freshVideos = result.videos;
-    carryTaps();
+    if (shownPreview && previewBefore)
+      linkPreviewToFresh(previewBefore, shownPreview.videos, result.videos);
     if (isSuperseded()) return;
 
     if (shownPreview && previewPainted) {
@@ -348,7 +336,7 @@ function renderList(
       grid.appendChild(empty);
       return;
     }
-    paintCards(result, loadedPage, loadedPageSize, inert);
+    paintCards(result, loadedPage, loadedPageSize);
     prevButton.disabled = inert || loadedPage <= 0;
     nextButton.disabled = inert || loadedPage >= pageCount - 1;
   }
@@ -359,14 +347,8 @@ function renderList(
     result: VideoPage,
     loadedPage: number,
     loadedPageSize: number,
-    inert: boolean,
-    afterPreviewTap?: () => void,
   ): void {
     const { videos, total } = result;
-    const afterAction = (): void => {
-      options.afterAction?.();
-      afterPreviewTap?.();
-    };
     const pageCount = Math.max(1, Math.ceil(total / loadedPageSize));
     grid.innerHTML = "";
     controls.style.display = "";
@@ -381,8 +363,6 @@ function renderList(
           (): void => options.onPlay(index, queue),
           actions,
           options.cornerAction,
-          inert,
-          afterAction,
         ),
       );
     });
@@ -402,8 +382,6 @@ function videoCard(
   onPlay: () => void,
   actions: VideoAction[],
   cornerAction: VideoAction | undefined,
-  inert: boolean,
-  afterAction: () => void,
 ): HTMLElement {
   const card = document.createElement("div");
   card.className = "video-card";
@@ -415,9 +393,6 @@ function videoCard(
   play.type = "button";
   play.className = "video-play";
   play.addEventListener("click", onPlay);
-  // A saved copy cannot play: its resume position may be stale, so the
-  // player must open on the fresh list's own Video (ADR 0011).
-  play.disabled = inert;
 
   const thumbWrap = document.createElement("div");
   thumbWrap.className = "video-thumb-wrap";
@@ -497,7 +472,6 @@ function videoCard(
     if (cornerAction.name) corner.dataset.action = cornerAction.name;
     corner.addEventListener("click", (): void => {
       cornerAction.onClick(video, corner);
-      afterAction();
     });
     card.appendChild(corner);
     cornerAction.reflect(video, corner);
@@ -514,7 +488,6 @@ function videoCard(
       if (action.name) button.dataset.action = action.name;
       button.addEventListener("click", (): void => {
         action.onClick(video, button);
-        afterAction();
       });
       actionRow.appendChild(button);
       action.reflect(video, button);

@@ -33,11 +33,14 @@ import {
   saveVideoProgress,
   addToWatchLater,
   removeFromWatchLater,
+  getVideoProgress,
 } from "./serverBridge";
 import {
   PROGRESS_FINISHED,
   progressToStore,
+  resumeStartSeconds,
   shouldSuggestWatched,
+  staleResumeCorrection,
 } from "../shared/videoProgress";
 import { watchLaterAfterSeenToggle } from "../shared/watchLaterAfterSeen";
 import { dropStaleFeedPage } from "./feedPageCache";
@@ -53,6 +56,8 @@ import {
   storePlaybackRate,
 } from "./playerPreferences";
 import { optimistic } from "./optimistic";
+import { carryLinkedPreviewTaps, isPreviewVideo } from "./previewTaps";
+import { settleWithin } from "../shared/settleWithin";
 import { showHint, showToast } from "./toast";
 import { createScreenWakeLockHolder } from "./screenWakeLock";
 import {
@@ -155,6 +160,10 @@ interface OrientationLocker {
 // Apps Script iframe, so the periodic save is what bounds how much progress a
 // hard close loses.
 const PROGRESS_SAVE_INTERVAL_MS = 20000;
+// How long the first video of a player waits for the server's stored
+// position when it comes from a saved list copy. A slower answer only means
+// the copy's position: the video must not wait for a slow bridge call.
+const FRESH_PROGRESS_WAIT_MS = 2500;
 
 // How often the live position is checked for the mark-watched nudge (the dot
 // on the watched toggle once the video is effectively finished). Purely local
@@ -295,6 +304,9 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   // player answers into a gone controller, and must not install a poll timer
   // that nothing can clear.
   let destroyed = false;
+  // Bumped by every playAt. A load that waited on the server for a fresh
+  // resume position must not start its video after a newer playAt.
+  let latestPlayRequest = 0;
 
   // Keeps the screen on while the video plays; handleStateChange drives it.
   const screenWakeLock = createScreenWakeLockHolder();
@@ -1372,6 +1384,9 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     // (back/forward, prev) resumes at the newest position, not the flagged
     // one. The finished marker is kept — it drives the card's full bar.
     video.progressSeconds = seconds !== 0 ? seconds : undefined;
+    // A video opened from a saved list copy: the fresh list that replaced the
+    // copy takes the new position too (ADR 0011).
+    carryLinkedPreviewTaps();
     // The kept feed page holds progressSeconds like the other flags, so this
     // save goes through the same drop rule as an optimistic() write.
     dropStaleFeedPage();
@@ -1554,12 +1569,20 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     if (index < 0 || index >= queue.length) return;
     saveProgress(); // capture the outgoing video's position before switching
     currentIndex = index;
+    const playRequest: number = (latestPlayRequest += 1);
     const video = queue[currentIndex];
-    // Resume where a previous session (any device) left off. Only a real
-    // position resumes: nothing stored or the finished marker (a full bar on
-    // the card, but not a place to pick up from) start from the top.
-    const stored = video.progressSeconds ?? 0;
-    const resumeAt = stored > 0 ? stored : 0;
+    // A video from a saved list copy carries a position that can be days
+    // old, so the server's stored one decides where it resumes (ADR 0011).
+    // Asked now, so it travels while the YouTube API loads.
+    const freshStored: Promise<number> | null = isPreviewVideo(video)
+      ? settleWithin(
+          getVideoProgress(video.videoId),
+          FRESH_PROGRESS_WAIT_MS,
+          video.progressSeconds ?? 0,
+        )
+      : null;
+    // Resume where a previous session (any device) left off.
+    let stored = video.progressSeconds ?? 0;
     lastSavedProgress = stored;
     resumedFromSeconds = stored;
     endCard.hidden = true;
@@ -1579,10 +1602,23 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     prepareInfo(video.videoId);
 
     const api = await loadYouTubeApi();
+    // With no player yet, nothing plays, so the first video can wait for the
+    // server's position and start in the right place. A later video does
+    // not wait: the outgoing one still plays, and its progress save would
+    // land on the new video. correctStaleResume moves that one instead.
+    const waited: number | null =
+      !player && freshStored ? await freshStored : null;
     // The viewer left the player mid-load. destroy() already cleared every
     // timer, so a player built here would restart them with nothing left to
     // clear them, and the leaked interval keeps saving progress forever.
     if (destroyed) return;
+    // A later prev/next started its own load while this one waited.
+    if (playRequest !== latestPlayRequest) return;
+    if (waited !== null) {
+      takeServerProgress(video, waited);
+      stored = waited;
+    }
+    const resumeAt: number = resumeStartSeconds(stored);
     if (!player) {
       player = new api.Player(mount, {
         videoId: video.videoId,
@@ -1610,6 +1646,46 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     }
     startProgressSaving();
     startNudgeTracking();
+    if (freshStored && waited === null)
+      void correctStaleResume(video, playRequest, resumeAt, freshStored);
+  }
+
+  // Puts the server's stored position on the video, as if the list had
+  // loaded it, and lets the fresh list that replaced the copy follow.
+  function takeServerProgress(video: Video, serverStored: number): void {
+    video.progressSeconds = serverStored !== 0 ? serverStored : undefined;
+    lastSavedProgress = serverStored;
+    resumedFromSeconds = serverStored;
+    carryLinkedPreviewTaps();
+    updateSeenButton();
+  }
+
+  // A video from a saved copy that started without waiting (prev/next): seek
+  // to the server's position once it arrives, unless the viewer already moved
+  // (staleResumeCorrection holds the rule). Best-effort: a player that is
+  // not ready to report its time keeps the copy's position.
+  async function correctStaleResume(
+    video: Video,
+    playRequest: number,
+    startedAt: number,
+    freshStored: Promise<number>,
+  ): Promise<void> {
+    const serverStored: number = await freshStored;
+    if (destroyed || playRequest !== latestPlayRequest || !player) return;
+    let current: number;
+    try {
+      current = player.getCurrentTime();
+    } catch {
+      return; // player not ready yet
+    }
+    const target: number | null = staleResumeCorrection(
+      startedAt,
+      serverStored,
+      current,
+    );
+    if (target === null) return;
+    takeServerProgress(video, serverStored);
+    seekSilently(target);
   }
 
   updateTheater();

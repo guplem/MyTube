@@ -289,6 +289,15 @@ export function saveVideoProgress(videoId: string, seconds: number): void {
   progress.saveVideoProgress(videoId, seconds);
 }
 
+/**
+ * One video's stored position: seconds, PROGRESS_FINISHED, or 0 when nothing
+ * is stored. The player asks for it when it opens a video from a saved list
+ * copy, whose own progressSeconds can be days old (ADR 0011).
+ */
+export function getVideoProgress(videoId: string): number {
+  return progress.getProgressSeconds()[videoId] ?? 0;
+}
+
 /** The user's watch history as a video list, newest first. */
 export function getHistory(): Video[] {
   const stopwatch: Stopwatch = startStopwatch("getHistory");

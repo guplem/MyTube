@@ -281,6 +281,40 @@ describe("carryPreviewTaps", () => {
     // A second carry finds the value already in place.
     expect(carryPreviewTaps(before, shown, fresh)).toBe(false);
   });
+
+  it("carries a resume position that the player saved on the preview", () => {
+    // A player opened on the preview writes progressSeconds into the
+    // preview's own Video, like a tap writes a flag.
+    const shown: Video[] = [video("a", { progressSeconds: 30 })];
+    const before = previewFlagsOf(shown);
+    shown[0].progressSeconds = 95;
+    const fresh: Video[] = [video("a", { progressSeconds: 30 })];
+
+    carryPreviewTaps(before, shown, fresh);
+
+    expect(fresh[0].progressSeconds).toBe(95);
+  });
+
+  it("carries each preview change once, so a later tap on the fresh video stands", () => {
+    // The player can stay open on the preview after the fresh list replaced
+    // it, so carries run again after every write. A carry must then copy
+    // only what changed on the preview since the last carry.
+    const shown: Video[] = [video("a")];
+    const before = previewFlagsOf(shown);
+    shown[0].seen = true;
+    const fresh: Video[] = [video("a")];
+    carryPreviewTaps(before, shown, fresh);
+    expect(fresh[0].seen).toBe(true);
+
+    fresh[0].seen = false; // the user undid it on the fresh card
+    expect(carryPreviewTaps(before, shown, fresh)).toBe(false);
+    expect(fresh[0].seen).toBe(false);
+
+    shown[0].inWatchLater = true; // a later tap in the player on the preview
+    carryPreviewTaps(before, shown, fresh);
+    expect(fresh[0].inWatchLater).toBe(true);
+    expect(fresh[0].seen).toBe(false);
+  });
 });
 
 describe("withWatchLaterChanges", () => {
