@@ -305,14 +305,9 @@ function renderList(
       if (!freshListMovesNothing(shownIds, freshIds)) {
         const fresh: VideoPage = result;
         const added: number = newVideoCount(shownIds, freshIds);
-        pill.showReady(
-          added > 0
-            ? countLabel(added, "new video", "new videos")
-            : "This list changed",
-          (): void => {
-            if (!isSuperseded()) showResult(fresh, loadedPage, loadedPageSize);
-          },
-        );
+        pill.showCountdown(added, (): void => {
+          if (!isSuperseded()) showResult(fresh, loadedPage, loadedPageSize);
+        });
         return;
       }
     }

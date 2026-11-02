@@ -68,6 +68,53 @@ export function showToast(message: string, action?: ToastAction): void {
   window.setTimeout((): void => toast.remove(), 6000);
 }
 
+/** A notice toast that stays until its owner closes it. */
+export interface StickyToast {
+  /** Replaces the text and the buttons in place, with no new entrance. */
+  update: (message: string, actions: ToastAction[]) => void;
+  /** Replaces only the text (a countdown). */
+  setMessage: (message: string) => void;
+  close: () => void;
+}
+
+// A neutral notice with no timer and no dismiss cross: its owner decides when
+// it goes (the list update countdown in src/ui/listUpdatePill.ts). A button
+// runs its action and leaves the toast open; the action closes or updates it.
+export function showStickyToast(
+  message: string,
+  actions: ToastAction[],
+): StickyToast {
+  const toast = document.createElement("div");
+  toast.className = "toast toast--notice";
+  toast.setAttribute("role", "status");
+  const text = document.createElement("span");
+  text.className = "toast-text";
+  toast.appendChild(text);
+
+  function update(next: string, nextActions: ToastAction[]): void {
+    text.textContent = next;
+    toast.replaceChildren(text);
+    for (const action of nextActions) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "toast-action";
+      button.textContent = action.label;
+      button.addEventListener("click", action.onAction);
+      toast.appendChild(button);
+    }
+  }
+
+  update(message, actions);
+  toastContainer().appendChild(toast);
+  return {
+    update,
+    setMessage: (next: string): void => {
+      text.textContent = next;
+    },
+    close: (): void => toast.remove(),
+  };
+}
+
 // The hint snackbar a long press shows (src/ui/longPressHint.ts): what the
 // held button does, in the words of its tooltip. Neutral, no buttons, and only
 // one at a time, so holding several buttons in a row never stacks hints.

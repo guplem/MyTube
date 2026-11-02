@@ -11,11 +11,13 @@
 //    that doGet embeds in the page.
 // 2. The fresh list never moves a card that the user can see. It replaces the
 //    preview only when it adds or drops videos at the END
-//    (freshListMovesNothing). Any other change waits for the user to tap.
+//    (freshListMovesNothing). Any other change shows a short countdown
+//    first, so the user sees the move coming and can stop it.
 
 import type { Video } from "./video";
 import type { FeedPageOptions } from "./feed";
 import { belongsInFeed, remainingFeedTotal } from "./feedInclusion";
+import { countLabel } from "./countLabel";
 
 // A preview older than this tells the user little about the list today.
 export const LIST_SNAPSHOT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -94,6 +96,56 @@ export function newVideoCount(
  *  screen, dimmed, but the next preview must not show it. */
 export function watchLaterSnapshotVideos(videos: readonly Video[]): Video[] {
   return videos.filter((video: Video): boolean => video.inWatchLater !== false);
+}
+
+/** The key of the Watch Later copy. */
+export const WATCH_LATER_SNAPSHOT_KEY = "watchlater";
+
+/** The Watch Later copy with the membership changes made on other screens.
+ *  A save from the feed or the player changes another object for the video,
+ *  so the copy matches by id. Without this, the next visit's copy lacks the
+ *  saved video, and the fresh list then moves cards. A video whose
+ *  `inWatchLater` is still undefined changed nothing that is known. */
+export function withWatchLaterChanges(
+  base: readonly Video[],
+  changed: readonly Video[],
+): Video[] {
+  const removed: Set<string> = new Set();
+  const added: Video[] = [];
+  for (const video of changed) {
+    if (video.inWatchLater === false) removed.add(video.videoId);
+    else if (video.inWatchLater === true) added.push(video);
+  }
+  const result: Video[] = base.filter(
+    (video: Video): boolean => !removed.has(video.videoId),
+  );
+  const present: Set<string> = new Set(
+    result.map((video: Video): string => video.videoId),
+  );
+  for (const video of added) {
+    if (present.has(video.videoId)) continue;
+    present.add(video.videoId);
+    result.push(video);
+  }
+  return result;
+}
+
+/** How long the notice waits before the fresh list replaces a preview whose
+ *  cards it moves. Long enough to read and to tap Cancel, short enough that
+ *  the list feels live. */
+export const LIST_UPDATE_COUNTDOWN_SECONDS = 5;
+
+/** The countdown notice: "Showing 2 new videos in 5s". The short unit
+ *  keeps the text to two lines on a phone. */
+export function listUpdateCountdownLabel(
+  added: number,
+  secondsLeft: number,
+): string {
+  const what: string =
+    added > 0
+      ? "Showing " + countLabel(added, "new video", "new videos")
+      : "Updating this list";
+  return what + " in " + String(secondsLeft) + "s";
 }
 
 /** The key of a feed copy. The date filter is left out on purpose: its

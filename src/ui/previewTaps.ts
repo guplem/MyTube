@@ -3,7 +3,7 @@
 // own Video objects. The fresh list holds other objects, and the server can
 // have read it before the write landed. So the user's last tap is copied onto
 // the fresh objects: first when the fresh list arrives, and again after every
-// later tap while the preview stays on show (the "Show" pill).
+// later tap while the preview stays on show (the update countdown, or "Show" after Cancel).
 
 import type { Video } from "../shared/video";
 import { carryPreviewTaps, type PreviewFlags } from "../shared/listSnapshot";
