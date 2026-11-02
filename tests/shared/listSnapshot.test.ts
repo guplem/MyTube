@@ -11,6 +11,8 @@ import {
   newVideoCount,
   parseListSnapshot,
   watchLaterSnapshotVideos,
+  carryPreviewTaps,
+  previewFlagsOf,
   type ListSnapshot,
 } from "../../src/shared/listSnapshot";
 import type { Video } from "../../src/shared/video";
@@ -198,5 +200,82 @@ describe("feed snapshots", () => {
     );
     expect(page.videos.map((item) => item.videoId)).toEqual(["a", "d"]);
     expect(page.total).toBe(98);
+  });
+});
+
+describe("carryPreviewTaps", () => {
+  it("copies onto the fresh video each flag that a tap on the preview changed", () => {
+    const shown: Video[] = [video("a"), video("b")];
+    const before = previewFlagsOf(shown);
+    shown[0].seen = true;
+    shown[1].inWatchLater = true;
+    shown[1].dismissed = true;
+    const fresh: Video[] = [video("b"), video("a")];
+
+    carryPreviewTaps(before, shown, fresh);
+
+    expect(fresh[1].seen).toBe(true);
+    expect(fresh[0].inWatchLater).toBe(true);
+    expect(fresh[0].dismissed).toBe(true);
+  });
+
+  it("keeps the fresh value of a flag that no tap changed", () => {
+    // The server moved on (another device marked it watched): the copy is
+    // older, so it must not undo that.
+    const shown: Video[] = [video("a", { inWatchLater: true })];
+    const before = previewFlagsOf(shown);
+    const fresh: Video[] = [video("a", { seen: true, inWatchLater: false })];
+
+    carryPreviewTaps(before, shown, fresh);
+
+    expect(fresh[0].seen).toBe(true);
+    expect(fresh[0].inWatchLater).toBe(false);
+  });
+
+  it("carries the last tap: a tap and its undo carry nothing", () => {
+    const shown: Video[] = [video("a")];
+    const before = previewFlagsOf(shown);
+    shown[0].seen = true;
+    shown[0].seen = false;
+    const fresh: Video[] = [video("a", { seen: true })];
+
+    carryPreviewTaps(before, shown, fresh);
+
+    expect(fresh[0].seen).toBe(true);
+  });
+
+  it("carries a tap that sets a flag back to false", () => {
+    const shown: Video[] = [video("a", { seen: true, inWatchLater: true })];
+    const before = previewFlagsOf(shown);
+    shown[0].seen = false;
+    shown[0].inWatchLater = false;
+    const fresh: Video[] = [video("a", { seen: true, inWatchLater: true })];
+
+    carryPreviewTaps(before, shown, fresh);
+
+    expect(fresh[0].seen).toBe(false);
+    expect(fresh[0].inWatchLater).toBe(false);
+  });
+
+  it("skips a tapped video that the fresh list no longer holds", () => {
+    const shown: Video[] = [video("a")];
+    const before = previewFlagsOf(shown);
+    shown[0].dismissed = true;
+    const fresh: Video[] = [video("b")];
+
+    carryPreviewTaps(before, shown, fresh);
+
+    expect(fresh[0].dismissed).toBeUndefined();
+  });
+
+  it("reports whether it changed a fresh video", () => {
+    const shown: Video[] = [video("a")];
+    const before = previewFlagsOf(shown);
+    expect(carryPreviewTaps(before, shown, [video("a")])).toBe(false);
+    shown[0].seen = true;
+    const fresh: Video[] = [video("a")];
+    expect(carryPreviewTaps(before, shown, fresh)).toBe(true);
+    // A second carry finds the value already in place.
+    expect(carryPreviewTaps(before, shown, fresh)).toBe(false);
   });
 });
