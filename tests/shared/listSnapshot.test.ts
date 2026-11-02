@@ -13,6 +13,9 @@ import {
   watchLaterSnapshotVideos,
   carryPreviewTaps,
   previewFlagsOf,
+  withWatchLaterChanges,
+  listUpdateCountdownLabel,
+  LIST_UPDATE_COUNTDOWN_SECONDS,
   type ListSnapshot,
 } from "../../src/shared/listSnapshot";
 import type { Video } from "../../src/shared/video";
@@ -277,5 +280,63 @@ describe("carryPreviewTaps", () => {
     expect(carryPreviewTaps(before, shown, fresh)).toBe(true);
     // A second carry finds the value already in place.
     expect(carryPreviewTaps(before, shown, fresh)).toBe(false);
+  });
+});
+
+describe("withWatchLaterChanges", () => {
+  const ids = (videos: Video[]): string[] =>
+    videos.map((item: Video): string => item.videoId);
+
+  it("appends a video saved on another screen", () => {
+    const base: Video[] = [video("a"), video("b")];
+    const saved: Video = video("c", { inWatchLater: true });
+    expect(ids(withWatchLaterChanges(base, [saved]))).toEqual(["a", "b", "c"]);
+  });
+
+  it("drops a video removed on another screen, matched by id", () => {
+    // The other screen holds its own object for the same video.
+    const base: Video[] = [video("a"), video("b", { inWatchLater: true })];
+    const removed: Video = video("b", { inWatchLater: false });
+    expect(ids(withWatchLaterChanges(base, [removed]))).toEqual(["a"]);
+  });
+
+  it("does not add a video twice", () => {
+    const base: Video[] = [video("a", { inWatchLater: true })];
+    const saved: Video = video("a", { inWatchLater: true });
+    expect(ids(withWatchLaterChanges(base, [saved]))).toEqual(["a"]);
+  });
+
+  it("ignores a change that never reached a known state", () => {
+    const base: Video[] = [video("a")];
+    const unknown: Video = video("b");
+    expect(ids(withWatchLaterChanges(base, [unknown]))).toEqual(["a"]);
+  });
+
+  it("leaves the base list unchanged", () => {
+    const base: Video[] = [video("a")];
+    withWatchLaterChanges(base, [video("b", { inWatchLater: true })]);
+    expect(ids(base)).toEqual(["a"]);
+  });
+});
+
+describe("listUpdateCountdownLabel", () => {
+  it("counts the new videos and the seconds left", () => {
+    expect(listUpdateCountdownLabel(2, 5)).toBe(
+      "Showing 2 new videos in 5 seconds",
+    );
+    expect(listUpdateCountdownLabel(1, 1)).toBe(
+      "Showing 1 new video in 1 second",
+    );
+  });
+
+  it("names the change when no video is new", () => {
+    expect(listUpdateCountdownLabel(0, 3)).toBe(
+      "Updating this list in 3 seconds",
+    );
+  });
+
+  it("waits a few seconds, not long", () => {
+    expect(LIST_UPDATE_COUNTDOWN_SECONDS).toBeGreaterThanOrEqual(3);
+    expect(LIST_UPDATE_COUNTDOWN_SECONDS).toBeLessThanOrEqual(10);
   });
 });

@@ -10,7 +10,6 @@ import { defaultFeedBeforeDate } from "../shared/feed";
 import { shouldSuggestWatched } from "../shared/videoProgress";
 import { watchLaterAfterSeenToggle } from "../shared/watchLaterAfterSeen";
 import { pickDisplayTitle } from "../shared/dearrow";
-import { countLabel } from "../shared/countLabel";
 import { shuffled } from "../shared/shuffle";
 import {
   getHistory,
@@ -67,7 +66,11 @@ import {
 } from "./skeleton";
 import { PlayerView, type PlayerController } from "./playerView";
 import { optimistic } from "./optimistic";
-import { keepListSnapshot, readListSnapshot } from "./listSnapshots";
+import {
+  keepListSnapshot,
+  readListSnapshot,
+  trackWatchLaterChange,
+} from "./listSnapshots";
 import { carryPreviewTapsToFresh } from "./previewTaps";
 import { createListUpdatePill } from "./listUpdatePill";
 import {
@@ -77,6 +80,7 @@ import {
   freshListMovesNothing,
   newVideoCount,
   watchLaterSnapshotVideos,
+  WATCH_LATER_SNAPSHOT_KEY,
 } from "../shared/listSnapshot";
 import { showToast } from "./toast";
 import { installLongPressHints } from "./longPressHint";
@@ -207,6 +211,7 @@ function makeWatchLaterToggle(vanishesWhen: boolean | null): VideoAction {
     reflect: (video, button): void =>
       reflectWatchLater(video, button, vanishesWhen),
     onClick: (video, button): void => {
+      trackWatchLaterChange(video);
       optimisticToggle(
         button,
         (): boolean => Boolean(video.inWatchLater),
@@ -383,6 +388,8 @@ function toggleSeen(
     wasSaved,
     restoresWatchLater: undo.restoresWatchLater,
   });
+  // Marking watched also drops the video from Watch Later.
+  trackWatchLaterChange(video);
   optimisticToggle(
     button,
     (): boolean => video.seen,
@@ -770,8 +777,6 @@ function showWatchLater(redirectIfEmpty: boolean): void {
   );
 }
 
-const WATCH_LATER_SNAPSHOT_KEY = "watchlater";
-
 function showPlaylist(playlistId: string, title: string): void {
   renderPlaylistScreen(getPlaylistVideos(playlistId), "playlist", () => ({
     onPlay: (index, queue): void =>
@@ -1028,14 +1033,9 @@ function renderPlaylistScreen(
         // The copy keeps its paging off, so only its first page is on show.
         if (!freshListMovesNothing(shownIds, freshIds, DEFAULT_PAGE_SIZE)) {
           const added: number = newVideoCount(shownIds, freshIds);
-          pill.showReady(
-            added > 0
-              ? countLabel(added, "new video", "new videos")
-              : "This list changed",
-            (): void => {
-              if (!movedOn()) paint(fresh, false);
-            },
-          );
+          pill.showCountdown(added, (): void => {
+            if (!movedOn()) paint(fresh, false);
+          });
           return;
         }
       }

@@ -1084,10 +1084,10 @@
         }
       }
 
-      /* The notice that offers the fresh list when showing it would move
-         cards. Its row has no height, so showing or hiding it never moves a
-         card; sticky keeps it in view on scroll. No motion: it appears on most
-         visits. */
+      /* The notice that counts down to the fresh list when showing it would
+         move cards. Its row has no height, so showing or hiding it never moves
+         a card; sticky keeps it in view on scroll. No motion: it appears on
+         many visits, and the countdown is text only. */
       .list-update-anchor {
         position: sticky;
         top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
@@ -1102,10 +1102,11 @@
         margin-top: 0.5rem;
         display: flex;
         align-items: center;
-        gap: 0.6rem;
+        gap: 0.4rem;
         max-width: calc(100vw - 2rem);
         padding: 0.4rem 0.5rem 0.4rem 0.9rem;
-        border-radius: 999px;
+        /* Not a full pill: the text can wrap to two lines on a phone. */
+        border-radius: 1.4rem;
         background: #23334a;
         border: 1px solid #3ea6ff;
         color: #fff;
@@ -1124,6 +1125,9 @@
         font: inherit;
         font-weight: 600;
         cursor: pointer;
+        /* The text wraps on a phone, never a button label. */
+        white-space: nowrap;
+        flex-shrink: 0;
       }
       @media (hover: hover) and (pointer: fine) {
         .list-update-pill-button:hover {
@@ -1132,6 +1136,24 @@
       }
       .list-update-pill-button:active {
         background: #65b8ff;
+      }
+      /* "Cancel" next to "Show now": the same size, a quieter look. */
+      .list-update-pill-button--secondary {
+        background: transparent;
+        color: #fff;
+        font-weight: 500;
+        padding: 0.3rem 0.5rem;
+      }
+      .list-update-pill-button[hidden] {
+        display: none;
+      }
+      @media (hover: hover) and (pointer: fine) {
+        .list-update-pill-button--secondary:hover {
+          background: rgba(255, 255, 255, 0.12);
+        }
+      }
+      .list-update-pill-button--secondary:active {
+        background: rgba(255, 255, 255, 0.12);
       }
       /* A card from the saved copy: it is read-only until the fresh list
          lands, so a tap can never act on a state the server has moved past. */

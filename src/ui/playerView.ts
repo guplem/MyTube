@@ -79,6 +79,7 @@ import { formatFullUploadTime, formatUploadTime } from "../shared/uploadTime";
 import { upcomingLabel } from "../shared/upcoming";
 import { compactNumber } from "../shared/countLabel";
 import { scrollBehavior } from "./motion";
+import { trackWatchLaterChange } from "./listSnapshots";
 
 // How often the live position is checked against the segment list. The check
 // is local getCurrentTime polling with no request, so it can be brisk; it has
@@ -366,6 +367,8 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
       wasSaved,
       restoresWatchLater: false,
     });
+    // Marking watched also drops the video from Watch Later.
+    trackWatchLaterChange(video);
     optimistic({
       // Keyed on the video, not the button: one button serves the whole queue,
       // so a tap on the next video would otherwise supersede the previous
@@ -416,6 +419,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
       key = {};
       watchLaterKeys.set(video, key);
     }
+    trackWatchLaterChange(video);
     optimistic({
       key,
       apply: (): void => {

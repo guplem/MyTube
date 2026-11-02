@@ -282,11 +282,14 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   a thin loading bar runs across the top of the page. The fresh list
   replaces the copy only when that moves no card (`freshListMovesNothing` in
   `src/shared/listSnapshot.ts`: same list, or changes at the end only).
-  Otherwise the pill (`src/ui/listUpdatePill.ts`) offers it with "Show". A
+  Otherwise the notice (`src/ui/listUpdatePill.ts`) counts down 5 seconds and
+  then shows it, with "Show now" and "Cancel" (which leaves a "Show" button). A
   changed filter and Force refresh never show a copy. Each list registers its
   live `Video` objects with `keepListSnapshot`, and `optimistic()` calls
   `persistListSnapshots()`, so the next copy leaves out what the user just
-  dismissed, saved or removed. A tap on the copy changes the copy's own
+  dismissed, saved or removed. A Watch Later change on any other screen calls
+  `trackWatchLaterChange` first, so the Watch Later copy gains or loses that
+  video too. A tap on the copy changes the copy's own
   objects, so `carryPreviewTaps` copies each changed flag onto the fresh list
   (`src/ui/previewTaps.ts`): the last tap wins over a list read before the
   write landed. The feed copy has no date in its key, because the
