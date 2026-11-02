@@ -182,8 +182,6 @@ const ICON_EXIT_FULLSCREEN =
 
 // Action-bar icons. Each icon button also carries an aria-label and a title,
 // so the icon never has to explain itself alone.
-const ICON_BACK =
-  '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>';
 const ICON_PREVIOUS =
   '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6l-8 6 8 6z"/><path d="M6 6v12"/></svg>';
 const ICON_NEXT =
@@ -550,18 +548,11 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   const title = document.createElement("h2");
   title.className = "player-title";
 
-  // Context row above the video: back to the list, and where this video sits
-  // in it.
-  const backButton = document.createElement("button");
-  backButton.type = "button";
-  backButton.className = "player-icon-button player-back";
-  backButton.innerHTML = ICON_BACK;
-  backButton.setAttribute("aria-label", "Back to " + contextLabel);
-  backButton.title = "Back to " + contextLabel;
-  backButton.addEventListener("click", (): void => onBack());
+  // Context row above the video: where this video sits in its list. No back
+  // button: the browser's own back returns to the list.
   const contextRow = document.createElement("div");
   contextRow.className = "player-context";
-  contextRow.append(backButton, position);
+  contextRow.append(position);
 
   // Channel and upload time under the title. No duration: the embedded
   // player already shows it.
