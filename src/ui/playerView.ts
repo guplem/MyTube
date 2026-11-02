@@ -614,6 +614,16 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   viewGroup.append(theaterButton, fullscreenButton);
   actions.append(videoGroup, listGroup, viewGroup);
 
+  // The title, the meta line and the action bar sit in one bar, so theater
+  // mode can lay them out as one row: the title on the left, the actions on
+  // the right, all under the video in one screen height.
+  const heading = document.createElement("div");
+  heading.className = "player-heading";
+  heading.append(title, meta);
+  const bar = document.createElement("div");
+  bar.className = "player-bar";
+  bar.append(heading, actions);
+
   // Chapter strip: a horizontally scrollable row of the description's chapters,
   // sitting above the tabs so it stays visible on both the Description and
   // Comments tabs — the chapter list is always highly relevant to playback.
@@ -744,9 +754,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
 
   root.append(
     frame,
-    title,
-    meta,
-    actions,
+    bar,
     chaptersSection,
     tabStrip,
     descPanel,

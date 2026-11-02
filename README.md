@@ -48,7 +48,8 @@ quota. See [One-time Google setup](#one-time-google-setup) below.
   "✓ Watch Later" button. The app opens on Watch Later, or on the feed when
   Watch Later is empty.
 - **Player** — embedded YouTube player with previous/next, theater and
-  fullscreen buttons, a Watch Later toggle, a watched toggle, the description,
+  fullscreen buttons (theater mode fits the video, its title, and the buttons
+  in one screen, and hides the top menu until the mouse nears the top edge), a Watch Later toggle, a watched toggle, the description,
   a Chapters tab, comments, and no end-screen recommendations. An Info
   tab shows the video's facts, its YouTube and DeArrow titles with the reason
   for the pick, the title before and after sentence case, and its sponsor
