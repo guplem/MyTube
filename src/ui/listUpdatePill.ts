@@ -8,7 +8,8 @@
 // The bar lives INSIDE the list's own element, so a screen change, which
 // replaces #app, takes it away with the list. The snackbar lives in the toast
 // container on <body>, so it outlives the list: a one-second check closes it
-// once the list's element has left the page.
+// once the list's element has left the page. A list that has already left
+// (the user opened a video from the copy) opens no snackbar at all.
 
 import {
   LIST_UPDATE_COUNTDOWN_SECONDS,
@@ -91,6 +92,10 @@ export function createListUpdatePill(): ListUpdatePill {
       closeToast();
       onShow();
     };
+    if (!anchor.isConnected) {
+      run();
+      return;
+    }
     lastAdded = added;
     secondsLeft = LIST_UPDATE_COUNTDOWN_SECONDS;
     onTimeUp = run;
@@ -119,6 +124,7 @@ export function createListUpdatePill(): ListUpdatePill {
     },
     showCountdown,
     showFailed: (onRetry: () => void): void => {
+      if (!anchor.isConnected) return;
       secondsLeft = null;
       open("").update("Couldn't update this list", [
         {
