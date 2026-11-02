@@ -80,6 +80,7 @@ import { formatDate, formatDuration } from "./videoListView";
 import { formatFullUploadTime, formatUploadTime } from "../shared/uploadTime";
 import { upcomingLabel } from "../shared/upcoming";
 import { compactNumber } from "../shared/countLabel";
+import { queuePosition } from "../shared/queuePosition";
 import { scrollBehavior } from "./motion";
 import { trackWatchLaterChange } from "./listSnapshots";
 
@@ -203,6 +204,9 @@ const ICON_WATCH_LATER_SAVED =
 
 export interface PlayerViewProps {
   queue: Video[];
+  /** Name of the list the queue came from ("Watch Later", a playlist title),
+   *  shown under the queue counter on wide screens. */
+  queueLabel: string;
   startIndex: number;
   onBack: () => void;
   /** After a Watch Later removal from the player: offers the feed dismiss,
@@ -246,7 +250,7 @@ function loadYouTubeApi(): Promise<YouTubeNamespace> {
 }
 
 export function PlayerView(props: PlayerViewProps): PlayerController {
-  const { queue, onBack, onNavigate, onWatchLaterRemoved } = props;
+  const { queue, queueLabel, onBack, onNavigate, onWatchLaterRemoved } = props;
   let currentIndex = Math.max(0, Math.min(props.startIndex, queue.length - 1));
   let player: YouTubePlayer | null = null;
 
@@ -582,6 +586,19 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     requestNavigate(currentIndex + 1),
   );
 
+  // Where this video sits in its list ("3 / 24") and which list it is. The CSS
+  // shows it on wide screens only: a phone has no room left in the action bar.
+  const queueInfo = document.createElement("div");
+  queueInfo.className = "player-queue-info";
+  const queueCount = document.createElement("span");
+  queueCount.className = "player-queue-count";
+  const queueName = document.createElement("span");
+  queueName.className = "player-queue-name";
+  queueName.textContent = queueLabel;
+  queueName.title = queueLabel;
+  queueName.hidden = queueLabel === "";
+  queueInfo.append(queueCount, queueName);
+
   // One action bar, three groups spread across the row: what you do with this
   // video, moving through the list, and how the video is shown.
   const actions = document.createElement("div");
@@ -591,7 +608,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   videoGroup.append(seenButton, watchLaterButton);
   const listGroup = document.createElement("div");
   listGroup.className = "player-actions-group";
-  listGroup.append(prevButton, nextButton);
+  listGroup.append(prevButton, queueInfo, nextButton);
   const viewGroup = document.createElement("div");
   viewGroup.className = "player-actions-group";
   viewGroup.append(theaterButton, fullscreenButton);
@@ -886,6 +903,8 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     title.title = video ? originalTitleHint(video, title.textContent) : "";
     prevButton.disabled = currentIndex <= 0;
     nextButton.disabled = currentIndex >= queue.length - 1;
+    queueCount.textContent = queuePosition(currentIndex, queue.length);
+    queueInfo.hidden = queueCount.textContent === "";
     const channel: string = video ? video.channelTitle : "";
     // An announced video shows its scheduled start, not the RSS date, which
     // is the announcement and reads as if the video were out already.

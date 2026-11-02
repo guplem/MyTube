@@ -1294,6 +1294,45 @@
         align-items: center;
         gap: 0.5rem;
       }
+      /* The queue counter between the previous and next buttons: "3 / 24"
+         over the list name. A phone has no room for it in the action bar, so
+         it shows on wide screens only. The name is a playlist title from
+         YouTube, so it clamps to one line and breaks anywhere. */
+      .player-queue-info {
+        display: none;
+      }
+      @media (min-width: 760px) {
+        .player-queue-info {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          min-width: 3.5rem;
+          max-width: 10rem;
+          line-height: 1.2;
+          text-align: center;
+        }
+      }
+      .player-queue-count {
+        font-size: 0.9rem;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+      }
+      .player-queue-name {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 1;
+        line-clamp: 1;
+        overflow: hidden;
+        overflow-wrap: anywhere;
+        max-width: 100%;
+        font-size: 0.75rem;
+        color: #aaa;
+      }
+      /* [hidden] must beat the display rules above. */
+      .player-queue-info[hidden],
+      .player-queue-name[hidden] {
+        display: none;
+      }
       /* Boxed sections (description, comments) so they read as distinct
          blocks. */
       .player-card {
