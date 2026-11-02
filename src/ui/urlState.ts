@@ -7,6 +7,12 @@
 // (read the launch URL) for exactly this. Each call is guarded: when the API is
 // missing (e.g. an undeployed test run) every function becomes a safe no-op and
 // the app still works, just without URL sync.
+//
+// Inside the installable wrapper (pages/), google.script.history reaches only
+// the framed Apps Script page. So every change also goes to the wrapper,
+// which copies it into the address bar (src/shared/wrapperUrl.ts).
+
+import { WRAPPER_ORIGIN, wrapperUrlMessage } from "../shared/wrapperUrl";
 
 interface ScriptLocation {
   parameter: { [key: string]: string };
@@ -36,6 +42,16 @@ declare const google: { script: { url?: ScriptUrl; history?: ScriptHistory } };
 
 export type UrlParams = { [key: string]: string };
 
+// The browser drops the message when the top page is not on WRAPPER_ORIGIN,
+// so this is a no-op on the plain Apps Script URL.
+function tellWrapper(params: UrlParams): void {
+  try {
+    window.top?.postMessage(wrapperUrlMessage(params), WRAPPER_ORIGIN);
+  } catch {
+    // Ignored; the wrapper's address bar simply stays as it was.
+  }
+}
+
 /** Adds a new browser history entry for the given state and query params. */
 export function pushUrlState(state: unknown, params: UrlParams): void {
   try {
@@ -43,6 +59,7 @@ export function pushUrlState(state: unknown, params: UrlParams): void {
   } catch {
     // History API unavailable; navigation still works without URL sync.
   }
+  tellWrapper(params);
 }
 
 /** Updates the current history entry in place (no new back/forward step). */
@@ -52,6 +69,7 @@ export function replaceUrlState(state: unknown, params: UrlParams): void {
   } catch {
     // Ignored; see pushUrlState.
   }
+  tellWrapper(params);
 }
 
 /** Calls handler whenever the user navigates with the browser back/forward buttons. */
@@ -59,9 +77,12 @@ export function onUrlStateChange(
   handler: (state: unknown, params: UrlParams) => void,
 ): void {
   try {
-    google.script.history?.setChangeHandler((event) =>
-      handler(event.state, event.location?.parameter ?? {}),
-    );
+    google.script.history?.setChangeHandler((event): void => {
+      const params: UrlParams = event.location?.parameter ?? {};
+      // Back/forward moved the framed page only; bring the wrapper along.
+      tellWrapper(params);
+      handler(event.state, params);
+    });
   } catch {
     // Ignored; back/forward simply will not restore state.
   }

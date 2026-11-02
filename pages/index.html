@@ -44,7 +44,7 @@
     <!-- The allow list delegates what the player needs: fullscreen, autoplay
          for the next video, and the wake lock that keeps the screen on. -->
     <iframe
-      src="https://script.google.com/macros/s/AKfycbxKXGIgGhnj4jFBsx9KvMLQW9tRbVToQN2jfyZXrGRcWUynjrX6oWBnUDleJZlvT9E1/exec"
+      id="app"
       title="MyTube"
       allow="
         autoplay;
@@ -55,5 +55,35 @@
         clipboard-write;
       "
     ></iframe>
+    <script>
+      // The app's state (screen, open video) lives in its URL params, but the
+      // app can change only its own framed URL. So this page passes its own
+      // params down on load (a reload or a shared link reopens the same
+      // screen), and the app posts each new screen up here
+      // (src/shared/wrapperUrl.ts). replaceState, never pushState: the
+      // framed page already adds the back/forward entries.
+      var APP_URL =
+        "https://script.google.com/macros/s/AKfycbxKXGIgGhnj4jFBsx9KvMLQW9tRbVToQN2jfyZXrGRcWUynjrX6oWBnUDleJZlvT9E1/exec";
+      document.getElementById("app").src = APP_URL + location.search;
+      window.addEventListener("message", function (event) {
+        // Apps Script serves the app from a *.googleusercontent.com sandbox.
+        var host = event.origin.replace(/^https:\/\//, "");
+        if (event.origin.indexOf("https://") !== 0) return;
+        if (!/\.googleusercontent\.com$/.test(host)) return;
+        var data = event.data;
+        if (!data || data.type !== "mytube:url" || !data.params) return;
+        var query = new URLSearchParams();
+        Object.keys(data.params).forEach(function (key) {
+          if (typeof data.params[key] === "string")
+            query.set(key, data.params[key]);
+        });
+        var search = query.toString();
+        history.replaceState(
+          null,
+          "",
+          location.pathname + (search ? "?" + search : ""),
+        );
+      });
+    </script>
   </body>
 </html>

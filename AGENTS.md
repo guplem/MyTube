@@ -488,6 +488,12 @@ records.
   site, because `setFaviconUrl` accepts only a public PNG/ICO URL (no `data:`,
   no SVG). Wrap that call in `try`: Google fetches the icon while it builds the
   page and throws when it cannot.
+- **`google.script.history` cannot reach the wrapper's address bar.** It
+  changes only the framed Apps Script page's URL. So `src/ui/urlState.ts` also
+  posts each screen's params to `window.top` (`src/shared/wrapperUrl.ts`), and
+  the wrapper copies them into its URL with `replaceState` and passes its own
+  query string to the framed app on load. Keep the message type and the origin
+  in step with the wrapper's inline script (a test pins them).
 - `dist/`, `.clasp.json`, and `.clasprc.json` are gitignored. Never commit them.
 
 ## Git Workflow

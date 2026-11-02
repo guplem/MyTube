@@ -203,7 +203,11 @@ public repo on the free plan.
 
 Open that URL in Chrome on the phone, then menu → **Install app**. If you deploy
 your own copy, change the app URL in `pages/index.html` and the icon URL in
-`src/server/main.ts`.
+`src/server/main.ts`. If you host the wrapper on another site, also change
+`WRAPPER_ORIGIN` in `src/shared/wrapperUrl.ts`.
+
+The wrapper's address bar follows the app: it shows the open screen and video,
+so a reload or a copied link opens the same video.
 
 ## Troubleshooting
 
