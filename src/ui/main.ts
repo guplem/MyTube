@@ -83,6 +83,7 @@ import {
   WATCH_LATER_SNAPSHOT_KEY,
 } from "../shared/listSnapshot";
 import { showToast } from "./toast";
+import { groupedNumber } from "../shared/countLabel";
 import { installLongPressHints } from "./longPressHint";
 import { communityTitlesOn, sentenceCaseOn } from "./titlePreferences";
 import { getBoolPreference, getStringPreference } from "./preferences";
@@ -623,13 +624,6 @@ function showFeed(
   toolbar.append(filters);
   app.appendChild(toolbar);
 
-  // Warns when some channels' RSS could not be fetched this load, so a partial
-  // feed is never silently mistaken for "no new videos". Hidden until needed.
-  const notice = document.createElement("div");
-  notice.className = "feed-notice";
-  notice.style.display = "none";
-  app.appendChild(notice);
-
   // Built per render, not shared like the other screens': with "Hide saved" on,
   // saving a video is what drops it from the feed, so that is when the card
   // must dim. Flipping the toggle re-runs showFeed, which rebuilds these. One
@@ -666,7 +660,7 @@ function showFeed(
         cornerAction: dismissAction,
         preview: preview ?? undefined,
         onPageLoaded: (result): void => {
-          updateFeedNotice(notice, result);
+          warnAboutFailedChannels(result);
           recordLoadedFeedTotal(result.total);
         },
         paging: {
@@ -700,27 +694,33 @@ function showFeed(
   app.appendChild(footer);
 }
 
-// Shows or hides the feed load-health warning. failedChannels/totalChannels are
-// feed-only fields on the loader result; absent (in-memory lists) means no notice.
-function updateFeedNotice(
-  notice: HTMLElement,
-  result: { failedChannels?: number; totalChannels?: number },
-): void {
-  const failed = result.failedChannels ?? 0;
+// The warning text last shown, so paging through a feed that carries the
+// same failure does not repeat the snackbar on every page. A load with no
+// failure clears it, so a failure that comes back warns again.
+let lastFailedChannelsWarning = "";
+
+// Warns when some channels' RSS could not be fetched this load, so a partial
+// feed is never silently mistaken for "no new videos". failedChannels and
+// totalChannels are feed-only fields on the loader result.
+function warnAboutFailedChannels(result: {
+  failedChannels?: number;
+  totalChannels?: number;
+}): void {
+  const failed: number = result.failedChannels ?? 0;
   if (failed <= 0) {
-    notice.style.display = "none";
-    notice.textContent = "";
+    lastFailedChannelsWarning = "";
     return;
   }
-  const total = result.totalChannels ?? 0;
-  notice.textContent =
-    "⚠ " +
-    failed +
+  const message: string =
+    groupedNumber(failed) +
     " of " +
-    total +
-    " channels couldn't be loaded right now (YouTube may be rate-limiting). " +
-    "Showing cached videos where available — try refreshing in a moment.";
-  notice.style.display = "";
+    groupedNumber(result.totalChannels ?? 0) +
+    " channels couldn't load. YouTube may be limiting requests.";
+  if (message === lastFailedChannelsWarning) return;
+  lastFailedChannelsWarning = message;
+  // The failure style, whose "Refresh" reloads the page: the toast outlives
+  // the feed screen, and a page reload is right from any screen.
+  showToast(message);
 }
 
 // "Hide watched" is intentionally absent here: the history list is entirely
@@ -901,7 +901,7 @@ function sortVideos(videos: Video[], key: SortKey): Video[] {
 //
 // With a preview (a saved copy, ADR 0011) the screen shows the copy at once,
 // with play off but its toggles on, and loads the fresh list behind it. The fresh list replaces
-// the copy when that moves no card; otherwise the pill offers it.
+// the copy when that moves no card; otherwise the snackbar counts down to it.
 function renderPlaylistScreen(
   load: Promise<Video[]>,
   defaultSort: SortKey,

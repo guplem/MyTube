@@ -135,7 +135,8 @@ export function withWatchLaterChanges(
  *  the list feels live. */
 export const LIST_UPDATE_COUNTDOWN_SECONDS = 5;
 
-/** The countdown notice: "Showing 2 new videos in 5 seconds". */
+/** The countdown notice: "Showing 2 new videos in 5s". The short unit
+ *  keeps the text to two lines on a phone. */
 export function listUpdateCountdownLabel(
   added: number,
   secondsLeft: number,
@@ -144,7 +145,7 @@ export function listUpdateCountdownLabel(
     added > 0
       ? "Showing " + countLabel(added, "new video", "new videos")
       : "Updating this list";
-  return what + " in " + countLabel(secondsLeft, "second", "seconds");
+  return what + " in " + String(secondsLeft) + "s";
 }
 
 /** The key of a feed copy. The date filter is left out on purpose: its

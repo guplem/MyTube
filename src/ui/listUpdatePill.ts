@@ -1,27 +1,28 @@
 // What a list shows while it holds a saved copy (ADR 0011). While the fresh
 // list loads, a thin loading bar runs across the top of the page. When the
-// fresh list would move cards, a small notice counts down a few seconds and
-// then shows it. "Show now" skips the wait. "Cancel" stops the countdown and
-// leaves a "Show" button, so the user decides when the cards move.
+// fresh list would move cards, a snackbar at the bottom (showStickyToast in
+// src/ui/toast.ts) counts down a few seconds and then shows it. "Show now"
+// skips the wait. "Cancel" stops the countdown and leaves a "Show" button, so
+// the user decides when the cards move.
 //
-// The notice sits in a sticky row of zero height at the top of the list, so
-// it overlays the first cards and follows the scroll, but never pushes a card.
-// The bar is fixed to the top of the page. Both live INSIDE the list's own
-// element, so a screen change, which replaces #app, takes them away with the
-// list.
+// The bar lives INSIDE the list's own element, so a screen change, which
+// replaces #app, takes it away with the list. The snackbar lives in the toast
+// container on <body>, so it outlives the list: a one-second check closes it
+// once the list's element has left the page.
 
 import {
   LIST_UPDATE_COUNTDOWN_SECONDS,
   listUpdateCountdownLabel,
 } from "../shared/listSnapshot";
 import { countLabel } from "../shared/countLabel";
+import { showStickyToast, type StickyToast } from "./toast";
 
 export interface ListUpdatePill {
   /** The zero-height row to place just above the cards. */
   element: HTMLElement;
-  /** The fresh list is loading: the bar runs, the notice hides. */
+  /** The fresh list is loading: the bar runs, the snackbar closes. */
   showUpdating: () => void;
-  /** The fresh list is ready and moves cards. The notice counts down, then
+  /** The fresh list is ready and moves cards. The snackbar counts down, then
    *  calls `onShow`. `added` is the count of videos the copy did not show. */
   showCountdown: (added: number, onShow: () => void) => void;
   /** The fresh list failed to load; the button tries again. */
@@ -32,11 +33,6 @@ export interface ListUpdatePill {
 export function createListUpdatePill(): ListUpdatePill {
   const anchor = document.createElement("div");
   anchor.className = "list-update-anchor";
-  const element = document.createElement("div");
-  element.className = "list-update-pill";
-  element.setAttribute("role", "status");
-  element.hidden = true;
-  anchor.appendChild(element);
 
   const bar = document.createElement("div");
   bar.className = "list-loading-bar";
@@ -50,98 +46,92 @@ export function createListUpdatePill(): ListUpdatePill {
   }
   anchor.appendChild(bar);
 
-  const text = document.createElement("span");
-  text.className = "list-update-pill-text";
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "list-update-pill-button";
-  const secondary = document.createElement("button");
-  secondary.type = "button";
-  secondary.className =
-    "list-update-pill-button list-update-pill-button--secondary";
-  element.append(text, secondary, button);
-
-  let onClick: (() => void) | null = null;
-  let onSecondary: (() => void) | null = null;
+  let toast: StickyToast | null = null;
   let timer: number | null = null;
+  // Counts down while above 0; null once nothing counts (Cancel, Retry).
+  let secondsLeft: number | null = null;
+  let onTimeUp: (() => void) | null = null;
+  let lastAdded = 0;
 
-  function stopCountdown(): void {
-    if (timer === null) return;
-    window.clearInterval(timer);
+  function closeToast(): void {
+    if (timer !== null) window.clearInterval(timer);
     timer = null;
+    secondsLeft = null;
+    toast?.close();
+    toast = null;
   }
 
-  button.addEventListener("click", (): void => {
-    const action = onClick;
-    stopCountdown();
-    element.hidden = true;
+  function tick(): void {
+    if (!anchor.isConnected) {
+      closeToast();
+      return;
+    }
+    if (secondsLeft === null) return;
+    secondsLeft -= 1;
+    if (secondsLeft > 0) {
+      toast?.setMessage(listUpdateCountdownLabel(lastAdded, secondsLeft));
+      return;
+    }
+    const action = onTimeUp;
+    closeToast();
     action?.();
-  });
-  secondary.addEventListener("click", (): void => {
-    onSecondary?.();
-  });
+  }
 
-  function show(message: string, label: string, action: () => void): void {
-    stopCountdown();
-    text.textContent = message;
-    button.textContent = label;
-    onClick = action;
-    onSecondary = null;
-    secondary.hidden = true;
+  function open(message: string): StickyToast {
     bar.hidden = true;
-    element.hidden = false;
+    if (!toast) toast = showStickyToast(message, []);
+    // The check runs while the snackbar is open, counting or not, so a
+    // "Show" left after Cancel also closes with its list.
+    if (timer === null) timer = window.setInterval(tick, 1000);
+    return toast;
   }
 
   function showCountdown(added: number, onShow: () => void): void {
-    show(
-      listUpdateCountdownLabel(added, LIST_UPDATE_COUNTDOWN_SECONDS),
-      "Show now",
-      onShow,
-    );
-    secondary.textContent = "Cancel";
-    secondary.hidden = false;
-    onSecondary = (): void =>
-      show(
-        added > 0
-          ? countLabel(added, "new video", "new videos")
-          : "This list changed",
-        "Show",
-        onShow,
-      );
-    let secondsLeft: number = LIST_UPDATE_COUNTDOWN_SECONDS;
-    timer = window.setInterval((): void => {
-      // A screen change removes the list, and with it this notice. The
-      // callers also check that their list still stands before they paint.
-      if (!anchor.isConnected) {
-        stopCountdown();
-        return;
-      }
-      secondsLeft -= 1;
-      if (secondsLeft > 0) {
-        text.textContent = listUpdateCountdownLabel(added, secondsLeft);
-        return;
-      }
-      stopCountdown();
-      element.hidden = true;
+    const run = (): void => {
+      closeToast();
       onShow();
-    }, 1000);
+    };
+    lastAdded = added;
+    secondsLeft = LIST_UPDATE_COUNTDOWN_SECONDS;
+    onTimeUp = run;
+    open("").update(listUpdateCountdownLabel(added, secondsLeft), [
+      {
+        label: "Cancel",
+        onAction: (): void => {
+          secondsLeft = null;
+          toast?.update(
+            added > 0
+              ? countLabel(added, "new video", "new videos")
+              : "This list changed",
+            [{ label: "Show", onAction: run }],
+          );
+        },
+      },
+      { label: "Show now", onAction: run },
+    ]);
   }
 
   return {
     element: anchor,
     showUpdating: (): void => {
-      stopCountdown();
-      onClick = null;
-      element.hidden = true;
+      closeToast();
       bar.hidden = false;
     },
     showCountdown,
-    showFailed: (onRetry: () => void): void =>
-      show("Couldn't update this list", "Retry", onRetry),
+    showFailed: (onRetry: () => void): void => {
+      secondsLeft = null;
+      open("").update("Couldn't update this list", [
+        {
+          label: "Retry",
+          onAction: (): void => {
+            closeToast();
+            onRetry();
+          },
+        },
+      ]);
+    },
     hide: (): void => {
-      stopCountdown();
-      onClick = null;
-      element.hidden = true;
+      closeToast();
       bar.hidden = true;
     },
   };

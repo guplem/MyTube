@@ -282,7 +282,8 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   a thin loading bar runs across the top of the page. The fresh list
   replaces the copy only when that moves no card (`freshListMovesNothing` in
   `src/shared/listSnapshot.ts`: same list, or changes at the end only).
-  Otherwise the notice (`src/ui/listUpdatePill.ts`) counts down 5 seconds and
+  Otherwise a bottom snackbar (`src/ui/listUpdatePill.ts`, built with
+  `showStickyToast`) counts down 5 seconds and
   then shows it, with "Show now" and "Cancel" (which leaves a "Show" button). A
   changed filter and Force refresh never show a copy. Each list registers its
   live `Video` objects with `keepListSnapshot`, and `optimistic()` calls
@@ -349,6 +350,13 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   the Apps Script editor. Add a `lap` when you add a slow step to a list call.
   Vitest hides these lines (`onConsoleLog` in `vitest.config.ts`); a test that
   checks one spies on `console.log`.
+- **Every notification is the bottom snackbar from `src/ui/toast.ts`.** Use
+  `showToast` for a failure or a one-shot notice, `showHint` for a long-press
+  hint, and `showStickyToast` for a notice that its owner closes (the list
+  update countdown). Never build a banner or a floating notice inside a screen.
+  `tests/ui/notifications.test.ts` fails when a file other than `toast.ts` sets
+  a `status` or `alert` role. A load that fails with nothing to show is not a
+  notification: the screen shows the error in place of the list.
 - **Motion is rare, and press feedback is color.** Animate only an occasional
   moment that would otherwise jump (the toast entrance). Add no motion to what
   the user sees tens of times a day: cards, tabs, toggles, screen changes. The

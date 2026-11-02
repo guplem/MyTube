@@ -321,18 +321,12 @@ describe("withWatchLaterChanges", () => {
 
 describe("listUpdateCountdownLabel", () => {
   it("counts the new videos and the seconds left", () => {
-    expect(listUpdateCountdownLabel(2, 5)).toBe(
-      "Showing 2 new videos in 5 seconds",
-    );
-    expect(listUpdateCountdownLabel(1, 1)).toBe(
-      "Showing 1 new video in 1 second",
-    );
+    expect(listUpdateCountdownLabel(2, 5)).toBe("Showing 2 new videos in 5s");
+    expect(listUpdateCountdownLabel(1, 1)).toBe("Showing 1 new video in 1s");
   });
 
   it("names the change when no video is new", () => {
-    expect(listUpdateCountdownLabel(0, 3)).toBe(
-      "Updating this list in 3 seconds",
-    );
+    expect(listUpdateCountdownLabel(0, 3)).toBe("Updating this list in 3s");
   });
 
   it("waits a few seconds, not long", () => {
