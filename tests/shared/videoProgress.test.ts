@@ -6,6 +6,8 @@ import {
   PROGRESS_FINISHED,
   progressFraction,
   progressToStore,
+  resumeStartSeconds,
+  staleResumeCorrection,
   shouldSuggestWatched,
 } from "../../src/shared/videoProgress";
 
@@ -112,5 +114,41 @@ describe("shouldSuggestWatched", () => {
     expect(shouldSuggestWatched(0, 600)).toBe(false);
     expect(shouldSuggestWatched(590, 0)).toBe(false);
     expect(shouldSuggestWatched(590, undefined)).toBe(false);
+  });
+});
+
+describe("resumeStartSeconds", () => {
+  it("starts a stored mid-video position there", () => {
+    expect(resumeStartSeconds(120)).toBe(120);
+  });
+
+  it("starts from the top with nothing stored or the finished marker", () => {
+    expect(resumeStartSeconds(undefined)).toBe(0);
+    expect(resumeStartSeconds(0)).toBe(0);
+    expect(resumeStartSeconds(PROGRESS_FINISHED)).toBe(0);
+  });
+});
+
+// A video opened from a saved list copy started at the copy's position; the
+// server's stored position comes a moment later (ADR 0011).
+describe("staleResumeCorrection", () => {
+  it("seeks to the server's position when the copy's was stale", () => {
+    expect(staleResumeCorrection(120, 300, 121)).toBe(300);
+  });
+
+  it("seeks to the top when the server says finished or nothing", () => {
+    expect(staleResumeCorrection(120, PROGRESS_FINISHED, 122)).toBe(0);
+    expect(staleResumeCorrection(120, 0, 122)).toBe(0);
+  });
+
+  it("does nothing when both say the same start", () => {
+    expect(staleResumeCorrection(120, 120, 125)).toBeNull();
+    expect(staleResumeCorrection(0, PROGRESS_FINISHED, 3)).toBeNull();
+  });
+
+  it("does nothing once the viewer moved away from the start", () => {
+    // A seek by hand wins over a late answer.
+    expect(staleResumeCorrection(120, 300, 500)).toBeNull();
+    expect(staleResumeCorrection(120, 300, 30)).toBeNull();
   });
 });

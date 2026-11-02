@@ -80,3 +80,32 @@ export function progressToStore(
   if (positionSeconds < MIN_RESUME_SECONDS) return 0;
   return Math.floor(positionSeconds);
 }
+
+/** Where the player starts a video with this stored position. Only a real
+ *  position resumes: nothing stored or the finished marker (a full bar on the
+ *  card, but not a place to pick up from) start from the top. */
+export function resumeStartSeconds(stored: number | undefined): number {
+  return stored !== undefined && stored > 0 ? stored : 0;
+}
+
+// How far from its start a video may play before a late server answer stops
+// moving it. Past this, the viewer sought by hand, or watched on.
+const STALE_RESUME_WINDOW_SECONDS = 10;
+
+/**
+ * The seek that fixes a video started at a saved list copy's position, once
+ * the server's stored position arrives (ADR 0011). Returns the seconds to seek
+ * to, or null to leave playback alone: both positions start at the same
+ * place, or the playback already left the start that the copy picked.
+ */
+export function staleResumeCorrection(
+  startedAt: number,
+  serverStored: number,
+  currentSeconds: number,
+): number | null {
+  const target: number = resumeStartSeconds(serverStored);
+  if (target === startedAt) return null;
+  if (Math.abs(currentSeconds - startedAt) > STALE_RESUME_WINDOW_SECONDS)
+    return null;
+  return target;
+}

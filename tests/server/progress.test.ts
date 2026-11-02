@@ -13,7 +13,11 @@ import {
   getProgressSeconds,
 } from "../../src/server/progress";
 import { PROGRESS_FINISHED } from "../../src/shared/videoProgress";
-import { getHistory, markVideoSeen } from "../../src/server/main";
+import {
+  getHistory,
+  getVideoProgress,
+  markVideoSeen,
+} from "../../src/server/main";
 import { makeVideo } from "../helpers/fixtures";
 
 let mocks: AppsScriptMocks;
@@ -186,6 +190,26 @@ describe("video progress store", () => {
     expect(Object.keys(progress)).toHaveLength(500);
     expect(progress["video-id-0"]).toBe(30);
     expect(progress["video-id-499"]).toBe(529);
+  });
+});
+
+describe("one video's stored position", () => {
+  // The player asks for this when it opens a video from a saved list copy,
+  // whose own position can be days old (ADR 0011).
+  it("returns the stored position", () => {
+    saveVideoProgress("a", 120);
+    saveVideoProgress("b", 300);
+    expect(getVideoProgress("a")).toBe(120);
+  });
+
+  it("returns the finished marker as stored", () => {
+    saveVideoProgress("a", PROGRESS_FINISHED);
+    expect(getVideoProgress("a")).toBe(PROGRESS_FINISHED);
+  });
+
+  it("returns 0 for a video with no stored position", () => {
+    saveVideoProgress("a", 120);
+    expect(getVideoProgress("b")).toBe(0);
   });
 });
 

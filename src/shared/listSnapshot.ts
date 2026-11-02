@@ -181,32 +181,46 @@ export function feedSnapshotPage(
   };
 }
 
-// The flags that a card toggle writes. A tap on the preview changes these on
-// the preview's own Video objects, never on the fresh list's.
-const TAPPED_FLAGS = ["seen", "inWatchLater", "dismissed"] as const;
+// The fields that a card toggle or the player writes. A tap on the preview
+// changes these on the preview's own Video objects, never on the fresh
+// list's. progressSeconds is here because a player opened on the preview
+// saves the position into the preview's Video.
+const TAPPED_FLAGS = [
+  "seen",
+  "inWatchLater",
+  "dismissed",
+  "progressSeconds",
+] as const;
 type TappedFlag = (typeof TAPPED_FLAGS)[number];
 export type PreviewFlags = Pick<Video, TappedFlag>;
+
+function flagsOf(video: Video): PreviewFlags {
+  return {
+    seen: video.seen,
+    inWatchLater: video.inWatchLater,
+    dismissed: video.dismissed,
+    progressSeconds: video.progressSeconds,
+  };
+}
 
 /** The flags of each preview video as painted, before any tap. */
 export function previewFlagsOf(
   videos: readonly Video[],
 ): Map<string, PreviewFlags> {
   const flags: Map<string, PreviewFlags> = new Map();
-  for (const video of videos)
-    flags.set(video.videoId, {
-      seen: video.seen,
-      inWatchLater: video.inWatchLater,
-      dismissed: video.dismissed,
-    });
+  for (const video of videos) flags.set(video.videoId, flagsOf(video));
   return flags;
 }
 
 /** Copies onto each fresh video every flag that a tap on the preview changed,
  *  so the user's last tap wins over a fresh list that the server read before
  *  the write landed. A flag that no tap changed keeps its fresh value: the
- *  copy is older than the server. Returns true when a fresh video changed. */
+ *  copy is older than the server. Then moves `before` up to the preview's
+ *  current flags, so each preview change is copied once: a player can stay
+ *  open on the preview after the fresh list replaced it, and a later tap on
+ *  the fresh card must stand. Returns true when a fresh video changed. */
 export function carryPreviewTaps(
-  before: ReadonlyMap<string, PreviewFlags>,
+  before: Map<string, PreviewFlags>,
   preview: readonly Video[],
   fresh: readonly Video[],
 ): boolean {
@@ -216,12 +230,15 @@ export function carryPreviewTaps(
   let changed = false;
   for (const tapped of preview) {
     const painted: PreviewFlags | undefined = before.get(tapped.videoId);
+    if (!painted) continue;
+    before.set(tapped.videoId, flagsOf(tapped));
     const target: Video | undefined = freshById.get(tapped.videoId);
-    if (!painted || !target) continue;
+    if (!target) continue;
     for (const flag of TAPPED_FLAGS) {
       if (tapped[flag] === painted[flag] || target[flag] === tapped[flag])
         continue;
-      (target as Record<TappedFlag, boolean | undefined>)[flag] = tapped[flag];
+      (target as Record<TappedFlag, boolean | number | undefined>)[flag] =
+        tapped[flag];
       changed = true;
     }
   }
