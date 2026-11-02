@@ -198,7 +198,6 @@ const ICON_WATCH_LATER_SAVED =
 export interface PlayerViewProps {
   queue: Video[];
   startIndex: number;
-  contextLabel: string;
   onBack: () => void;
   /** After a Watch Later removal from the player: offers the feed dismiss,
    *  like the card toggle does (see src/ui/main.ts). */
@@ -241,8 +240,7 @@ function loadYouTubeApi(): Promise<YouTubeNamespace> {
 }
 
 export function PlayerView(props: PlayerViewProps): PlayerController {
-  const { queue, contextLabel, onBack, onNavigate, onWatchLaterRemoved } =
-    props;
+  const { queue, onBack, onNavigate, onWatchLaterRemoved } = props;
   let currentIndex = Math.max(0, Math.min(props.startIndex, queue.length - 1));
   let player: YouTubePlayer | null = null;
 
@@ -336,9 +334,6 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
 
   const root = document.createElement("div");
   root.className = "player-view";
-
-  const position = document.createElement("span");
-  position.className = "player-position";
 
   const seenButton = document.createElement("button");
   seenButton.type = "button";
@@ -548,12 +543,6 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   const title = document.createElement("h2");
   title.className = "player-title";
 
-  // Context row above the video: where this video sits in its list. No back
-  // button: the browser's own back returns to the list.
-  const contextRow = document.createElement("div");
-  contextRow.className = "player-context";
-  contextRow.append(position);
-
   // Channel and upload time under the title. No duration: the embedded
   // player already shows it.
   const meta = document.createElement("div");
@@ -732,7 +721,6 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   endCard.hidden = true;
 
   root.append(
-    contextRow,
     frame,
     title,
     meta,
@@ -888,7 +876,6 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
 
   function updateChrome(): void {
     const video = queue[currentIndex];
-    position.textContent = `${contextLabel} · ${currentIndex + 1} of ${queue.length}`;
     title.textContent = video ? displayTitle(video) : "";
     // Always written: the title element outlives each video in the queue.
     title.title = video ? originalTitleHint(video, title.textContent) : "";

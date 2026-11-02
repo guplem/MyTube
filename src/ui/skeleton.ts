@@ -159,15 +159,11 @@ export function skeletonPlaylistList(count: number = 6): HTMLElement {
 }
 
 /** Placeholder for the whole player screen, shown while a shared link rebuilds
- *  its queue: the context line, the 16:9 frame, the title and meta lines, the
+ *  its queue: the 16:9 frame, the title and meta lines, the
  *  action bar, and the description card, in the order PlayerView lays them out. */
 export function skeletonPlayerView(): HTMLElement {
   const root = document.createElement("div");
   root.className = "player-view";
-
-  const context = document.createElement("div");
-  context.className = "player-context";
-  context.appendChild(skeletonLine("40%", "0.9rem"));
 
   const frame = document.createElement("div");
   frame.className = "skeleton skeleton-player-frame";
@@ -183,6 +179,6 @@ export function skeletonPlayerView(): HTMLElement {
   descCard.className = "player-card";
   descCard.appendChild(skeletonDescription());
 
-  root.append(context, frame, title, meta, actions, descCard);
+  root.append(frame, title, meta, actions, descCard);
   return root;
 }
