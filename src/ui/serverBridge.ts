@@ -26,6 +26,7 @@ interface ScriptRunner {
   markVideoDismissed(videoId: string): void;
   removeVideoDismissed(videoId: string): void;
   saveVideoProgress(videoId: string, seconds: number): void;
+  getVideoProgress(videoId: string): void;
   setPreference(key: string, value: string | null): void;
   importPreferences(prefs: Preferences): void;
   getHistory(): void;
@@ -105,6 +106,10 @@ export function saveVideoProgress(
   seconds: number,
 ): Promise<void> {
   return call<void>((runner) => runner.saveVideoProgress(videoId, seconds));
+}
+
+export function getVideoProgress(videoId: string): Promise<number> {
+  return call<number>((runner) => runner.getVideoProgress(videoId));
 }
 
 export function setPreference(
