@@ -1219,11 +1219,13 @@ function go(screen: Screen): void {
   window.scrollTo(0, 0);
 }
 
-function render(screen: Screen): void {
+// isLanding makes the screen act as the app's first screen: an empty Watch
+// Later then redirects to the feed. goHome() passes true, so the title tap
+// lands where a fresh launch lands.
+function render(screen: Screen, isLanding: boolean = !hasRendered): void {
   // Retires every screen still loading: from here on their paint is dropped.
   navigationGeneration += 1;
   currentView = screen.view;
-  const isLanding: boolean = !hasRendered;
   hasRendered = true;
   // Leaving the player: tear down the YouTube iframe so it stops playing. This
   // runs FIRST, before the incoming screen is recorded below and before the
@@ -1438,6 +1440,23 @@ function setupNav(): void {
     });
 }
 
+// The header title goes home, the way an app logo does: it shows the screen a
+// fresh launch shows and loads it again. On that screen already, it replaces
+// the history entry, so the tap adds no extra step for Back.
+function goHome(): void {
+  if (currentView === DEFAULT_SCREEN.view)
+    replaceUrlState(DEFAULT_SCREEN, paramsFor(DEFAULT_SCREEN));
+  else pushUrlState(DEFAULT_SCREEN, paramsFor(DEFAULT_SCREEN));
+  render(DEFAULT_SCREEN, true);
+  window.scrollTo(0, 0);
+}
+
+function setupBrandLink(): void {
+  document
+    .querySelector<HTMLButtonElement>(".app-brand")
+    ?.addEventListener("click", goHome);
+}
+
 // Settings opens from the footer, which is static chrome outside #app. The app
 // is one page, so a plain link would never reach the router. Route the click the
 // way a nav button routes its own.
@@ -1485,6 +1504,7 @@ function start(): void {
   const app = appContainer();
   if (!app) return;
   setupNav();
+  setupBrandLink();
   setupSearch();
   setupSettingsLink();
   onUrlStateChange((state, params): void => {
