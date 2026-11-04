@@ -6,6 +6,7 @@
 
 import { getStringPreference, setStringPreference } from "./preferences";
 import { parsePlaybackRate } from "../shared/playbackRate";
+import { parseCaptionSize } from "../shared/captionSize";
 
 // Theater mode (desktop): the player breaks out of the centered column and
 // fills the window. Persisted so it stays on across videos and visits.
@@ -37,4 +38,18 @@ export function readStoredPlaybackRate(): number {
 
 export function storePlaybackRate(rate: number): void {
   setStringPreference(SPEED_PREF, String(rate));
+}
+
+// Caption size: one step of YouTube's own "Font size" menu, applied to every
+// video. YouTube scales captions with the player's height, so this is the one
+// way to make them smaller in theater mode and fullscreen. parseCaptionSize
+// (src/shared/captionSize.ts) owns what an unreadable value means.
+export const CAPTION_SIZE_PREF = "mytube.player.captionSize";
+
+export function readStoredCaptionSize(): number {
+  return parseCaptionSize(getStringPreference(CAPTION_SIZE_PREF, ""));
+}
+
+export function storeCaptionSize(step: number): void {
+  setStringPreference(CAPTION_SIZE_PREF, String(step));
 }

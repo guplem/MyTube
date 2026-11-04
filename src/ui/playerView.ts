@@ -53,6 +53,7 @@ import {
   AUTOPLAY_PREF,
   AUTOPLAY_DEFAULT,
   readStoredPlaybackRate,
+  readStoredCaptionSize,
   storePlaybackRate,
 } from "./playerPreferences";
 import { optimistic } from "./optimistic";
@@ -105,6 +106,8 @@ interface YouTubePlayerOptions {
     onStateChange?: (event: YouTubePlayerEvent) => void;
     /** Fires when the viewer picks a speed from YouTube's own controls; data is the new rate. */
     onPlaybackRateChange?: (event: YouTubePlayerEvent) => void;
+    /** Fires when a player module (such as captions) loads or unloads. */
+    onApiChange?: () => void;
   };
 }
 interface YouTubePlayer {
@@ -119,6 +122,9 @@ interface YouTubePlayer {
   playVideo(): void;
   /** One of the PLAYER_STATE_* values. */
   getPlayerState(): number;
+  /** Sets an option of a loaded module. Not documented by the IFrame API;
+   *  used only for setOption("captions", "fontSize", step). */
+  setOption(module: string, option: string, value: number): void;
   destroy(): void;
 }
 interface YouTubeNamespace {
@@ -1549,6 +1555,23 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     }
   }
 
+  // Applies the caption size from Settings (src/ui/playerPreferences.ts). The
+  // captions module loads only once a video with captions starts, and loads
+  // again for each video, so onApiChange is the moment to set it. The read
+  // happens here, not at mount, so a change in Settings reaches the next
+  // video. The call is undocumented: if YouTube drops it, captions keep
+  // YouTube's own size, so a throw is ignored.
+  function applyCaptionSize(): void {
+    if (!player) return;
+    // 100% is set too, not skipped: YouTube may remember an earlier step
+    // inside its iframe, and only a new call replaces it.
+    try {
+      player.setOption("captions", "fontSize", readStoredCaptionSize());
+    } catch {
+      // captions module not loaded, or the call no longer exists
+    }
+  }
+
   // The viewer changed speed from YouTube's own controls: remember it (per
   // device) so the next video — and the next visit — starts at this rate.
   // event.data is the new rate; ignore anything nonsensical.
@@ -1665,6 +1688,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
           onReady: applyPlaybackRate,
           onStateChange: handleStateChange,
           onPlaybackRateChange: handlePlaybackRateChange,
+          onApiChange: applyCaptionSize,
         },
       });
     } else {
