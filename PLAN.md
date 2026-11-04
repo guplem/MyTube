@@ -305,7 +305,8 @@ Source adapters all return `Video[]`, so the same UI can render any of them:
   queue, a start index, and a context label. It embeds the IFrame player, shows
   position ("3 of 12"), prev/next, a Watch Later toggle, a watched toggle, the
   end-of-video "next / mark seen" card (autoplay-next is a Settings
-  preference), the description, a Chapters tab, comments, and an Info tab
+  preference), the description, a Chapters tab (on a wide screen, a column
+  of its own beside the other tabs), comments, and an Info tab
   (titles and sponsor segments). **Identical for Watch
   Later and every playlist**, because both are just an ordered `Video[]`.
 - `AppShell` — sidebar (Feed, Watch Later, Playlists, History) plus the search
