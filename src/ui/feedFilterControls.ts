@@ -17,14 +17,14 @@ import {
   getStringPreference,
   setStringPreference,
 } from "./preferences";
-import { defaultFeedBeforeDate } from "../shared/feed";
+import { DEFAULT_FEED_MAX_AGE, FEED_MAX_AGE_OPTIONS } from "../shared/feed";
 import {
   HIDE_SHORTS_PREF,
   HIDE_UPCOMING_PREF,
   HIDE_VIEWED_PREF,
   HIDE_DISMISSED_PREF,
   HIDE_SAVED_PREF,
-  BEFORE_DATE_PREF,
+  FEED_MAX_AGE_PREF,
   HIDE_SHORTS_DEFAULT,
   HIDE_UPCOMING_DEFAULT,
   HIDE_VIEWED_DEFAULT,
@@ -73,7 +73,7 @@ export function feedFilterControls(afterChange: () => void): HTMLElement[] {
       HIDE_SAVED_DEFAULT,
       afterChange,
     ),
-    beforeDateControl(afterChange),
+    maxAgeControl(afterChange),
   ];
 }
 
@@ -98,26 +98,33 @@ function filterToggle(
   return label;
 }
 
-// The feed's date filter: hide videos published before the chosen date. The
-// feed is always bounded — with nothing stored (first login, or after clearing
-// the field) it falls back to defaultFeedBeforeDate. The user can pick an older
-// date to widen it, but there is no "show all" state, which keeps the
+// The feed's age filter: hide videos older than the chosen age. It stores an
+// age, not a date, so the cutoff moves forward each day (see feedCutoffDate in
+// src/shared/feed.ts). There is no "show all" option, which keeps the
 // Shorts-duration lookups small. It marks nothing as seen, so playlists and
 // Watch Later are unaffected.
-function beforeDateControl(afterChange: () => void): HTMLElement {
+function maxAgeControl(afterChange: () => void): HTMLElement {
   const label = document.createElement("label");
   label.className = "toggle-label";
-  const input = document.createElement("input");
-  input.type = "date";
-  input.className = "feed-date";
-  input.value = getStringPreference(
-    BEFORE_DATE_PREF,
-    defaultFeedBeforeDate(new Date()),
+  const select = document.createElement("select");
+  select.className = "feed-date";
+  for (const option of FEED_MAX_AGE_OPTIONS) {
+    const element = document.createElement("option");
+    element.value = option.id;
+    element.textContent = option.label;
+    select.append(element);
+  }
+  const stored: string = getStringPreference(
+    FEED_MAX_AGE_PREF,
+    DEFAULT_FEED_MAX_AGE,
   );
-  input.addEventListener("change", (): void => {
-    setStringPreference(BEFORE_DATE_PREF, input.value);
+  select.value = FEED_MAX_AGE_OPTIONS.some((option) => option.id === stored)
+    ? stored
+    : DEFAULT_FEED_MAX_AGE;
+  select.addEventListener("change", (): void => {
+    setStringPreference(FEED_MAX_AGE_PREF, select.value);
     afterChange();
   });
-  label.append(document.createTextNode("Hide older than "), input);
+  label.append(document.createTextNode("Hide older than "), select);
   return label;
 }

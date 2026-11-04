@@ -146,9 +146,13 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
 - **Seen = watch history only.** `flagSeen` sets it from the history ids;
   "Hide watched" filters on it. In UI copy the flag is always called
   **watched** (matching the History tab); `seen` stays the name in code and
-  storage. The feed also has a date filter (`beforeDate` in
-  `getFeedPage`, a stored preference) that hides older videos but does not touch
-  the `seen` flag, so playlists and Watch Later are unaffected.
+  storage. The feed also has an age filter that hides older videos but does not
+  touch the `seen` flag, so playlists and Watch Later are unaffected. The
+  preference stores a max age (`mytube.feedMaxAge`, default 3 months), never a
+  date: the browser turns it into `beforeDate` for `getFeedPage` on every
+  request (`feedCutoffDate` in `src/shared/feed.ts`). So the cutoff moves
+  forward each day, and old watched videos never come back after the
+  500-entry history cap drops them.
 - **Every card action is a state toggle, and cards share one layout.** Each
   card on every list shows the same two buttons: the Watch Later toggle
   ("+ Watch Later"/"✓ Watch Later") and the watched toggle
@@ -298,7 +302,7 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   list read before the write landed. The player asks the server for the
   stored position of a video played from the copy (`getVideoProgress`),
   because the copy's own can be days old. The feed copy has no date in its key, because the
-  default date moves every day.
+  cutoff date moves every day.
 - **Settings is the one screen that lists every preference**
   (`src/ui/settingsView.ts`, routed as `{ view: "settings" }`, opened from the
   footer link). It owns no preference: it reads and writes the same keys as the

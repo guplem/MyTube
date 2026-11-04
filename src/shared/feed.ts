@@ -46,16 +46,50 @@ export interface UploadsFeed {
 }
 
 /**
- * How far back the feed date filter reaches by default. The feed always applies
- * a cutoff (see defaultFeedBeforeDate); the user can pick an older date to widen
- * it, but there is no "show everything" state, which keeps the feed bounded to
- * recent uploads and the Shorts-duration lookups small (see CLAUDE.md).
+ * How old a video can be and still show in the feed. The user picks an age,
+ * not a date, so the cutoff moves forward every day: "3 months" on April 1 and
+ * on April 2 means two different dates. A fixed date would let the feed grow
+ * without end, and old watched videos would come back once the 500-entry
+ * history cap drops them. There is no "show everything" option, which keeps the
+ * feed bounded to recent uploads and the Shorts-duration lookups small.
  */
-export const DEFAULT_FEED_BEFORE_MONTHS = 3;
+export interface FeedMaxAgeOption {
+  /** The stored preference value. */
+  id: string;
+  label: string;
+  days?: number;
+  months?: number;
+}
 
-/** The default feed cutoff (YYYY-MM-DD): DEFAULT_FEED_BEFORE_MONTHS before now. */
-export function defaultFeedBeforeDate(now: Date): string {
-  return monthsAgoIso(now, DEFAULT_FEED_BEFORE_MONTHS);
+export const FEED_MAX_AGE_OPTIONS: readonly FeedMaxAgeOption[] = [
+  { id: "1w", label: "1 week", days: 7 },
+  { id: "2w", label: "2 weeks", days: 14 },
+  { id: "1m", label: "1 month", months: 1 },
+  { id: "2m", label: "2 months", months: 2 },
+  { id: "3m", label: "3 months", months: 3 },
+  { id: "6m", label: "6 months", months: 6 },
+  { id: "1y", label: "1 year", months: 12 },
+];
+
+export const DEFAULT_FEED_MAX_AGE = "3m";
+
+/** The feed cutoff (YYYY-MM-DD) for a stored max age, counted back from `now`.
+ *  An unknown value reads as the default, so the feed is never unbounded. */
+export function feedCutoffDate(now: Date, maxAge: string): string {
+  const option: FeedMaxAgeOption =
+    FEED_MAX_AGE_OPTIONS.find((candidate) => candidate.id === maxAge) ??
+    FEED_MAX_AGE_OPTIONS.find(
+      (candidate) => candidate.id === DEFAULT_FEED_MAX_AGE,
+    )!;
+  if (option.days !== undefined) {
+    const target = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() - option.days,
+    );
+    return isoLocalDate(target);
+  }
+  return monthsAgoIso(now, option.months ?? 0);
 }
 
 /**
@@ -71,6 +105,10 @@ export function monthsAgoIso(now: Date, months: number): string {
     0,
   ).getDate();
   target.setDate(Math.min(now.getDate(), lastDayOfTargetMonth));
+  return isoLocalDate(target);
+}
+
+function isoLocalDate(target: Date): string {
   const year = String(target.getFullYear()).padStart(4, "0");
   const month = String(target.getMonth() + 1).padStart(2, "0");
   const day = String(target.getDate()).padStart(2, "0");

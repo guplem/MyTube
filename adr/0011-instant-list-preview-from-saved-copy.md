@@ -23,7 +23,7 @@ The browser keeps the last copy of two lists in `localStorage`: the feed's first
 - **A failed load keeps the preview** and the snackbar offers "Retry".
 - **A changed filter and Force refresh never show a copy.** The copy would show the list that the user just asked to change.
 - **The copy follows the user's taps.** Each list registers a live source with `keepListSnapshot`: the same `Video` objects that its cards change. `optimistic()` calls `persistListSnapshots()` after every apply and every revert. The saved copy leaves out a video that the user dismissed, saved, or removed (`feedSnapshotPage`, `watchLaterSnapshotVideos`).
-- **The feed key leaves out the date filter.** Its default moves every day, so a key with it would never match on the first visit of a day.
+- **The feed key leaves out the date filter.** Its cutoff date moves every day, so a key with it would never match on the first visit of a day.
 - **The storage prefix is `mytubeSnapshot:`, never `mytube.`.** `src/ui/preferences.ts` owns the `mytube.` prefix. It uploads every key under it and deletes the ones that the account set lacks.
 
 `src/ui/feedPageCache.ts` saves the feed copy only while the loaded page is still the kept page (`keepFirstPageSnapshot`), so a slow load that the cache replaced cannot overwrite a newer copy.
