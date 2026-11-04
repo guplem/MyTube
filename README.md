@@ -50,7 +50,8 @@ quota. See [One-time Google setup](#one-time-google-setup) below.
 - **Player** — embedded YouTube player with previous/next, theater and
   fullscreen buttons (theater mode fits the video, its title, and the buttons
   in one screen, and hides the top menu until the mouse nears the top edge), a Watch Later toggle, a watched toggle, the description,
-  a Chapters tab, comments, and no end-screen recommendations. An Info
+  a Chapters tab (a column beside the other tabs on a wide screen),
+  comments, and no end-screen recommendations. An Info
   tab shows the video's facts, its YouTube and DeArrow titles with the reason
   for the pick, the title before and after the case fix, and its sponsor
   segments.

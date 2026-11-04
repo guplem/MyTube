@@ -1804,6 +1804,42 @@
       .player-view button.chapter-card.current .chapter-label {
         color: #fff;
       }
+      /* Details below the video: one column, unless the player sets
+         --split (a wide screen and a video with chapters). The split breaks
+         out of the 900px column like theater mode does, and puts the
+         chapter rows in a right column beside the tabs. Negative margins
+         center it, so no transform changes the containing block. */
+      .player-details {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+      .player-details-main {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        min-width: 0;
+      }
+      .player-details--split {
+        --details-width: min(calc(100vw - 4rem), 1400px);
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(18rem, 26rem);
+        align-items: start;
+        gap: 1.5rem;
+        width: var(--details-width);
+        margin-left: calc((100% - var(--details-width)) / 2);
+      }
+      .player-details-side {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+        min-width: 0;
+      }
+      /* The side heading lines up with the bottom edge of the tab strip. */
+      .player-details-side-heading {
+        padding: 0.65rem 0.25rem;
+        border-bottom: 1px solid #2a2a2a;
+      }
       /* The Chapters tab: every chapter on its own row, full title. The
          selector repeats the box-style :not() chain so it wins over it. */
       .chapter-list {
