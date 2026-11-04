@@ -311,7 +311,7 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   `feedFilterControls`; its player and title rows are built here with
   `preferenceToggle`, because those preferences need no follow-up beyond the
   write. A display preference with no other control, such as the title switch,
-  can live in Settings only. Skip sponsors and Autoplay also live in Settings
+  can live in Settings only. Skip sponsors, Autoplay and Caption size also live in Settings
   only: the player keeps its action bar for actions on the video on show.
 - **Optimistic UI updates for every server mutation.** Any button that writes to
   the server (mark seen, dismiss, add/remove Watch Later — on cards _and_ in the

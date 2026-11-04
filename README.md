@@ -71,7 +71,7 @@ quota. See [One-time Google setup](#one-time-google-setup) below.
   computer, hover a title to see the YouTube one.
 - **Settings** — a link in the footer of every screen opens one page with every
   preference: the feed filters, the title switches, and the player settings
-  (theater mode, sponsor skip, autoplay, playback speed). The feed toolbar keeps its own
+  (theater mode, sponsor skip, autoplay, playback speed, caption size). The feed toolbar keeps its own
   toggles, and both views show the same values.
 - **Duration badge** on every thumbnail.
 - **Search** — the search box opens YouTube's results page in a new tab.

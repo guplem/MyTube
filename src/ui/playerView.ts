@@ -13,6 +13,7 @@
 import type { Video } from "../shared/video";
 import type { VideoComment, CommentOrder } from "../shared/comment";
 import type { Chapter } from "../shared/chapters";
+import { captionSizeStep } from "../shared/captionSize";
 import { parseChapters } from "../shared/chapters";
 import type { SponsorSegment } from "../shared/sponsorBlock";
 import type {
@@ -53,6 +54,7 @@ import {
   AUTOPLAY_PREF,
   AUTOPLAY_DEFAULT,
   readStoredPlaybackRate,
+  readStoredCaptionSize,
   storePlaybackRate,
 } from "./playerPreferences";
 import { optimistic } from "./optimistic";
@@ -105,6 +107,8 @@ interface YouTubePlayerOptions {
     onStateChange?: (event: YouTubePlayerEvent) => void;
     /** Fires when the viewer picks a speed from YouTube's own controls; data is the new rate. */
     onPlaybackRateChange?: (event: YouTubePlayerEvent) => void;
+    /** Fires when a player module (such as captions) loads or unloads. */
+    onApiChange?: () => void;
   };
 }
 interface YouTubePlayer {
@@ -119,6 +123,9 @@ interface YouTubePlayer {
   playVideo(): void;
   /** One of the PLAYER_STATE_* values. */
   getPlayerState(): number;
+  /** Sets an option of a loaded module. Not documented by the IFrame API;
+   *  used only for setOption("captions", "fontSize", step). */
+  setOption(module: string, option: string, value: number): void;
   destroy(): void;
 }
 interface YouTubeNamespace {
@@ -1574,6 +1581,39 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     }
   }
 
+  // Applies the caption size from Settings (src/ui/playerPreferences.ts),
+  // stepped for the player's height (captionSizeStep in
+  // src/shared/captionSize.ts), so one choice fits every mode. The captions
+  // module loads only once a video with captions starts, and loads again for
+  // each video, so onApiChange calls this every time. A resize (theater mode,
+  // fullscreen, a turned phone) calls it only when the step changes, because
+  // a window drag fires many resizes. The read happens here, not at mount, so
+  // a change in Settings reaches the next video. The call is undocumented: if
+  // YouTube drops it, captions keep YouTube's own size, so a throw is ignored.
+  let appliedCaptionStep: number | null = null;
+  function applyCaptionSize(onlyIfChanged: boolean): void {
+    if (!player) return;
+    // clientHeight is the layout height, before the CSS rotation of the
+    // fake landscape, which is the height YouTube scales its captions by.
+    const step: number = captionSizeStep(
+      readStoredCaptionSize(),
+      rotor.clientHeight,
+    );
+    if (onlyIfChanged && step === appliedCaptionStep) return;
+    // 100% is set too, not skipped: YouTube may remember an earlier step
+    // inside its iframe, and only a new call replaces it.
+    try {
+      player.setOption("captions", "fontSize", step);
+      appliedCaptionStep = step;
+    } catch {
+      // captions module not loaded, or the call no longer exists
+    }
+  }
+  const captionResizeObserver: ResizeObserver = new ResizeObserver((): void =>
+    applyCaptionSize(true),
+  );
+  captionResizeObserver.observe(rotor);
+
   // The viewer changed speed from YouTube's own controls: remember it (per
   // device) so the next video — and the next visit — starts at this rate.
   // event.data is the new rate; ignore anything nonsensical.
@@ -1690,6 +1730,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
           onReady: applyPlaybackRate,
           onStateChange: handleStateChange,
           onPlaybackRateChange: handlePlaybackRateChange,
+          onApiChange: (): void => applyCaptionSize(false),
         },
       });
     } else {
@@ -1754,6 +1795,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     destroy: (): void => {
       destroyed = true;
       document.removeEventListener("fullscreenchange", onFullscreenChange);
+      captionResizeObserver.disconnect();
       wideQuery.removeEventListener("change", onWideChange);
       screenWakeLock.release();
       stopChapterTracking();

@@ -22,6 +22,8 @@ import {
   AUTOPLAY_DEFAULT,
   readStoredPlaybackRate,
   storePlaybackRate,
+  readStoredCaptionSize,
+  storeCaptionSize,
 } from "./playerPreferences";
 import {
   COMMUNITY_TITLES_PREF,
@@ -34,6 +36,7 @@ import {
   playbackRateChoices,
   parsePlaybackRate,
 } from "../shared/playbackRate";
+import { CAPTION_SIZE_CHOICES, parseCaptionSize } from "../shared/captionSize";
 
 /** Builds the Settings screen. onFeedFilterChange runs after a feed filter
  *  changes, so the feed picks the change up. */
@@ -83,6 +86,7 @@ export function SettingsView(onFeedFilterChange: () => void): HTMLElement {
         AUTOPLAY_DEFAULT,
       ),
       playbackRateSetting(),
+      captionSizeSetting(),
     ]),
   );
 
@@ -162,5 +166,27 @@ function playbackRateSetting(): HTMLElement {
     storePlaybackRate(parsePlaybackRate(select.value));
   });
   label.append(document.createTextNode("Playback speed "), select);
+  return settingsRow(label);
+}
+
+// The caption size, one choice for every view mode: the player steps it for
+// its own height (captionSizeStep in src/shared/captionSize.ts).
+function captionSizeSetting(): HTMLElement {
+  const label = document.createElement("label");
+  label.className = "toggle-label";
+  const select = document.createElement("select");
+  select.className = "settings-select";
+  const current = readStoredCaptionSize();
+  for (const choice of CAPTION_SIZE_CHOICES) {
+    const option = document.createElement("option");
+    option.value = String(choice.step);
+    option.textContent = choice.label;
+    option.selected = choice.step === current;
+    select.appendChild(option);
+  }
+  select.addEventListener("change", (): void => {
+    storeCaptionSize(parseCaptionSize(select.value));
+  });
+  label.append(document.createTextNode("Caption size "), select);
   return settingsRow(label);
 }
