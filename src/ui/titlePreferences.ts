@@ -4,7 +4,7 @@
 // player (src/ui/playerView.ts), and the Settings screen, which lists it
 // (src/ui/settingsView.ts). This mirrors src/ui/playerPreferences.ts. The
 // title rules themselves live in src/shared/dearrow.ts and
-// src/shared/sentenceCase.ts.
+// src/shared/titleCase.ts.
 
 import { getBoolPreference } from "./preferences";
 import { pickDisplayTitle } from "../shared/dearrow";
@@ -20,20 +20,22 @@ export function communityTitlesOn(): boolean {
   return getBoolPreference(COMMUNITY_TITLES_PREF, COMMUNITY_TITLES_DEFAULT);
 }
 
-// Sentence case: rewrite the title on show from clickbait casing ("THIS IS
-// INSANE!!") to sentence case ("This is insane!!"). A separate switch from the
+// Case fix: tone down the words in capitals of the title on show ("THIS IS
+// INSANE!!" becomes "This is insane!!"). A separate switch from the
 // community titles, because DeArrow replaces only a few titles and this
 // cleanup reaches every title. Default on for the same reason as community
 // titles; the rule guesses, so a viewer who dislikes a guess turns it off.
-export const SENTENCE_CASE_PREF = "mytube.display.sentenceCase";
-export const SENTENCE_CASE_DEFAULT = true;
+// The key keeps its first name ("sentenceCase"), so a stored switch survives
+// the rename of the rule.
+export const TITLE_CASE_FIX_PREF = "mytube.display.sentenceCase";
+export const TITLE_CASE_FIX_DEFAULT = true;
 
-export function sentenceCaseOn(): boolean {
-  return getBoolPreference(SENTENCE_CASE_PREF, SENTENCE_CASE_DEFAULT);
+export function titleCaseFixOn(): boolean {
+  return getBoolPreference(TITLE_CASE_FIX_PREF, TITLE_CASE_FIX_DEFAULT);
 }
 
 /** The title to show for a video. The server always sends both titles, so
  *  this reads the preferences at render time and a switch needs no refetch. */
 export function displayTitle(video: Video): string {
-  return pickDisplayTitle(video, communityTitlesOn(), sentenceCaseOn());
+  return pickDisplayTitle(video, communityTitlesOn(), titleCaseFixOn());
 }

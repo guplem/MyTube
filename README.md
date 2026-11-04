@@ -52,7 +52,7 @@ quota. See [One-time Google setup](#one-time-google-setup) below.
   in one screen, and hides the top menu until the mouse nears the top edge), a Watch Later toggle, a watched toggle, the description,
   a Chapters tab, comments, and no end-screen recommendations. An Info
   tab shows the video's facts, its YouTube and DeArrow titles with the reason
-  for the pick, the title before and after sentence case, and its sponsor
+  for the pick, the title before and after the case fix, and its sponsor
   segments.
 - **Sponsor skip** — jumps past the sponsor and self-promotion parts of a video
   using the community SponsorBlock database, with a one-tap Undo. On by
@@ -61,8 +61,10 @@ quota. See [One-time Google setup](#one-time-google-setup) below.
   title from the DeArrow database when one exists. On by default. On a
   computer, hover a title to see the YouTube one; turn the switch off in
   Settings to see YouTube titles everywhere.
-- **Sentence case titles** — rewrites shouted or title-case titles ("THIS IS
-  INSANE!!") in sentence case ("This is insane!!"). Words that look like
+- **Tone down titles in capitals** — rewrites shouted titles ("THIS IS
+  INSANE!!") in sentence case ("This is insane!!"). In a title that does not
+  shout, only the words in capitals change, and they follow the title's own
+  style: a title-case title stays in title case. Words that look like
   acronyms ("GPU") or have mixed case ("iPhone") keep their case. On by
   default, separate from community titles; switch it in Settings. On a
   computer, hover a title to see the YouTube one.

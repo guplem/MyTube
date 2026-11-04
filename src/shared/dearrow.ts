@@ -9,7 +9,7 @@
 // vote wins, and a downvoted title never shows.
 
 import type { Video } from "./video";
-import { toSentenceCase } from "./sentenceCase";
+import { fixTitleCase } from "./titleCase";
 
 // A longer title is not a title a card can show; it is spam or broken data.
 const MAX_TITLE_LENGTH = 200;
@@ -155,16 +155,16 @@ export function communityTitleDisagrees(
   return chosen !== (listTitle ?? "");
 }
 
-/** The title that a card or the player shows for a video. Sentence case
- *  (src/shared/sentenceCase.ts) acts on whichever title the first switch picks. */
+/** The title that a card or the player shows for a video. The case fix
+ *  (src/shared/titleCase.ts) acts on whichever title the first switch picks. */
 export function pickDisplayTitle(
   video: Video,
   useCommunity: boolean,
-  sentenceCase: boolean,
+  fixCase: boolean,
 ): string {
   const title =
     useCommunity && video.communityTitle ? video.communityTitle : video.title;
-  return sentenceCase ? toSentenceCase(title) : title;
+  return fixCase ? fixTitleCase(title) : title;
 }
 
 /** The hover text of a shown title: the YouTube title when the shown title is

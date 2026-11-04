@@ -85,7 +85,7 @@ import {
 import { showToast } from "./toast";
 import { groupedNumber } from "../shared/countLabel";
 import { installLongPressHints } from "./longPressHint";
-import { communityTitlesOn, sentenceCaseOn } from "./titlePreferences";
+import { communityTitlesOn, titleCaseFixOn } from "./titlePreferences";
 import { getBoolPreference, getStringPreference } from "./preferences";
 import {
   pushUrlState,
@@ -876,14 +876,14 @@ function sortVideos(videos: Video[], key: SortKey): Video[] {
     sorted.sort((a, b) => a.publishedAt.localeCompare(b.publishedAt));
   // Sort by the title on show, so "A–Z" matches what the cards read. Read the
   // preferences and compute each title once: a comparator runs thousands of
-  // times on a long playlist, and sentence case rewrites the whole title.
+  // times on a long playlist, and the case fix reads the whole title.
   else {
     const useCommunity: boolean = communityTitlesOn();
-    const sentenceCase: boolean = sentenceCaseOn();
+    const fixCase: boolean = titleCaseFixOn();
     const shown: Map<Video, string> = new Map<Video, string>(
       videos.map((video: Video): [Video, string] => [
         video,
-        pickDisplayTitle(video, useCommunity, sentenceCase),
+        pickDisplayTitle(video, useCommunity, fixCase),
       ]),
     );
     sorted.sort((a: Video, b: Video): number =>

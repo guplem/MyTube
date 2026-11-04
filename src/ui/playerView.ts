@@ -63,7 +63,7 @@ import { createScreenWakeLockHolder } from "./screenWakeLock";
 import {
   communityTitlesOn,
   displayTitle,
-  sentenceCaseOn,
+  titleCaseFixOn,
 } from "./titlePreferences";
 import {
   communityTitleDisagrees,
@@ -1127,16 +1127,16 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
 
     // No "title on show" row: the switch rows and the titles already say
     // which one is on show, and one more title made the section hard to scan.
-    // Both sentence case rows show even with that switch off, so the viewer
+    // Both case fix rows show even with that switch off, so the viewer
     // can see what the switch would change before turning it on.
     const useCommunity: boolean = communityTitlesOn();
     const titleSection = infoSection("Titles", [
       ["YouTube title", video.title],
       ["DeArrow title", video.communityTitle || INFO_EMPTY],
       ["DeArrow titles switch", useCommunity ? "on" : "off"],
-      ["Sentence case switch", sentenceCaseOn() ? "on" : "off"],
-      ["Before sentence case", pickDisplayTitle(video, useCommunity, false)],
-      ["After sentence case", pickDisplayTitle(video, useCommunity, true)],
+      ["Case fix switch", titleCaseFixOn() ? "on" : "off"],
+      ["Before case fix", pickDisplayTitle(video, useCommunity, false)],
+      ["After case fix", pickDisplayTitle(video, useCommunity, true)],
     ]);
     titleSection.appendChild(infoHeading("DeArrow submissions", "h4"));
     if (infoSubmissions === null) {
