@@ -129,6 +129,9 @@ interface YouTubeNamespace {
 }
 type PlayerTab = "description" | "chapters" | "comments" | "info";
 
+// The width from which the details below the video split into two columns.
+const WIDE_DETAILS_QUERY: string = "(min-width: 1100px)";
+
 // The Info tab's value for a fact that has no data. One short mark instead of
 // words like "none" or "unknown" lets the eye skip empty rows.
 const INFO_EMPTY = "-";
@@ -627,7 +630,8 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   // Chapter strip: a horizontally scrollable row of the description's chapters,
   // sitting above the tabs so it stays visible on both the Description and
   // Comments tabs — the chapter list is always highly relevant to playback.
-  // Hidden unless the description actually has a chapter list.
+  // Hidden unless the description actually has a chapter list, and on a wide
+  // screen, where the chapter column beside the tabs takes its place.
   const chaptersSection = document.createElement("div");
   chaptersSection.className = "player-chapters";
   chaptersSection.hidden = true;
@@ -752,17 +756,29 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   endCard.className = "player-end-card";
   endCard.hidden = true;
 
-  root.append(
-    frame,
-    bar,
-    chaptersSection,
-    tabStrip,
-    descPanel,
-    chaptersPanel,
-    commentsPanel,
-    infoPanel,
-    endCard,
-  );
+  // On a wide screen the details split into two columns: the tabs on the
+  // left, and the chapter rows always on show on the right. The strip and
+  // the Chapters tab then repeat that column, so updateTabsUi hides them.
+  const detailsMain = document.createElement("div");
+  detailsMain.className = "player-details-main";
+  detailsMain.append(tabStrip, descPanel, commentsPanel, infoPanel);
+  const sideHeading = document.createElement("div");
+  sideHeading.className = "player-chapters-heading player-details-side-heading";
+  sideHeading.textContent = "Chapters";
+  const detailsSide = document.createElement("div");
+  detailsSide.className = "player-details-side";
+  detailsSide.append(sideHeading, chaptersPanel);
+  const details = document.createElement("div");
+  details.className = "player-details";
+  details.append(detailsMain, detailsSide);
+
+  // The breakpoint lives here only: updateTabsUi sets the split class, and
+  // the stylesheet lays out that class without a media query of its own.
+  const wideQuery: MediaQueryList = window.matchMedia(WIDE_DETAILS_QUERY);
+  const onWideChange = (): void => updateTabsUi();
+  wideQuery.addEventListener("change", onWideChange);
+
+  root.append(frame, bar, chaptersSection, details, endCard);
   updateTabsUi();
 
   // Ask the router to navigate; it pushes history and calls goToVideo back.
@@ -806,9 +822,8 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     currentChapterIndex = -1;
     chaptersTrack.innerHTML = "";
     chaptersPanel.replaceChildren();
-    chaptersTab.hidden = list.length === 0;
+    updateTabsUi();
     if (list.length === 0) {
-      chaptersSection.hidden = true;
       // A video without chapters cannot stay on an empty Chapters tab.
       if (settled && activeTab === "chapters") setActiveTab("description");
       return;
@@ -847,7 +862,6 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
       chaptersPanel.appendChild(row);
       chapterRows.push(row);
     }
-    chaptersSection.hidden = false;
     startChapterTracking();
   }
 
@@ -1033,10 +1047,21 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
       ["comments", commentsTab, commentsPanel],
       ["info", infoTab, infoPanel],
     ];
+    const split: boolean = wideQuery.matches && chapters.length > 0;
+    // The wide layout has no Chapters tab, so an open one shows the
+    // description there. activeTab keeps "chapters", so a narrower window
+    // opens it again.
+    const shown: PlayerTab =
+      split && activeTab === "chapters" ? "description" : activeTab;
     for (const [tab, button, panel] of tabs) {
-      button.setAttribute("aria-selected", String(activeTab === tab));
-      panel.hidden = activeTab !== tab;
+      button.setAttribute("aria-selected", String(shown === tab));
+      panel.hidden = shown !== tab;
     }
+    chaptersSection.hidden = split || chapters.length === 0;
+    chaptersTab.hidden = split || chapters.length === 0;
+    if (split) chaptersPanel.hidden = false;
+    detailsSide.hidden = !split;
+    details.classList.toggle("player-details--split", split);
   }
 
   // Switches the visible tab. The comments and info bodies are fetched the
@@ -1729,6 +1754,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     destroy: (): void => {
       destroyed = true;
       document.removeEventListener("fullscreenchange", onFullscreenChange);
+      wideQuery.removeEventListener("change", onWideChange);
       screenWakeLock.release();
       stopChapterTracking();
       stopProgressSaving();
