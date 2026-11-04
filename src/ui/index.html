@@ -1966,7 +1966,7 @@
          in the column. */
       @media (min-width: 601px) {
         .player-view--theater {
-          --theater-height: calc(100vh - 6rem);
+          --theater-height: calc(100vh - 6.25rem);
           --theater-width: min(
             calc(100vw - 4rem),
             calc(var(--theater-height) * 16 / 9)
@@ -2026,13 +2026,13 @@
           top: 100%;
           left: 0;
           right: 0;
-          height: 0.75rem;
+          height: 1rem;
         }
         body:has(.player-view--theater) .app-header:hover {
           transform: translateY(0);
         }
         body:has(.player-view--theater) #app {
-          padding-top: 0.75rem;
+          padding-top: 1rem;
         }
       }
       @media (min-width: 601px) {
