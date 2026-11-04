@@ -135,9 +135,10 @@ total}`); the browser never holds the whole 1000+ video list. `VideoListView`
   `src/shared/dearrow.ts`. `main.ts` sets `Video.communityTitle`, page-only in
   `getFeedPage` because no filter reads it. The browser picks the shown title
   at render time (`displayTitle` in `src/ui/titlePreferences.ts`), so the
-  Settings switch needs no refetch. A second switch rewrites the title on show
-  in sentence case (`toSentenceCase` in `src/shared/sentenceCase.ts`), also at
-  render time. Every caller of `pickDisplayTitle` (the cards, the player,
+  Settings switch needs no refetch. A second switch tones down the words in
+  capitals of the title on show (`fixTitleCase` in `src/shared/titleCase.ts`),
+  also at render time. It keeps the uploader's title-case style, and rewrites
+  in sentence case only a title that shouts. Every caller of `pickDisplayTitle` (the cards, the player,
   the "Title (A–Z)" sort, the Info tab) passes both switches. The player
   Info tab lists every submission of one video through
   `getDeArrowSubmissions`, which asks only when the tab opens and reports a

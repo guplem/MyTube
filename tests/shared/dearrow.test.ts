@@ -326,24 +326,24 @@ describe("pickDisplayTitle", () => {
     ).toBe(video.title);
   });
 
-  it("keeps the casing of the title on show when sentence case is off", () => {
+  it("keeps the casing of the title on show when the case fix is off", () => {
     const loud: Video = { ...video, title: "THIS IS INSANE!!" };
     expect(pickDisplayTitle(loud, true, false)).toBe("THIS IS INSANE!!");
   });
 
-  it("applies sentence case to the YouTube title on show", () => {
+  it("applies the case fix to the YouTube title on show", () => {
     const loud: Video = { ...video, title: "THIS IS INSANE!!" };
     expect(pickDisplayTitle(loud, false, true)).toBe("This is insane!!");
   });
 
-  it("applies sentence case to the community title on show", () => {
+  it("applies the case fix to the community title on show", () => {
     const loud: Video = {
       ...video,
       title: "Untouched YouTube Title",
-      communityTitle: "A Calm Title About The GPU",
+      communityTitle: "A calm title about the BEST GPU",
     };
     expect(pickDisplayTitle(loud, true, true)).toBe(
-      "A calm title about the GPU",
+      "A calm title about the best GPU",
     );
   });
 });

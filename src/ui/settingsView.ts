@@ -26,8 +26,8 @@ import {
 import {
   COMMUNITY_TITLES_PREF,
   COMMUNITY_TITLES_DEFAULT,
-  SENTENCE_CASE_PREF,
-  SENTENCE_CASE_DEFAULT,
+  TITLE_CASE_FIX_PREF,
+  TITLE_CASE_FIX_DEFAULT,
 } from "./titlePreferences";
 import {
   DEFAULT_PLAYBACK_RATE,
@@ -62,9 +62,9 @@ export function SettingsView(onFeedFilterChange: () => void): HTMLElement {
         COMMUNITY_TITLES_DEFAULT,
       ),
       preferenceToggle(
-        "Write titles in sentence case",
-        SENTENCE_CASE_PREF,
-        SENTENCE_CASE_DEFAULT,
+        "Tone down titles in capitals",
+        TITLE_CASE_FIX_PREF,
+        TITLE_CASE_FIX_DEFAULT,
       ),
     ]),
   );
