@@ -40,9 +40,9 @@ export function storePlaybackRate(rate: number): void {
   setStringPreference(SPEED_PREF, String(rate));
 }
 
-// Caption size: one step of YouTube's own "Font size" menu, applied to every
-// video. YouTube scales captions with the player's height, so this is the one
-// way to make them smaller in theater mode and fullscreen. parseCaptionSize
+// Caption size: one step of YouTube's own "Font size" menu, the size in the
+// normal desktop player. The player steps it down in a taller player
+// (captionSizeStep), so one choice fits every mode. parseCaptionSize
 // (src/shared/captionSize.ts) owns what an unreadable value means.
 export const CAPTION_SIZE_PREF = "mytube.player.captionSize";
 

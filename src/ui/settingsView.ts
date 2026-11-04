@@ -169,8 +169,8 @@ function playbackRateSetting(): HTMLElement {
   return settingsRow(label);
 }
 
-// The caption size. The player applies it to every video it loads, and in
-// every view mode: YouTube offers no size per mode.
+// The caption size, one choice for every view mode: the player steps it for
+// its own height (captionSizeStep in src/shared/captionSize.ts).
 function captionSizeSetting(): HTMLElement {
   const label = document.createElement("label");
   label.className = "toggle-label";
