@@ -6,7 +6,7 @@
 
 import type { Video } from "../shared/video";
 import type { FeedPageOptions } from "../shared/feed";
-import { defaultFeedBeforeDate } from "../shared/feed";
+import { DEFAULT_FEED_MAX_AGE, feedCutoffDate } from "../shared/feed";
 import { shouldSuggestWatched } from "../shared/videoProgress";
 import { watchLaterAfterSeenToggle } from "../shared/watchLaterAfterSeen";
 import { pickDisplayTitle } from "../shared/dearrow";
@@ -47,7 +47,7 @@ import {
   HIDE_SHORTS_PREF,
   HIDE_UPCOMING_PREF,
   HIDE_SAVED_PREF,
-  BEFORE_DATE_PREF,
+  FEED_MAX_AGE_PREF,
   HIDE_SHORTS_DEFAULT,
   HIDE_UPCOMING_DEFAULT,
   HIDE_SAVED_DEFAULT,
@@ -532,9 +532,10 @@ function feedPageOptions(
     // The same three filters the Feed nav button recounts with, read from one
     // place so the request and the recount can never disagree.
     ...feedFlagFilters(),
-    beforeDate: getStringPreference(
-      BEFORE_DATE_PREF,
-      defaultFeedBeforeDate(new Date()),
+    // Computed from today on every request: the stored value is an age.
+    beforeDate: feedCutoffDate(
+      new Date(),
+      getStringPreference(FEED_MAX_AGE_PREF, DEFAULT_FEED_MAX_AGE),
     ),
   };
 }

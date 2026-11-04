@@ -4,7 +4,11 @@
 // the flag filters to tell whether a video the user just dealt with still counts
 // (see feedNavButton.ts). Importing them from main.ts would be a cycle.
 
-import { getBoolPreference } from "./preferences";
+import {
+  getBoolPreference,
+  getStringPreference,
+  setStringPreference,
+} from "./preferences";
 import type { FeedFlagFilters } from "../shared/feedInclusion";
 
 export const HIDE_SHORTS_PREF = "mytube.hideShorts";
@@ -12,7 +16,14 @@ export const HIDE_UPCOMING_PREF = "mytube.hideUpcoming";
 export const HIDE_VIEWED_PREF = "mytube.hideViewed";
 export const HIDE_DISMISSED_PREF = "mytube.hideDismissed";
 export const HIDE_SAVED_PREF = "mytube.hideSaved";
-export const BEFORE_DATE_PREF = "mytube.beforeDate";
+// Holds an age id from FEED_MAX_AGE_OPTIONS (src/shared/feed.ts), never a date.
+export const FEED_MAX_AGE_PREF = "mytube.feedMaxAge";
+// The old fixed-date filter. A stored date froze the cutoff, so the feed grew
+// every day. It is cleared once, and the feed falls back to the default age.
+const LEGACY_BEFORE_DATE_PREF = "mytube.beforeDate";
+if (getStringPreference(LEGACY_BEFORE_DATE_PREF, "") !== "") {
+  setStringPreference(LEGACY_BEFORE_DATE_PREF, "");
+}
 
 // Defaults, in one place so the feed's request and the nav button's recount can
 // never read the same toggle differently. "Hide watched" is the odd one out: a

@@ -32,7 +32,7 @@ quota. See [One-time Google setup](#one-time-google-setup) below.
 - **Feed filters** (remembered for your Google account, on every device): Hide Shorts (by video length),
   Hide upcoming (premieres and live streams that are announced but not out yet;
   when shown, their card says "Upcoming" and the scheduled time), Hide watched, Hide dismissed, Hide saved (videos already in Watch Later), and
-  Hide videos older than a chosen date.
+  Hide videos older than a chosen age (default 3 months). The cutoff moves forward every day.
 - **Dismiss** — a small cross on the top-right of a feed card hides videos you do
   not want to see again in the feed.
 - **Watch history** — mark a video as watched (a button on the card or in the

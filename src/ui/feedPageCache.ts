@@ -101,8 +101,8 @@ function keepFirstPageSnapshot(
  *  array when it was handed over. The kept page can be swapped out under a
  *  screen that still holds the old array: a player is not the feed, so every
  *  in-player navigation warms the feed page, and that warm reloads once the
- *  30-minute window passes or the key changes (beforeDate defaults to a date
- *  computed from today, so it moves at midnight). The old array would still
+ *  30-minute window passes or the key changes (beforeDate is computed from
+ *  today and the stored max age, so it moves at midnight). The old array would still
  *  look like the kept page to anyone tracking it by hand. */
 export function isKeptFeedPage(videos: Video[]): boolean {
   return cache.resolved()?.videos === videos;
