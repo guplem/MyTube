@@ -774,7 +774,7 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
   sideHeading.textContent = "Chapters";
   const detailsSide = document.createElement("div");
   detailsSide.className = "player-details-side";
-  detailsSide.append(sideHeading, chaptersPanel);
+  detailsSide.append(sideHeading); // updateTabsUi places chaptersPanel.
   const details = document.createElement("div");
   details.className = "player-details";
   details.append(detailsMain, detailsSide);
@@ -1067,6 +1067,13 @@ export function PlayerView(props: PlayerViewProps): PlayerController {
     chaptersSection.hidden = split || chapters.length === 0;
     chaptersTab.hidden = split || chapters.length === 0;
     if (split) chaptersPanel.hidden = false;
+    // One panel serves both layouts, so it moves to the column on show. Left
+    // in the hidden side column, the narrow Chapters tab would open on nothing.
+    const panelHome: HTMLElement = split ? detailsSide : detailsMain;
+    if (chaptersPanel.parentElement !== panelHome) {
+      if (split) detailsSide.appendChild(chaptersPanel);
+      else descPanel.after(chaptersPanel);
+    }
     detailsSide.hidden = !split;
     details.classList.toggle("player-details--split", split);
   }
