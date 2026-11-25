@@ -85,6 +85,7 @@ import {
 import { showToast } from "./toast";
 import { groupedNumber } from "../shared/countLabel";
 import { installLongPressHints } from "./longPressHint";
+import { installScrollFades } from "./scrollFade";
 import { communityTitlesOn, titleCaseFixOn } from "./titlePreferences";
 import { getBoolPreference, getStringPreference } from "./preferences";
 import {
@@ -1533,6 +1534,7 @@ renderSponsorBlockCredit();
 // listener switches it on. Passive, so it never delays scrolling.
 document.addEventListener("touchstart", (): void => {}, { passive: true });
 installLongPressHints();
+installScrollFades();
 
 if (document.readyState === "complete") {
   start();
