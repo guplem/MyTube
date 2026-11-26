@@ -141,6 +141,10 @@
       .app-nav::-webkit-scrollbar {
         display: none;
       }
+      /* Read by the phone fade masks of the sideways strips. */
+      .strip--scrolled {
+        --strip-fade-start: 1.5rem;
+      }
       .app-nav button {
         background-color: transparent;
         border: none;
@@ -1714,11 +1718,15 @@
           -ms-overflow-style: none;
           -webkit-mask-image: linear-gradient(
             to right,
+            transparent,
+            #000 var(--strip-fade-start, 0px),
             #000 calc(100% - 1.5rem),
             transparent
           );
           mask-image: linear-gradient(
             to right,
+            transparent,
+            #000 var(--strip-fade-start, 0px),
             #000 calc(100% - 1.5rem),
             transparent
           );
@@ -2110,7 +2118,9 @@
            wrap them onto a second line; let the row scroll horizontally, and
            fade its right edge so a cut-off chip reads as "more". The fade
            covers only the end padding, so at the end of the scroll the last
-           chip sits clear of it. The other strips use the same pair. */
+           chip sits clear of it. The start edge fades only once the row
+           scrolls (`strip--scrolled`, set by src/ui/scrollFade.ts), so the
+           first chip is clear at rest. The other strips use the same pair. */
         .app-nav {
           flex: 1 1 100%;
           flex-wrap: nowrap;
@@ -2119,11 +2129,15 @@
           background: none;
           -webkit-mask-image: linear-gradient(
             to right,
+            transparent,
+            #000 var(--strip-fade-start, 0px),
             #000 calc(100% - 1.5rem),
             transparent
           );
           mask-image: linear-gradient(
             to right,
+            transparent,
+            #000 var(--strip-fade-start, 0px),
             #000 calc(100% - 1.5rem),
             transparent
           );
@@ -2166,11 +2180,15 @@
           scrollbar-width: none;
           -webkit-mask-image: linear-gradient(
             to right,
+            transparent,
+            #000 var(--strip-fade-start, 0px),
             #000 calc(100% - 1.5rem),
             transparent
           );
           mask-image: linear-gradient(
             to right,
+            transparent,
+            #000 var(--strip-fade-start, 0px),
             #000 calc(100% - 1.5rem),
             transparent
           );
